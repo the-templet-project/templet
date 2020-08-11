@@ -1,0 +1,11 @@
+Installation steps
+------------------
+
+The Templet package does not actually need to be installed.
+Just copy the content somewhere on your disk and open 
+Visual Studio project files ~/samples/*/vstudio/vstudio.sln.
+
+Examples may require the propper settings for the Everest applications.
+For more information on Everest applications,
+please read the Everest tutorial http://everest.distcomp.org/docs/tutorial/.
+
