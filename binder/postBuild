@@ -3,15 +3,15 @@
 conda install -c conda-forge xeus-cling
 jupyter lab workspaces import binder/workspace.json
 
-cd ~/dsl
-g++ skel.cpp -o skel
-g++ gen.cpp  lexer.cpp parse.cpp -o gen
-g++ xgen.cpp lexer.cpp parse.cpp -o xgen
+#cd ~/dsl
+#g++ skel.cpp -o skel
+#g++ gen.cpp  lexer.cpp parse.cpp -o gen
+#g++ xgen.cpp lexer.cpp parse.cpp -o xgen
 
-mv skel ~/bin/skel
-mv gen ~/bin/gen
-mv xgen ~/bin/xgen
+#mv skel ~/bin/skel
+#mv gen ~/bin/gen
+#mv xgen ~/bin/xgen
 
-chmod 755 ~/bin/skel
-chmod 755 ~/bin/gen
-chmod 755 ~/bin/xgen
+#chmod 755 ~/bin/skel
+#chmod 755 ~/bin/gen
+#chmod 755 ~/bin/xgen
