@@ -40,7 +40,7 @@
         "current": "terminal:1"
       },
       "left": {
-        "collapsed": false,
+        "collapsed": true,
         "widgets": [
           "filebrowser",
           "running-sessions",

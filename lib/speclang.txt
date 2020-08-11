@@ -1,0 +1,187 @@
+﻿/*--------------------------------------------------------------------------*/
+/*  Copyright 2020 Sergei Vostokin                                          */
+/*                                                                          */
+/*  Licensed under the Apache License, Version 2.0 (the "License");         */
+/*  you may not use this file except in compliance with the License.        */
+/*  You may obtain a copy of the License at                                 */
+/*                                                                          */
+/*  http://www.apache.org/licenses/LICENSE-2.0                              */
+/*                                                                          */
+/*  Unless required by applicable law or agreed to in writing, software     */
+/*  distributed under the License is distributed on an "AS IS" BASIS,       */
+/*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/*  See the License for the specific language governing permissions and     */
+/*  limitations under the License.                                          */
+/*--------------------------------------------------------------------------*/
+
+/////////////// EBNF-based syntax //////////////////
+
+#pragma templet ['!'] id ['(' field {',' field} ')']
+
+field ::= id '!' id | 
+          id '?' id | 
+          id ':' id ['.' id]
+
+////////////////////////////////////////////////////
+
+// 1 //
+ 
+#pragma templet actor_type
+
+struct actor_type :public templet::actor {
+	actor_type(templet::engine&e) :actor_type() {
+		actor_type::engines(e);
+	}
+	actor_type() :templet::actor(false) {
+		// add your code
+	}
+	void engines(templet::engine&e) {
+		templet::actor::engine(e);
+		// add your code
+	}
+		// add your code
+};
+
+// 2 //
+
+#pragma templet !actor_type
+
+struct actor_type :public templet::actor {
+	actor_type(templet::engine&e) :actor_type() {
+		actor_type::engines(e);
+	}
+	actor_type() :templet::actor(true) {
+		// add your code
+	}
+	void engines(templet::engine&e) {
+		templet::actor::engine(e);
+		// add your code
+	}
+	void start() {
+		// add your code
+	}
+		// add your code
+};
+
+// 3 //
+
+#pragma templet actor_type(a_message!message_type)
+
+struct actor_type :public templet::actor {
+	static void on_a_message_adapter(templet::actor*a, templet::message*m) {
+		((actor_type*)a)->on_a_message(*(message_type*)m);}
+	actor_type(templet::engine&e) :actor_type() {
+		actor_type::engines(e);
+	}
+	actor_type() :templet::actor(false),
+		a_message(this, &on_a_message_adapter)
+	{
+		// add your code
+	}
+	void engines(templet::engine&e) {
+		templet::actor::engine(e);
+		// add your code
+	}
+	inline void on_a_message(message_type&m) {
+		// add your code
+	}
+	message_type a_message;
+		// add your code
+};
+
+// 4 //
+
+#pragma templet actor_type(a_message?message_type)
+
+struct actor_type :public templet::actor {
+	static void on_a_message_adapter(templet::actor*a, templet::message*m) {
+		((actor_type*)a)->on_a_message(*(message_type*)m);}
+	actor_type(templet::engine&e) :actor_type() {
+		actor_type::engines(e);
+	}
+	actor_type() :templet::actor(false)
+	{
+		// add your code
+	}
+	void engines(templet::engine&e) {
+		templet::actor::engine(e);
+		// add your code
+	}
+	inline void on_a_message(message_type&m) {
+		// add your code
+	}
+	void a_message(message_type&m) { m.bind(this, &on_a_message_adapter); }
+		// add your code
+};
+
+// 5 //
+
+#pragma templet actor_type(a_task:base)
+
+struct actor_type :public templet::actor {
+	static void on_a_task_adapter(templet::actor*a, templet::task*t) {
+		((actor_type*)a)->on_a_task(*(templet::base_task*)t);}
+	actor_type(templet::engine&e,templet::base_engine&te_base) :actor_type() {
+		actor_type::engines(e,te_base);
+	}
+	actor_type() :templet::actor(false),
+		a_task(this, &on_a_task_adapter)
+	{
+		// add your code
+	}
+	void engines(templet::engine&e,templet::base_engine&te_base) {
+		templet::actor::engine(e);
+		a_task.engine(te_base);
+		// add your code
+	}
+	inline void on_a_task(templet::base_task&t) {
+		// add your code
+	}
+	templet::base_task a_task;
+		// add your code
+};
+
+
+// 6 //
+
+#pragma templet actor_type(a_task:base.task_type)
+
+struct actor_type :public templet::actor {
+	static void on_a_task_adapter(templet::actor*a, templet::task*t) {
+		((actor_type*)a)->on_a_task(*(task_type*)t);}
+	actor_type(templet::engine&e,templet::base_engine&te_base) :actor_type() {
+		actor_type::engines(e,te_base);
+	}
+	actor_type() :templet::actor(false),
+		a_task(this, &on_a_task_adapter)
+	{
+		// add your code
+	}
+	void engines(templet::engine&e,templet::base_engine&te_base) {
+		templet::actor::engine(e);
+		a_task.engine(te_base);
+		// add your code
+	}
+	inline void on_a_task(task_type&t) {
+		// add your code
+	}
+	task_type a_task;
+		// add your code
+}; 
+
+/// task engines code names (used instead of "base" in 5 and 6) ///
+Implemented task engines:
+-- base    (in templet.hpp)
+-- everest (in everest.hpp)
+-- basesim (in basesim.hpp)
+Projected task engines:
+-- deepsim
+-- checker
+-- omptask
+-- cpptask
+-- mpitask
+-- curltsk
+-- boinctk
+-- condort
+...
+		 
