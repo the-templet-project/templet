@@ -11,4 +11,4 @@ mv skel ~/bin/skel
 mv cgen ~/bin/cgen
 
 chmod 755 ~/bin/skel
-chmod 755 ~/bin/gen
+chmod 755 ~/bin/cgen
