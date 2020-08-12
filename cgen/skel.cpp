@@ -1,4 +1,4 @@
-﻿/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*  Copyright 2016 Sergei Vostokin                                          */
 /*                                                                          */
 /*  Licensed under the Apache License, Version 2.0 (the "License");         */
@@ -29,7 +29,7 @@ const string lead_sign_beg = "/*$TET$";
 const string lead_sign_end = "*/";
 const string close_sign = "/*$TET$*/";
 
-const char DELIM[] = " \t";
+const char DELIM[] = " \t\r";
 
 typedef list<string> Block;
 
@@ -67,6 +67,14 @@ LTYPE linetype(string& line, string& key)
 		return FMARK;
 	}
 	else return TEXT;
+}
+
+void processBOM(string&line)
+{  
+    if(line.size()>3 && line[0]=='\xEF' && line[1]=='\xBB' && line[2]=='\xBF'){
+        string sub_line = line.substr(3);
+        line = sub_line;
+    }
 }
 
 int main(int argc, char* argv[])
@@ -138,6 +146,8 @@ int main(int argc, char* argv[])
 		
 		string line;
 		getline(file, line); count++;
+        
+        if(count==1) processBOM(line);
 		
 		while (file){
 			switch (linetype(line, key)){
@@ -197,6 +207,8 @@ int main(int argc, char* argv[])
 
 		string line;
 		getline(ifile, line); count++;
+        
+        if(count==1) processBOM(line);
 
 		while (ifile){
 			map<string, Block>::iterator it;

@@ -47,9 +47,9 @@ void lexinit(string&s);
 bool getlex(string&lex);
 bool ungetlex();
 
-void error(int line)
+void error(int line, int err_code)
 {
-	cerr << "ERROR: bad #pragma at line " << line << endl;
+	cerr << "ERROR: bad #pragma at line " << line << " code " << err_code << endl;
 	exit(EXIT_FAILURE);
 }
 
@@ -59,36 +59,36 @@ bool is_id(string&s)
 	return s.length()>1 || (s.length()==1 && isalpha(s[0],loc));
 }
 
-bool parse_actor(int line, actor& a)
+int parse_actor(int line, actor& a)
 {
 	string lex;
 
 	if (getlex(lex) && lex == "!"){ a.initially_active = true; }
 	else{ ungetlex(); a.initially_active = false; }
 
-	if (!(getlex(lex) && is_id(lex))) error(line);
+	if (!(getlex(lex) && is_id(lex))) return 1;
 	a.name = lex;
 	
 	if (getlex(lex) && lex == "("){
 
 		port p;
 
-		if (!(getlex(lex) && is_id(lex))) error(line);
+		if (!(getlex(lex) && is_id(lex))) return 2;
 
 		p.name = lex;
 
 		if (getlex(lex) && lex == "?"){ p.type = port::SERVER; }
 		else if (ungetlex() && getlex(lex) && lex == "!"){ p.type = port::CLIENT; }
 		else if (ungetlex() && getlex(lex) && lex == ":") { p.type = port::TASK; }
-		else error(line);
+		else return 3;
 
-		if (!(getlex(lex) && is_id(lex))) error(line);
+		if (!(getlex(lex) && is_id(lex))) return 4;
 
 		p.name_type = lex;
 
 		if (p.type == port::TASK) {
 			if (getlex(lex) && lex == ".") {
-				if (!(getlex(lex) && is_id(lex))) error(line);
+				if (!(getlex(lex) && is_id(lex))) return 5;
 				p.task_type = lex;
 			}
 			else {
@@ -101,22 +101,22 @@ bool parse_actor(int line, actor& a)
 
 		while (getlex(lex) && lex == ","){
 
-			if (!(getlex(lex) && is_id(lex))) error(line);
+			if (!(getlex(lex) && is_id(lex))) return 6;
 
 			p.name = lex;
 
 			if (getlex(lex) && lex == "?"){ p.type = port::SERVER; }
 			else if (ungetlex() && getlex(lex) && lex == "!"){ p.type = port::CLIENT; }
 			else if (ungetlex() && getlex(lex) && lex == ":") { p.type = port::TASK;  }
-			else error(line);
+			else return 7;
 
-			if (!(getlex(lex) && is_id(lex))) error(line);
+			if (!(getlex(lex) && is_id(lex))) return 8;
 
 			p.name_type = lex;
 
 			if (p.type == port::TASK) {
 				if (getlex(lex) && lex == ".") {
-					if (!(getlex(lex) && is_id(lex))) error(line);
+					if (!(getlex(lex) && is_id(lex))) return 9;
 					p.task_type = lex;
 				}
 				else {
@@ -128,12 +128,12 @@ bool parse_actor(int line, actor& a)
 			a.ports.push_back(p);
 		}
 		ungetlex();
-		if (!(getlex(lex) && lex == ")")) error(line);
+		if (!(getlex(lex) && lex == ")")) return 10;
 	}
 
-	if (getlex(lex)) error(line);
+	if (getlex(lex)) return 11;
 
-	return true;
+	return 0;
 }
 
 void print_actor(ostream&s,actor&a)
@@ -168,7 +168,7 @@ void print_actor(ostream&s,actor&a)
 void generate(ofstream&outf, list<actor>&alist)
 {
 	set<string> task_engine_types;
-
+    
 	outf << "/*$TET$$header*/\n"
 		"\n"
 		"//--------------hints---------------------------------------------\n"
@@ -380,6 +380,7 @@ int main(int argc, char *argv[])
 	list<actor> alist;
 
 	int line;
+    int err_code;
 	string pragma;
 	actor act;
 
@@ -390,10 +391,10 @@ int main(int argc, char *argv[])
 		lexinit(pragma);
 		act.ports.clear();
 
-		if (parse_actor(line, act))
+		if ((err_code=parse_actor(line, act))==0)
 			alist.push_back(act);
 		else
-			error(line);
+			error(line,err_code);
 	}
 
 	ofstream outf(argv[2]);

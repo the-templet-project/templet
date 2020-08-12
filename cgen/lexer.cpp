@@ -52,7 +52,7 @@ bool getlex(std::string&lex)
 		switch (Sta)
 		{
 		case _S_:
-			if (symb == ' ')
+			if (symb == ' ' || symb == '\r')
 			{
 				Sta = _S_;
 				str_index++;
