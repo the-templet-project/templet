@@ -16,8 +16,8 @@
 /*--------------------------------------------------------------------------*/
 
 #pragma once
-#include <xtemplet.hpp>
-#include <xbasesim.hpp>
+#include <templet.hpp>
+#include <basesim.hpp>
 using namespace templet;
 /*$TET$*/
 
