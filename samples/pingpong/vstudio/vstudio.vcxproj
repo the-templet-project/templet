@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{5F838313-E1B7-4611-AEF5-23210FB45D0A}</ProjectGuid>
+    <ProjectGuid>{54A4F49D-B3F7-44E6-8915-81964E8DC58F}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>vstudio</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
@@ -88,13 +88,12 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../../../lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../../lib/;../../../lib/opt/</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>../../../lib;</AdditionalLibraryDirectories>
-      <AdditionalOptions>libcurl.dll.lib %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>../../../lib/opt/curl/lib/libcurl.dll.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -104,13 +103,12 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../../../lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../../lib/;../../../lib/opt/</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>../../../lib;</AdditionalLibraryDirectories>
-      <AdditionalOptions>libcurl.dll.lib %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>../../../lib/opt/curl/lib/libcurl.dll.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -122,15 +120,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../../../lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../../lib/;../../../lib/opt/</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>../../../lib;</AdditionalLibraryDirectories>
-      <AdditionalOptions>libcurl.dll.lib %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>../../../lib/opt/curl/lib/libcurl.dll.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -142,15 +139,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../../../lib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../../lib/;../../../lib/opt/</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>../../../lib;</AdditionalLibraryDirectories>
-      <AdditionalOptions>libcurl.dll.lib %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>../../../lib/opt/curl/lib/libcurl.dll.lib %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
