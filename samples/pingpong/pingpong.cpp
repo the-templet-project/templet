@@ -1,4 +1,4 @@
-﻿/*$TET$$header*/
+/*$TET$$header*/
 /*--------------------------------------------------------------------------*/
 /*  Copyright 2020 Sergei Vostokin                                          */
 /*                                                                          */
@@ -17,8 +17,8 @@
 
 #define _CRT_SECURE_NO_DEPRECATE
 
-#include <xtemplet.hpp>
-#include <xeverest.hpp>
+#include <templet.hpp>
+#include <everest.hpp>
 #include <string>
 #include <iostream>
 
@@ -88,7 +88,7 @@ struct pong :public templet::actor {
 	{
 /*$TET$pong$pong*/
 		_p = 0;
-		t.app_id("app-ID");
+		t.app_id("Everest-application-ID");
 /*$TET$*/
 	}
 
@@ -134,7 +134,7 @@ int main()
 	templet::engine eng;
 	templet::everest_engine teng("access-token");
 	
-	//--- for getting access token and app ID use the following code ---
+	//--- for getting access-token and Everest-application-ID use the following code ---
 	//templet::everest_engine teng("your-Everest-login","your-password");
 	//teng.save_access_token();
 
@@ -145,6 +145,15 @@ int main()
 	//	std::cout << "\n" << token << "\n";
 	//  return EXIT_SUCCESS;
 	//}
+
+	//--- How to setup the new Everest echo application ---
+	// 1) Enter Name and Alias on the Metadata tab.
+	// 2) Enter input-string:string and output-string:string on the Parameters tab.
+	// 3) For Windows: enter the Command: 'cmd.exe /c echo ECHO:${input-string} > out.txt',
+	//    when the Output Mappings: output-string --> out.txt on the Configuration tab.
+	// 4) Select a resource to run your application (it should be Windows machine).
+	//--- See the page http://everest.distcomp.org/docs/tutorial/#_adding_applications for details. ---
+
 
 	if (!teng) {
 		std::cout << "task engine is not connected to the Everest server..." << std::endl;
