@@ -85,6 +85,7 @@ namespace templet {
 		bool running();
 
 		bool error(everest_error*e=0);
+		static void print_error(everest_error*e);
 
 		bool print_app_description(const char* app_name);
 		bool get_access_token(string&t) {if(_connected){t=_access_token; return true;} else return false;}
@@ -369,13 +370,41 @@ namespace templet {
 	
 	bool everest_engine::error(everest_error*e)
 	{
-		e->_type = &_error_type;
-		e->_code = _code;
-		e->_response = _response;
-		e->_task = _error_task;
-		e->_task_input = (_error_task->_input).dump();
-
+		if (e != 0) {
+			e->_type = &_error_type;
+			e->_code = _code;
+			e->_response = _response;
+			e->_task = _error_task;
+			e->_task_input = (_error_task->_input).dump();
+		}
 		return _error_type != everest_error::NOT_ERROR;
+	}
+	
+	void everest_engine::print_error(everest_error*e)
+	{
+		switch (*e->_type) {
+			case templet::everest_error::NOT_CONNECTED:	{
+				std::cout << "error type : NOT_CONNECTED" << std::endl;
+				break;
+			}
+			case templet::everest_error::SUBMIT_FAILED:	{
+				std::cout << "error type : SUBMIT_FAILED" << std::endl;
+				break;
+			}
+			case templet::everest_error::TASK_CHECK_FAILED: {
+				std::cout << "error type : TASK_CHECK_FAILED" << std::endl;
+				break;
+			}
+			case templet::everest_error::TASK_FAILED_OR_CANCELLED:	{
+				std::cout << "error type : TASK_FAILED_OR_CANCELLED" << std::endl; 
+				break;
+			}
+			default: std::cout << "error type : illigal type value" << std::endl;;
+		}
+		std::cout << "type ID : " << *e->_type << std::endl;
+		std::cout << "HTML response code : " << e->_code << std::endl;
+		std::cout << "HTML response : " << e->_response << std::endl;
+		std::cout << "task input : " << e->_task_input << std::endl;
 	}
 
 	bool everest_engine::submit(everest_task&t) {

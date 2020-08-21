@@ -1,0 +1,89 @@
+#  Сalculation of the Lyapunov spectrum
+#  Copyright 2010-2020 Anton V. Doroshin
+ 
+  with(DEtools):
+  with(linalg):
+  
+  f:=fopen("rho.txt", READ):
+  r:=fscanf(f,"%f"):
+  r:=r[1];
+  fclose(f):
+ 
+  f:=fopen("sigma.txt", READ):
+  sigma_:=fscanf(f,"%f"):
+  sigma_:=sigma_[1];
+  fclose(f):
+ 
+  f:=fopen("beta.txt", READ):
+  b:=fscanf(f,"%f"):
+  b:=b[1];
+  fclose(f):
+  
+  eps:=0.0:omeg:=100:fluc1:=t->1:
+ fluc2:=t->1:
+ fluc3:=t->1:
+ ur1:=diff(x(t),t)=-sigma_*(x(t)-y(t))/fluc1(t):
+  ur2:=diff(y(t),t)=(r*x(t)-y(t)-x(t)*z(t)*fluc3(t))/fluc2(t):
+  ur3:=diff(z(t),t)=(x(t)*y(t)*fluc3(t)-b*z(t))/fluc2(t):
+  
+ ur11:=diff(x1(t),t)=-sigma_*(x1(t)-y1(t))/fluc1(t):
+  ur21:=diff(y1(t),t)=(r*x1(t)-y1(t)-x(t)*z1(t)*fluc3(t)-x1(t)*z(t)*fluc3(t))/fluc2(t):
+  ur31:=diff(z1(t),t)=(x1(t)*y(t)*fluc3(t)+x(t)*y1(t)*fluc3(t)-b*z1(t))/fluc2(t):
+ ur12:=diff(x2(t),t)=-sigma_*(x2(t)-y2(t))/fluc1(t):
+  ur22:=diff(y2(t),t)=(r*x2(t)-y2(t)-x(t)*z2(t)*fluc3(t)-x2(t)*z(t)*fluc3(t))/fluc2(t):
+  ur32:=diff(z2(t),t)=(x2(t)*y(t)*fluc3(t)+x(t)*y2(t)*fluc3(t)-b*z2(t))/fluc2(t):
+ ur13:=diff(x3(t),t)=-sigma_*(x3(t)-y3(t))/fluc1(t):
+  ur23:=diff(y3(t),t)=(r*x3(t)-y3(t)-x(t)*z3(t)*fluc3(t)-x3(t)*z(t)*fluc3(t))/fluc2(t):
+  ur33:=diff(z3(t),t)=(x3(t)*y(t)*fluc3(t)+x(t)*y3(t)*fluc3(t)-b*z3(t))/fluc2(t):
+  
+ x0:=0.5:y0:=1:z0:=1.5:
+  T:=0.05:Num_of_steps:=10000:LAP1:=vector(Num_of_steps,[]):LAP2:=vector(Num_of_steps,[]):LAP3:=vector(Num_of_steps,[]):
+ 
+ epsilon_resh:=1:
+ 
+ nach_01:=vector(3,[epsilon_resh,0,0]):
+ nach_02:=vector(3,[0,epsilon_resh,0]):
+ nach_03:=vector(3,[0,0,epsilon_resh]):
+  
+ S1:=0:S2:=0:S3:=0:
+ for i from 1 by 1 to Num_of_steps do    
+ 
+ Resh1:=dsolve( [ur1,ur2,ur3,ur11,ur21,ur31,ur12,ur22,ur32,ur13,ur23,ur33,x(0)=x0,y(0)=y0,z(0)=z0,x1(0)=nach_01[1],y1(0)=nach_01[2],z1(0)=nach_01[3],x2(0)=nach_02[1],y2(0)=nach_02[2],z2(0)=nach_02[3],x3(0)=nach_03[1],y3(0)=nach_03[2],z3(0)=nach_03[3]],[x(t),y(t),z(t),x1(t),y1(t),z1(t),x2(t),y2(t),z2(t),x3(t),y3(t),z3(t)], type=numeric, method=rkf45,relerr=0.000001,abserr=0.000001, output=listprocedure):
+  
+ X1 := eval(x1(t),Resh1):Y1 := eval(y1(t),Resh1):Z1 := eval(z1(t),Resh1): 
+ X2 := eval(x2(t),Resh1):Y2 := eval(y2(t),Resh1):Z2 := eval(z2(t),Resh1):
+ X3 := eval(x3(t),Resh1):Y3 := eval(y3(t),Resh1):Z3 := eval(z3(t),Resh1):
+ X := eval(x(t),Resh1):Y := eval(y(t),Resh1):Z := eval(z(t),Resh1):
+ xyzT:=vector(3,[X(T),Y(T),Z(T)]):    xyz1T:=vector(3,[X1(T),Y1(T),Z1(T)]):    xyz2T:=vector(3,[X2(T),Y2(T),Z2(T)]):xyz3T:=vector(3,[X3(T),Y3(T),Z3(T)]):
+ 
+ norm_xyz1T:=norm(xyz1T):
+ 
+ S1:=S1+ln(norm_xyz1T/epsilon_resh):
+ 
+ xyz1_0:=evalm(xyz1T/norm_xyz1T):
+ 
+ xyz2_1:=xyz2T-evalm(multiply(xyz2T,xyz1_0)*xyz1_0):   xyz2_0:=evalm(xyz2_1/norm(xyz2_1)):              S2:=S2+ln(norm(xyz2_1)/epsilon_resh):
+ 
+ xyz3_1:=xyz3T-evalm(multiply(xyz3T,xyz1_0)*xyz1_0)-evalm(multiply(xyz3T,xyz2_0)*xyz2_0):   xyz3_0:=evalm(xyz3_1/norm(xyz3_1)):  S3:=S3+ln(norm(xyz3_1)/epsilon_resh):
+ 
+ nach_01:=xyz1_0:nach_02:=xyz2_0:nach_03:=xyz3_0:
+ x0:=X(T):y0:=Y(T):z0:=Z(T):
+ 
+ LAP1[i]:=S1/(i*T):LAP2[i]:=S2/(i*T):LAP3[i]:=S3/(i*T):     i;
+ end do:
+ 
+ LAP1[Num_of_steps];LAP2[Num_of_steps];LAP3[Num_of_steps];
+ 
+ f:=fopen("lap1.txt", WRITE):
+ fprintf(f,"%f",LAP1[Num_of_steps]):
+ fclose(f):
+ 
+ f:=fopen("lap2.txt", WRITE):
+ fprintf(f,"%f",LAP2[Num_of_steps]):
+ fclose(f):
+ 
+ f:=fopen("lap3.txt", WRITE):
+ fprintf(f,"%f",LAP3[Num_of_steps]):
+ fclose(f):
+
+ quit:

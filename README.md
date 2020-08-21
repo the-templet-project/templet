@@ -32,6 +32,7 @@ The components are arranged as described below.
 * **~/samples/pythagor/*** – demonstration of the lightweight actor specification language, core actor engine and base task engine APIs
 * **~/samples/pingpong/*** – demonstration of the Everest task engine
 * **~/samples/diamond/*** – demonstration of the paracomputer simulation engine
+* **~/samples/parsweep/*** - parameter sweep application (calculation of the Lyapunov spectrum for the Lorentz equation with different values of rho, sigma, beta)
 
 ### Templet developers
 **********************
