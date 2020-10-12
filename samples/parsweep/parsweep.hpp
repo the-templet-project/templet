@@ -39,6 +39,8 @@ public:
 /**/	double *beta;
 /**/
 /**/	int current = 0;
+/**/    double the_best_rho, the_best_sigma, the_best_beta;
+/**/    double the_best_L1=0.0, the_best_L2=0.0, the_best_L3=0.0;
 /*************/
 
 	char*  app_ID;
@@ -141,7 +143,13 @@ struct master :public templet::actor {
 /***** do it when the task is ready *****/
 /**/		cout << "{rho=" << m.rho << ";sigma=" << m.sigma << ";beta=" << m.beta << "}->"
 /**/				"{L1=" << m.L1 << ";L2=" << m.L2 << ";L3=" << m.L3 << "}" << endl;
-/*************/
+/**/		if(m.L1 > the_best_L1){
+/**/  			the_best_L1 = m.L1; the_best_L2 = m.L2; the_best_L3 = m.L3;
+/**/   			the_best_rho = m.rho; the_best_sigma = m.sigma; the_best_beta = m.beta;
+/**/		}
+/**/		cout << "Currently the best chaotic behavior is" << endl;
+/**/		cout << "{rho=" << the_best_rho << ";sigma=" << the_best_sigma << ";beta=" << the_best_beta << "}->"
+/**/				"{L1=" << the_best_L1 << ";L2=" << the_best_L2 << ";L3=" << the_best_L3 << "}" << endl;           /*************/
 		}
 		req_list.push_back(&m);
 
