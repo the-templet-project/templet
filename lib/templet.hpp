@@ -1,4 +1,4 @@
-﻿/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*  Copyright 2020 Sergei Vostokin                                     */
 /*                                                                          */
 /*  Licensed under the Apache License, Version 2.0 (the "License");         */
@@ -70,8 +70,8 @@ namespace templet{
 			_cli_actor(a),  _cli_adaptor(ma),
 			_srv_actor(0),  _srv_adaptor(0),
 			_active(false), _actor(a) {}
-		void actor(templet::actor*a) { assert(_actor == 0); _actor = a; }
 		void send();
+		void bind(templet::actor*a) { assert(_actor == 0); _actor = a; }
 		void bind(templet::actor*a, message_adaptor ma) {
 			_from_cli_to_srv = true; _srv_actor = a; _srv_adaptor = ma;
 		}
