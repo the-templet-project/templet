@@ -133,6 +133,19 @@ namespace templet {
 		bool app_id(const char*id) { if (_idle) { _app_ID = id; return true; } return false; }
 		bool engine(everest_engine&e) { if (_idle) { _eng = &e; return true; } return false; }
 		void deletable(bool del) { _deletable = del; }
+
+		void attach(const string& in_uri, string& task_uri) {
+			string filename;
+			string::const_iterator it = in_uri.end();
+			while (it != in_uri.begin()) {
+				it--;
+				if (*it == '/') {
+					for (it++; it != in_uri.end(); it++) filename.append(1,*it);
+					task_uri = "/api/files/jobs/" + _job_ID + "/" + filename;
+					return; 
+				}
+			}
+		}
 		
 		bool submit(json& in) {
 			assert(_eng->_error_type == everest_error::NOT_ERROR);
@@ -149,6 +162,7 @@ namespace templet {
 		json   _input;
 		json   _output;
 		string _app_ID;
+		string _job_ID;
 
 		task_adaptor   _tsk_adaptor;
 		actor*         _actor;
@@ -372,11 +386,14 @@ namespace templet {
 	{
 		if (e != 0) {
 			e->_type = &_error_type;
-			e->_code = _code;
-			e->_response = _response;
-			e->_task = _error_task;
-			e->_task_input = (_error_task->_input).dump();
+			if (_error_type != everest_error::NOT_ERROR) {
+				e->_code = _code;
+				e->_response = _response;
+				e->_task = _error_task;
+				e->_task_input = (_error_task->_input).dump();
+			}
 		}
+
 		return _error_type != everest_error::NOT_ERROR;
 	}
 	
@@ -399,7 +416,12 @@ namespace templet {
 				std::cout << "error type : TASK_FAILED_OR_CANCELLED" << std::endl; 
 				break;
 			}
-			default: std::cout << "error type : illigal type value" << std::endl;;
+			case templet::everest_error::NOT_ERROR: {
+				std::cout << "error type : NOT_ERROR" << std::endl;
+				return;
+			}
+			default: std::cout << "error type : illigal type value" << std::endl;
+				return;
 		}
 		std::cout << "type ID : " << *e->_type << std::endl;
 		std::cout << "HTML response code : " << e->_code << std::endl;
@@ -441,6 +463,7 @@ namespace templet {
 	
 			_submitted.push_back(ev);
 
+			t._job_ID = j["id"];
 			t._idle = false;
 			t._done = false;
 
