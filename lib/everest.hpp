@@ -89,7 +89,7 @@ namespace templet {
 
 		bool print_app_description(const char* app_name);
 		bool get_access_token(string&t) {if(_connected){t=_access_token; return true;} else return false;}
-		void save_access_token(){_pass.clear();}
+		void save_access_token(bool save=true){if(save)_pass.clear();else _pass="pass";}
 
 		bool upload(const string& file, string& uri);
 		bool download(const string& file, const string& uri);

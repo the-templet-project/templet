@@ -1,6 +1,6 @@
 ![](LOGO.png)  
 ##  **TEMPLET** -- a framework for actor-task computing 
-****
+*******************************************************
 
 [The Templet project](http://templet.ssau.ru) exists to take full advantage of computing resources in scientific, educational and industrial applications through the implementation of *actor-task computing*, a generic approach that adapts [actor model](https://en.wikipedia.org/wiki/Actor_model) for [many-task computing](https://en.wikipedia.org/wiki/Many-task_computing) across multiple cores, clusters, and the Internet.
 
