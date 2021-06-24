@@ -106,6 +106,8 @@ struct mediator :public templet::actor {
 		out(this, &on_out_adapter)
 	{
 /*$TET$mediator$mediator*/
+        _in = 0;
+        have_a_brick = false;
 /*$TET$*/
 	}
 
@@ -117,11 +119,16 @@ struct mediator :public templet::actor {
 
 	inline void on_in(brick&m) {
 /*$TET$mediator$in*/
+        _in = &m;
+        take_a_brick();
+        pass_a_brick();
 /*$TET$*/
 	}
 
 	inline void on_out(brick&m) {
 /*$TET$mediator$out*/
+        take_a_brick();
+        pass_a_brick();
 /*$TET$*/
 	}
 
@@ -129,6 +136,32 @@ struct mediator :public templet::actor {
 	brick out;
 
 /*$TET$mediator$$footer*/
+    void pass_a_brick(){
+        if(have_a_brick && access(out)){
+            out.brick_ID = brick_ID;
+            have_a_brick = false;
+            out.send();
+            
+            std::cout << "the mediator worker #" 
+                << mediator_ID <<" passes a brick #" << brick_ID << std::endl;
+        }
+    }
+    
+    void take_a_brick(){
+        if(access(_in) && !have_a_brick){
+            brick_ID = _in->brick_ID;
+            have_a_brick = true;
+            _in->send();
+            
+            std::cout << "the mediator worker #" << mediator_ID 
+                <<" takes a brick #" << brick_ID << std::endl;
+        }
+    }
+    
+    brick* _in;
+    bool have_a_brick;
+    int  brick_ID;
+    int  mediator_ID;
 /*$TET$*/
 };
 
@@ -178,11 +211,20 @@ int main()
 	templet::engine eng;
 
 	source source_worker(eng);
+	mediator mediator_worker_1(eng),mediator_worker_2(eng),mediator_worker_3(eng);
 	destination  destination_worker(eng);
 
-    destination_worker.in(source_worker.out);
+    mediator_worker_1.in(source_worker.out);
+    mediator_worker_2.in(mediator_worker_1.out);
+    mediator_worker_3.in(mediator_worker_2.out);
+
+    destination_worker.in(mediator_worker_3.out);
     
     source_worker.number_of_bricks = 2;
+    
+    mediator_worker_1.mediator_ID = 1;
+    mediator_worker_2.mediator_ID = 2;
+    mediator_worker_3.mediator_ID = 3;
     
     eng.start();
 
