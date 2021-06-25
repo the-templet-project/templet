@@ -31,6 +31,7 @@
 -- исследование потенциального ускорения алгоритма при параллельном выполении задач 
 */
 
+const int NUMBER_OF_MEDIATORS = 3;
 const int NUMBER_OF_BRICKS = 2;
 
 #include <templet.hpp>
@@ -92,45 +93,89 @@ struct source :public templet::actor {
 /*$TET$*/
 };
 
-#pragma templet mediator(in?brick,out!brick)
+#pragma templet mediator(in?brick,out!brick,t:base)
 
 struct mediator :public templet::actor {
 	static void on_in_adapter(templet::actor*a, templet::message*m) {
 		((mediator*)a)->on_in(*(brick*)m);}
 	static void on_out_adapter(templet::actor*a, templet::message*m) {
 		((mediator*)a)->on_out(*(brick*)m);}
+	static void on_t_adapter(templet::actor*a, templet::task*t) {
+		((mediator*)a)->on_t(*(templet::base_task*)t);}
 
-	mediator(templet::engine&e) :mediator() {
-		mediator::engines(e);
+	mediator(templet::engine&e,templet::base_engine&te_base) :mediator() {
+		mediator::engines(e,te_base);
 	}
 
 	mediator() :templet::actor(false),
-		out(this, &on_out_adapter)
+		out(this, &on_out_adapter),
+		t(this, &on_t_adapter)
 	{
 /*$TET$mediator$mediator*/
+        _in = 0;
+        have_a_brick = false;
 /*$TET$*/
 	}
 
-	void engines(templet::engine&e) {
+	void engines(templet::engine&e,templet::base_engine&te_base) {
 		templet::actor::engine(e);
+		t.engine(te_base);
 /*$TET$mediator$engines*/
 /*$TET$*/
 	}
 
 	inline void on_in(brick&m) {
 /*$TET$mediator$in*/
+        _in = &m;
+        take_a_brick();
+        t.submit();
 /*$TET$*/
 	}
 
 	inline void on_out(brick&m) {
 /*$TET$mediator$out*/
+        take_a_brick();
+        t.submit();
+ /*$TET$*/
+	}
+
+	inline void on_t(templet::base_task&t) {
+/*$TET$mediator$t*/
+        pass_a_brick();
 /*$TET$*/
 	}
 
 	void in(brick&m) { m.bind(this, &on_in_adapter); }
 	brick out;
+	templet::base_task t;
 
 /*$TET$mediator$$footer*/
+    void pass_a_brick(){
+        if(have_a_brick && access(out)){
+            out.brick_ID = brick_ID;
+            have_a_brick = false;
+            out.send();
+            
+            std::cout << "the mediator worker #" 
+                << mediator_ID <<" passes a brick #" << brick_ID << std::endl;
+        }
+    }
+    
+    void take_a_brick(){
+        if(access(_in) && !have_a_brick){
+            brick_ID = _in->brick_ID;
+            have_a_brick = true;
+            _in->send();
+            
+            std::cout << "the mediator worker #" << mediator_ID 
+                <<" takes  a brick #" << brick_ID << std::endl;
+        }
+    }
+    
+    brick* _in;
+    bool have_a_brick;
+    int  brick_ID;
+    int  mediator_ID;
 /*$TET$*/
 };
 
@@ -178,15 +223,28 @@ struct destination :public templet::actor {
 int main()
 {
 	templet::engine eng;
-
+    templet::base_engine teng;
+    
 	source source_worker(eng);
+	mediator mediator_worker[NUMBER_OF_MEDIATORS];
 	destination  destination_worker(eng);
 
-    destination_worker.in(source_worker.out);
+    mediator_worker[0].in(source_worker.out);
+    
+    for(int i=1; i<NUMBER_OF_MEDIATORS; i++ )       
+        mediator_worker[i].in(mediator_worker[i-1].out);
+
+    destination_worker.in(mediator_worker[NUMBER_OF_MEDIATORS-1].out);
     
     source_worker.number_of_bricks = NUMBER_OF_BRICKS;
     
+    for(int i=0;i<NUMBER_OF_MEDIATORS;i++){
+        mediator_worker[i].mediator_ID = i+1;
+        mediator_worker[i].engines(eng,teng);
+    }
+    
     eng.start();
+    //teng.run();
 
 	if (eng.stopped()) {
 		std::cout << "all " << destination_worker.number_of_bricks 

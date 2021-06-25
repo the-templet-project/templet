@@ -30,6 +30,7 @@
 ------
 -- исследование потенциального ускорения алгоритма при параллельном выполении задач 
 */
+const int NUMBER_OF_BRICKS = 2;
 
 #include <templet.hpp>
 #include <cmath>
@@ -220,7 +221,7 @@ int main()
 
     destination_worker.in(mediator_worker_3.out);
     
-    source_worker.number_of_bricks = 2;
+    source_worker.number_of_bricks = NUMBER_OF_BRICKS;
     
     mediator_worker_1.mediator_ID = 1;
     mediator_worker_2.mediator_ID = 2;
