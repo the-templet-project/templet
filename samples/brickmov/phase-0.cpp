@@ -16,7 +16,8 @@
 -- простейшие действия с предусловием  "поступление сообщения"
 
 фаза 1
------- 
+------
+-- решение задачи с числом рабочих >2
 -- более сложные действия с предусловием в виде произвольного локального состояния актора
 -- этап тестирования базовой логики работы алгоритма в немасштабируемом варианте со всеми типами акторов
 
@@ -28,7 +29,7 @@
 
 фаза 3
 ------
--- исследование потенциального ускорения алгоритма при параллельном выполении задач 
+-- исследование потенциального ускорения алгоритма при параллельном выполнении задач 
 */
 
 const int NUMBER_OF_BRICKS = 2;
@@ -89,48 +90,6 @@ struct source :public templet::actor {
 
 /*$TET$source$$footer*/
     int number_of_bricks;
-/*$TET$*/
-};
-
-#pragma templet mediator(in?brick,out!brick)
-
-struct mediator :public templet::actor {
-	static void on_in_adapter(templet::actor*a, templet::message*m) {
-		((mediator*)a)->on_in(*(brick*)m);}
-	static void on_out_adapter(templet::actor*a, templet::message*m) {
-		((mediator*)a)->on_out(*(brick*)m);}
-
-	mediator(templet::engine&e) :mediator() {
-		mediator::engines(e);
-	}
-
-	mediator() :templet::actor(false),
-		out(this, &on_out_adapter)
-	{
-/*$TET$mediator$mediator*/
-/*$TET$*/
-	}
-
-	void engines(templet::engine&e) {
-		templet::actor::engine(e);
-/*$TET$mediator$engines*/
-/*$TET$*/
-	}
-
-	inline void on_in(brick&m) {
-/*$TET$mediator$in*/
-/*$TET$*/
-	}
-
-	inline void on_out(brick&m) {
-/*$TET$mediator$out*/
-/*$TET$*/
-	}
-
-	void in(brick&m) { m.bind(this, &on_in_adapter); }
-	brick out;
-
-/*$TET$mediator$$footer*/
 /*$TET$*/
 };
 

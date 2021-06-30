@@ -1,9 +1,11 @@
 /*$TET$$header*/
 
 const int NUMBER_OF_MEDIATORS = 3;
-const int NUMBER_OF_BRICKS = 2;
+const int NUMBER_OF_BRICKS = 10;
+const int DELAY = 1;
 
 #include <templet.hpp>
+#include <basesim.hpp>
 #include <cmath>
 #include <iostream>
 #include <ctime>
@@ -62,7 +64,7 @@ struct source :public templet::actor {
 /*$TET$*/
 };
 
-#pragma templet mediator(in?brick,out!brick,t:base)
+#pragma templet mediator(in?brick,out!brick,t:basesim)
 
 struct mediator :public templet::actor {
 	static void on_in_adapter(templet::actor*a, templet::message*m) {
@@ -70,10 +72,10 @@ struct mediator :public templet::actor {
 	static void on_out_adapter(templet::actor*a, templet::message*m) {
 		((mediator*)a)->on_out(*(brick*)m);}
 	static void on_t_adapter(templet::actor*a, templet::task*t) {
-		((mediator*)a)->on_t(*(templet::base_task*)t);}
+		((mediator*)a)->on_t(*(templet::basesim_task*)t);}
 
-	mediator(templet::engine&e,templet::base_engine&te_base) :mediator() {
-		mediator::engines(e,te_base);
+	mediator(templet::engine&e,templet::basesim_engine&te_basesim) :mediator() {
+		mediator::engines(e,te_basesim);
 	}
 
 	mediator() :templet::actor(false),
@@ -86,9 +88,9 @@ struct mediator :public templet::actor {
 /*$TET$*/
 	}
 
-	void engines(templet::engine&e,templet::base_engine&te_base) {
+	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
 		templet::actor::engine(e);
-		t.engine(te_base);
+		t.engine(te_basesim);
 /*$TET$mediator$engines*/
 /*$TET$*/
 	}
@@ -107,15 +109,16 @@ struct mediator :public templet::actor {
 /*$TET$*/
 	}
 
-	inline void on_t(templet::base_task&t) {
+	inline void on_t(templet::basesim_task&t) {
 /*$TET$mediator$t*/
+		t.delay(DELAY);
         pass_a_brick();
 /*$TET$*/
 	}
 
 	void in(brick&m) { m.bind(this, &on_in_adapter); }
 	brick out;
-	templet::base_task t;
+	templet::basesim_task t;
 
 /*$TET$mediator$$footer*/
     void pass_a_brick(){
@@ -137,7 +140,7 @@ struct mediator :public templet::actor {
             
             std::cout << "the mediator worker #" << mediator_ID 
                 <<" takes  a brick #" << brick_ID << std::endl;
-			
+
 			t.submit();
         }
     }
@@ -193,7 +196,7 @@ struct destination :public templet::actor {
 int main()
 {
 	templet::engine eng;
-    templet::base_engine teng;
+    templet::basesim_engine teng;
     
 	source source_worker(eng);
 	mediator mediator_worker[NUMBER_OF_MEDIATORS];
@@ -218,7 +221,12 @@ int main()
 
 	if (eng.stopped()) {
 		std::cout << "all " << destination_worker.number_of_bricks 
-            << " bricks were moved to a new place. done !!!";
+            << " bricks were moved to a new place. done !!!" << std::endl;;
+
+		std::cout << "Maximum number of tasks executed in parallel : " << teng.Pmax() << std::endl;
+		std::cout << "Time of sequential execution of all tasks    : " << teng.T1() << std::endl;
+		std::cout << "Time of parallel   execution of all tasks    : " << teng.Tp() << std::endl;
+		
 		return EXIT_SUCCESS;
 	}
 

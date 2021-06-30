@@ -274,5 +274,10 @@ namespace templet{
 		std::vector<base_task*> _task_queue;
 	};
 
-	void base_task::submit() { assert(_idle); _actor->suspend(); _engine->_task_queue.push_back(this); _idle = false; }
+	void base_task::submit() { 
+		assert(_idle); 
+		_actor->suspend(); 
+		_engine->_task_queue.push_back(this); 
+		_idle = false; 
+	}
 }
