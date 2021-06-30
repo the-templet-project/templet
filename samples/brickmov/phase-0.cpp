@@ -1,36 +1,19 @@
 /*$TET$$header*/
-/*
-Задача: смоделировать процесс перекладки кирпичей из исходной кучи в новую кучу по цепочке рабочих.
-
-Цели данного демонстрационного примера -- показать:  
-       1) этапы проектирования алгоритмов с использованием фреймворка Templet;
-       2) способы описания локальных действий в распределенных алгоритмах;
-	   3) метод описания масштабируемого алгоритма с неизменяемой в процессе вычислений структурой;
-	   4) тестирование правильности работы алгоритма, введение задач с произвольным порядком выполнения;
-	   5) тестирование потенциала параллельного выполения задач в алгоритме.
-
-фаза 0
-------
--- определение типов сообщений и акторов
--- решение редуцированной задачи с двумя рабочими, перекладывающими кирпичи
--- простейшие действия с предусловием  "поступление сообщения"
-
-фаза 1
-------
--- решение задачи с числом рабочих >2
--- более сложные действия с предусловием в виде произвольного локального состояния актора
--- этап тестирования базовой логики работы алгоритма в немасштабируемом варианте со всеми типами акторов
-
-фаза 2
-------
--- алгорим в масштабируемом виде
--- выделение задач в коде действий акторов
--- тестирование работоспособности алгорима при произвольном порядке завершения задач
-
-фаза 3
-------
--- исследование потенциального ускорения алгоритма при параллельном выполнении задач 
-*/
+/*--------------------------------------------------------------------------*/
+/*  Copyright 2021 Sergei Vostokin                                          */
+/*                                                                          */
+/*  Licensed under the Apache License, Version 2.0 (the "License");         */
+/*  you may not use this file except in compliance with the License.        */
+/*  You may obtain a copy of the License at                                 */
+/*                                                                          */
+/*  http://www.apache.org/licenses/LICENSE-2.0                              */
+/*                                                                          */
+/*  Unless required by applicable law or agreed to in writing, software     */
+/*  distributed under the License is distributed on an "AS IS" BASIS,       */
+/*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/*  See the License for the specific language governing permissions and     */
+/*  limitations under the License.                                          */
+/*--------------------------------------------------------------------------*/
 
 const int NUMBER_OF_BRICKS = 2;
 
@@ -77,11 +60,11 @@ struct source :public templet::actor {
 
 	inline void on_out(brick&m) {
 /*$TET$source$out*/
-       if(access(out) && number_of_bricks > 0){ 
-           out.brick_ID = number_of_bricks--;
-           out.send(); 
+       if(number_of_bricks > 0){ 
+           m.brick_ID = number_of_bricks--;
+           m.send(); 
            
-           std::cout << "the source worker takes a brick #" << out.brick_ID << " from the pile" << std::endl;
+           std::cout << "the source worker passes a brick #" << m.brick_ID << std::endl;
         }
 /*$TET$*/
 	}
@@ -119,9 +102,9 @@ struct destination :public templet::actor {
 	inline void on_in(brick&m) {
 /*$TET$destination$in*/
         number_of_bricks++;
-        if(m.brick_ID == 1) stop(); else  m.send();
+        if(m.brick_ID == 1) stop(); else m.send();
         
-        std::cout << "the destination worker receives a brick #" << m.brick_ID << std::endl;
+        std::cout << "the destination worker takes a brick #" << m.brick_ID << std::endl;
 /*$TET$*/
 	}
 
@@ -138,7 +121,7 @@ int main()
 {
 	templet::engine eng;
 
-	source source_worker(eng);
+	source       source_worker(eng);
 	destination  destination_worker(eng);
 
     destination_worker.in(source_worker.out);

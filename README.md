@@ -29,6 +29,7 @@ The components are arranged as described below.
 * **~/lib/basesim.hpp** – task engine for the paracomputer simulation;
 * **~/cgen/** – code generator sources
 * **~/samples/** – gallery of small examples
+* **~/samples/brickmov/** – model of transferring bricks from the original heap to the new one along the chain of workers
 * **~/samples/pythagor/** – demonstration of the lightweight actor specification language, core actor engine and base task engine APIs
 * **~/samples/pingpong/** – demonstration of the Everest task engine
 * **~/samples/diamond/** – demonstration of the paracomputer simulation engine

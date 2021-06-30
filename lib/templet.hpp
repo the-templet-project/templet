@@ -262,9 +262,9 @@ namespace templet{
 
 				tsk->run();
 				(*tsk->_tsk_adaptor)(tsk->_actor, tsk);
-				tsk->_actor->resume();
-
 				tsk->_idle = true;
+
+				tsk->_actor->resume();
 				return true;
 			}
 			return false;
