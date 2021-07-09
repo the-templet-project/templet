@@ -12,3 +12,4 @@ mv cgen ~/bin/cgen
 
 chmod 755 ~/bin/skel
 chmod 755 ~/bin/cgen
+chmod 755 ~/bin/everest.sh
