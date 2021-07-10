@@ -61,7 +61,7 @@ struct source :public templet::actor {
 
 	inline void on_out(brick&m) {
 /*$TET$source$out*/
-       if(access(out) && number_of_bricks > 0){ 
+       if(number_of_bricks > 0){ 
            out.brick_ID = number_of_bricks--;
            out.send(); 
            
@@ -184,7 +184,8 @@ struct destination :public templet::actor {
         number_of_bricks++;
         if(m.brick_ID == 1) stop(); else  m.send();
         
-		std::cout << "the destination worker takes a brick #" << m.brick_ID << std::endl;/*$TET$*/
+		std::cout << "the destination worker takes a brick #" << m.brick_ID << std::endl;
+/*$TET$*/
 	}
 
 	void in(brick&m) { m.bind(this, &on_in_adapter); }

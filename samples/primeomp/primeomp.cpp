@@ -1,0 +1,329 @@
+/*$TET$$header*/
+/*--------------------------------------------------------------------------*/
+/*  Copyright 2021 Sergei Vostokin                                          */
+/*                                                                          */
+/*  Licensed under the Apache License, Version 2.0 (the "License");         */
+/*  you may not use this file except in compliance with the License.        */
+/*  You may obtain a copy of the License at                                 */
+/*                                                                          */
+/*  http://www.apache.org/licenses/LICENSE-2.0                              */
+/*                                                                          */
+/*  Unless required by applicable law or agreed to in writing, software     */
+/*  distributed under the License is distributed on an "AS IS" BASIS,       */
+/*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
+/*  See the License for the specific language governing permissions and     */
+/*  limitations under the License.                                          */
+/*--------------------------------------------------------------------------*/
+
+const bool PRINT_PRIMES = true;
+const int  NUMBER_OF_FILTERS = 0;
+const int  PRIME_TABLE_SIZE = 10;
+
+#include <templet.hpp>
+#include <basesim.hpp>
+#include <chrono>
+#include <cmath>
+#include <iostream>
+#include <ctime>
+
+class prime_candidate : public templet::message {
+public:
+	prime_candidate(templet::actor*a=0, templet::message_adaptor ma=0) :templet::message(a, ma) {}
+	long number;
+};
+
+bool update_prime_table(long num, long*table, int*cur_size, int max_size)
+{
+	for (int i = 0; i < *cur_size; i++) {
+		long divisor = table[i];
+		std::ldiv_t dv = std::div(num, divisor);
+		if (dv.rem == 0) return true;
+		if (dv.quot <= divisor) break;
+	}
+
+	if (*cur_size < max_size) {
+		table[(*cur_size)++] = num;
+		return true;
+	}
+
+	return false;
+}
+
+bool maybe_prime_number(long num, long*table, int max_size)
+{
+	for (int i = 0; i < max_size; i++) {
+		long divisor = table[i];
+		std::ldiv_t dv = std::div(num, divisor);
+		if (dv.rem == 0) return false;
+		if (dv.quot <= divisor) break;
+	}
+
+	return true;
+}
+/*$TET$*/
+
+#pragma templet !source(out!prime_candidate,t:basesim)
+
+struct source :public templet::actor {
+	static void on_out_adapter(templet::actor*a, templet::message*m) {
+		((source*)a)->on_out(*(prime_candidate*)m);}
+	static void on_t_adapter(templet::actor*a, templet::task*t) {
+		((source*)a)->on_t(*(templet::basesim_task*)t);}
+
+	source(templet::engine&e,templet::basesim_engine&te_basesim) :source() {
+		source::engines(e,te_basesim);
+	}
+
+	source() :templet::actor(true),
+		out(this, &on_out_adapter),
+		t(this, &on_t_adapter)
+	{
+/*$TET$source$source*/
+		number_to_check = 3;
+		table_is_ready = false;
+/*$TET$*/
+	}
+
+	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
+		templet::actor::engine(e);
+		t.engine(te_basesim);
+/*$TET$source$engines*/
+/*$TET$*/
+	}
+
+	void start() {
+/*$TET$source$start*/
+		t.submit();
+/*$TET$*/
+	}
+
+	inline void on_out(prime_candidate&m) {
+/*$TET$source$out*/
+		t.submit();
+/*$TET$*/
+	}
+
+	inline void on_t(templet::basesim_task&t) {
+/*$TET$source$t*/
+		auto start = std::chrono::high_resolution_clock::now();
+
+		if (table_is_ready) {
+			do { number_to_check += 2; }
+			while (!maybe_prime_number(number_to_check, prime_table, PRIME_TABLE_SIZE));
+		}
+		else {
+			int  cur_size = 0;
+			while (update_prime_table(number_to_check, prime_table, &cur_size, PRIME_TABLE_SIZE)) number_to_check += 2;
+			table_is_ready = true;
+		}
+		out.number = number_to_check;
+		out.send();
+
+		auto end = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> diff = end - start;
+		t.delay(diff.count());
+/*$TET$*/
+	}
+
+	prime_candidate out;
+	templet::basesim_task t;
+
+/*$TET$source$$footer*/
+	bool table_is_ready;
+	long number_to_check;
+	long prime_table[PRIME_TABLE_SIZE];
+/*$TET$*/
+};
+
+#pragma templet mediator(in?prime_candidate,out!prime_candidate,t:basesim)
+
+struct mediator :public templet::actor {
+	static void on_in_adapter(templet::actor*a, templet::message*m) {
+		((mediator*)a)->on_in(*(prime_candidate*)m);}
+	static void on_out_adapter(templet::actor*a, templet::message*m) {
+		((mediator*)a)->on_out(*(prime_candidate*)m);}
+	static void on_t_adapter(templet::actor*a, templet::task*t) {
+		((mediator*)a)->on_t(*(templet::basesim_task*)t);}
+
+	mediator(templet::engine&e,templet::basesim_engine&te_basesim) :mediator() {
+		mediator::engines(e,te_basesim);
+	}
+
+	mediator() :templet::actor(false),
+		out(this, &on_out_adapter),
+		t(this, &on_t_adapter)
+	{
+/*$TET$mediator$mediator*/
+		_in = 0;
+/*$TET$*/
+	}
+
+	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
+		templet::actor::engine(e);
+		t.engine(te_basesim);
+/*$TET$mediator$engines*/
+/*$TET$*/
+	}
+
+	inline void on_in(prime_candidate&m) {
+/*$TET$mediator$in*/
+		_in = &m;
+		take_a_brick();
+/*$TET$*/
+	}
+
+	inline void on_out(prime_candidate&m) {
+/*$TET$mediator$out*/
+		take_a_brick();
+/*$TET$*/
+	}
+
+	inline void on_t(templet::basesim_task&t) {
+/*$TET$mediator$t*/
+		//t.delay(DELAY);
+		pass_a_brick();
+/*$TET$*/
+	}
+
+	void in(prime_candidate&m) { m.bind(this, &on_in_adapter); }
+	prime_candidate out;
+	templet::basesim_task t;
+
+/*$TET$mediator$$footer*/
+	void take_a_brick() {
+		if (access(_in) && access(out)) {
+
+			//brick_ID = _in->brick_ID;
+			_in->send();
+			std::cout << "the mediator worker #"
+				<< mediator_ID << " takes a brick #" << brick_ID << std::endl;
+
+			t.submit();
+		}
+	}
+
+	void pass_a_brick() {
+		//out.brick_ID = brick_ID;
+		out.send();
+		std::cout << "the mediator worker #"
+			<< mediator_ID << " passes a brick #" << brick_ID << std::endl;
+	}
+
+	prime_candidate* _in;
+	int brick_ID;
+	int mediator_ID;
+
+	long prime_table[PRIME_TABLE_SIZE];
+/*$TET$*/
+};
+
+#pragma templet destination(in?prime_candidate,t:basesim)
+
+struct destination :public templet::actor {
+	static void on_in_adapter(templet::actor*a, templet::message*m) {
+		((destination*)a)->on_in(*(prime_candidate*)m);}
+	static void on_t_adapter(templet::actor*a, templet::task*t) {
+		((destination*)a)->on_t(*(templet::basesim_task*)t);}
+
+	destination(templet::engine&e,templet::basesim_engine&te_basesim) :destination() {
+		destination::engines(e,te_basesim);
+	}
+
+	destination() :templet::actor(false),
+		t(this, &on_t_adapter)
+	{
+/*$TET$destination$destination*/
+		cur_table_size = 0; _in = 0;
+/*$TET$*/
+	}
+
+	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
+		templet::actor::engine(e);
+		t.engine(te_basesim);
+/*$TET$destination$engines*/
+/*$TET$*/
+	}
+
+	inline void on_in(prime_candidate&m) {
+/*$TET$destination$in*/
+		_in = &m; number_to_check = m.number;
+		t.submit();
+/*$TET$*/
+	}
+
+	inline void on_t(templet::basesim_task&t) {
+/*$TET$destination$t*/
+		auto start = std::chrono::high_resolution_clock::now();
+
+		if (update_prime_table(number_to_check, prime_table, &cur_table_size, PRIME_TABLE_SIZE)) _in->send();
+		else stop();
+
+		auto end = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> diff = end - start;
+		t.delay(diff.count());
+/*$TET$*/
+	}
+
+	void in(prime_candidate&m) { m.bind(this, &on_in_adapter); }
+	templet::basesim_task t;
+
+/*$TET$destination$$footer*/
+	prime_candidate*_in;
+	int  cur_table_size;
+	long number_to_check;
+	long prime_table[PRIME_TABLE_SIZE];
+/*$TET$*/
+};
+
+/*$TET$$footer*/
+
+int main()
+{
+	templet::engine eng;
+    templet::basesim_engine teng;
+    
+	source       a_source_filter(eng,teng);
+	//mediator     an_intermediate_filter[NUMBER_OF_FILTERS];
+	destination  a_destination_filter(eng,teng);
+
+    //an_intermediate_filter[0].in(a_source_filter.out);
+    
+    //for(int i=1; i<NUMBER_OF_FILTERS; i++ )       
+    //    an_intermediate_filter[i].in(an_intermediate_filter[i-1].out);
+
+    //a_destination_filter.in(an_intermediate_filter[NUMBER_OF_FILTERS-1].out);
+	a_destination_filter.in(a_source_filter.out);
+    
+    //for(int i=0;i<NUMBER_OF_FILTERS;i++){
+    //    an_intermediate_filter[i].mediator_ID = i+1;
+    //    an_intermediate_filter[i].engines(eng,teng);
+    //}
+    
+    eng.start();
+    teng.run();
+
+	if (eng.stopped()) {
+		
+		if (PRINT_PRIMES) {
+			std::cout << "the found prime numbers : ";
+			for (int j = 0; j < PRIME_TABLE_SIZE; j++)
+				std::cout << a_source_filter.prime_table[j] << "  ";
+			//for (int i = 0; i < NUMBER_OF_FILTERS; i++)
+			//	for (int j = 0; j < PRIME_TABLE_SIZE; j++)
+			//		std::cout << an_intermediate_filter[i].prime_table[j] << "  ";
+			for (int j = 0; j < PRIME_TABLE_SIZE; j++)
+				std::cout << a_destination_filter.prime_table[j] << "  ";
+			std::cout << std::endl;
+		}
+
+		std::cout << "Maximum number of tasks executed in parallel : " << teng.Pmax() << std::endl;
+		std::cout << "Time of sequential execution of all tasks    : " << teng.T1() << std::endl;
+		std::cout << "Time of parallel   execution of all tasks    : " << teng.Tp() << std::endl;
+		
+		return EXIT_SUCCESS;
+	}
+
+	std::cout << "something broke (((" << std::endl;
+	return EXIT_FAILURE;
+}
+/*$TET$*/
