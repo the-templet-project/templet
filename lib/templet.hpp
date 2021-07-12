@@ -181,6 +181,7 @@ namespace templet{
 			engine* eng = a->_engine;
 
 			eng->_lock_1.lock();
+			if (eng->_stopped) { eng->_lock_1.unlock(); return; }
 
 			eng->_queue_1.push(a);
 

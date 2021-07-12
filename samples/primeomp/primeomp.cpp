@@ -15,9 +15,10 @@
 /*  limitations under the License.                                          */
 /*--------------------------------------------------------------------------*/
 
-const bool PRINT_PRIMES = true;
-const int  NUMBER_OF_FILTERS = 0;
-const int  PRIME_TABLE_SIZE = 10;
+const bool CHECK_PRIMES = false;
+const int  NUMBER_OF_FILTERS = 8;
+const int  FILTER_PRIME_TABLE_SIZE = 50;
+const int  RESULT_PRIME_TABLE_SIZE = 1000000;
 
 #include <templet.hpp>
 #include <basesim.hpp>
@@ -60,6 +61,12 @@ bool maybe_prime_number(long num, long*table, int max_size)
 
 	return true;
 }
+
+void build_prime_table(long*table, int size)
+{
+	long n = 3; int cur_size = 0;
+	while (update_prime_table(n, table, &cur_size, size))n += 2;
+}
 /*$TET$*/
 
 #pragma templet !source(out!prime_candidate,t:basesim)
@@ -80,7 +87,6 @@ struct source :public templet::actor {
 	{
 /*$TET$source$source*/
 		number_to_check = 3;
-		table_is_ready = false;
 /*$TET$*/
 	}
 
@@ -93,7 +99,10 @@ struct source :public templet::actor {
 
 	void start() {
 /*$TET$source$start*/
-		t.submit();
+		int  cur_size = 0;
+		while (update_prime_table(number_to_check, prime_table, &cur_size, FILTER_PRIME_TABLE_SIZE)) number_to_check += 2;
+		out.number = number_to_check;
+		out.send();
 /*$TET$*/
 	}
 
@@ -106,16 +115,10 @@ struct source :public templet::actor {
 	inline void on_t(templet::basesim_task&t) {
 /*$TET$source$t*/
 		auto start = std::chrono::high_resolution_clock::now();
-
-		if (table_is_ready) {
-			do { number_to_check += 2; }
-			while (!maybe_prime_number(number_to_check, prime_table, PRIME_TABLE_SIZE));
-		}
-		else {
-			int  cur_size = 0;
-			while (update_prime_table(number_to_check, prime_table, &cur_size, PRIME_TABLE_SIZE)) number_to_check += 2;
-			table_is_ready = true;
-		}
+		
+		do { number_to_check += 2; }
+		while (!maybe_prime_number(number_to_check, prime_table, FILTER_PRIME_TABLE_SIZE));
+		
 		out.number = number_to_check;
 		out.send();
 
@@ -129,9 +132,8 @@ struct source :public templet::actor {
 	templet::basesim_task t;
 
 /*$TET$source$$footer*/
-	bool table_is_ready;
 	long number_to_check;
-	long prime_table[PRIME_TABLE_SIZE];
+	long prime_table[FILTER_PRIME_TABLE_SIZE];
 /*$TET$*/
 };
 
@@ -154,7 +156,7 @@ struct mediator :public templet::actor {
 		t(this, &on_t_adapter)
 	{
 /*$TET$mediator$mediator*/
-		_in = 0;
+		_in = 0; prime_table_size = 0;
 /*$TET$*/
 	}
 
@@ -168,20 +170,28 @@ struct mediator :public templet::actor {
 	inline void on_in(prime_candidate&m) {
 /*$TET$mediator$in*/
 		_in = &m;
-		take_a_brick();
+		check_a_number();
 /*$TET$*/
 	}
 
 	inline void on_out(prime_candidate&m) {
 /*$TET$mediator$out*/
-		take_a_brick();
+		check_a_number();
 /*$TET$*/
 	}
 
 	inline void on_t(templet::basesim_task&t) {
 /*$TET$mediator$t*/
-		//t.delay(DELAY);
-		pass_a_brick();
+		auto start = std::chrono::high_resolution_clock::now();
+
+		if (maybe_prime_number(number_to_check, prime_table, FILTER_PRIME_TABLE_SIZE)) {
+			out.number = number_to_check;
+			out.send();
+		}
+
+		auto end = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> diff = end - start;
+		t.delay(diff.count());
 /*$TET$*/
 	}
 
@@ -190,30 +200,26 @@ struct mediator :public templet::actor {
 	templet::basesim_task t;
 
 /*$TET$mediator$$footer*/
-	void take_a_brick() {
+	void check_a_number() {
 		if (access(_in) && access(out)) {
-
-			//brick_ID = _in->brick_ID;
+			number_to_check = _in->number;
 			_in->send();
-			std::cout << "the mediator worker #"
-				<< mediator_ID << " takes a brick #" << brick_ID << std::endl;
 
-			t.submit();
+			if (prime_table_size < FILTER_PRIME_TABLE_SIZE) {
+				if (!update_prime_table(number_to_check, prime_table, &prime_table_size, FILTER_PRIME_TABLE_SIZE)) {
+					out.number = number_to_check;
+					out.send();
+				}
+			}
+			else t.submit();
 		}
 	}
 
-	void pass_a_brick() {
-		//out.brick_ID = brick_ID;
-		out.send();
-		std::cout << "the mediator worker #"
-			<< mediator_ID << " passes a brick #" << brick_ID << std::endl;
-	}
-
 	prime_candidate* _in;
-	int brick_ID;
-	int mediator_ID;
-
-	long prime_table[PRIME_TABLE_SIZE];
+	long number_to_check;
+	int prime_table_size;
+	int ID;
+	long prime_table[FILTER_PRIME_TABLE_SIZE];
 /*$TET$*/
 };
 
@@ -233,7 +239,7 @@ struct destination :public templet::actor {
 		t(this, &on_t_adapter)
 	{
 /*$TET$destination$destination*/
-		cur_table_size = 0; _in = 0;
+		cur_table_size = 0;
 /*$TET$*/
 	}
 
@@ -246,7 +252,8 @@ struct destination :public templet::actor {
 
 	inline void on_in(prime_candidate&m) {
 /*$TET$destination$in*/
-		_in = &m; number_to_check = m.number;
+		number_to_check = m.number;
+		m.send();
 		t.submit();
 /*$TET$*/
 	}
@@ -255,8 +262,7 @@ struct destination :public templet::actor {
 /*$TET$destination$t*/
 		auto start = std::chrono::high_resolution_clock::now();
 
-		if (update_prime_table(number_to_check, prime_table, &cur_table_size, PRIME_TABLE_SIZE)) _in->send();
-		else stop();
+		if (!update_prime_table(number_to_check, prime_table, &cur_table_size, RESULT_PRIME_TABLE_SIZE)) stop();
 
 		auto end = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> diff = end - start;
@@ -268,57 +274,73 @@ struct destination :public templet::actor {
 	templet::basesim_task t;
 
 /*$TET$destination$$footer*/
-	prime_candidate*_in;
 	int  cur_table_size;
 	long number_to_check;
-	long prime_table[PRIME_TABLE_SIZE];
+	long prime_table[RESULT_PRIME_TABLE_SIZE];
 /*$TET$*/
 };
 
 /*$TET$$footer*/
 
+mediator     an_intermediate_filter[NUMBER_OF_FILTERS];
+source       a_source_filter;
+destination  a_destination_filter;
+
 int main()
 {
 	templet::engine eng;
     templet::basesim_engine teng;
-    
-	source       a_source_filter(eng,teng);
-	//mediator     an_intermediate_filter[NUMBER_OF_FILTERS];
-	destination  a_destination_filter(eng,teng);
 
-    //an_intermediate_filter[0].in(a_source_filter.out);
+    an_intermediate_filter[0].in(a_source_filter.out);
     
-    //for(int i=1; i<NUMBER_OF_FILTERS; i++ )       
-    //    an_intermediate_filter[i].in(an_intermediate_filter[i-1].out);
+    for(int i=1; i<NUMBER_OF_FILTERS; i++ )       
+        an_intermediate_filter[i].in(an_intermediate_filter[i-1].out);
 
-    //a_destination_filter.in(an_intermediate_filter[NUMBER_OF_FILTERS-1].out);
-	a_destination_filter.in(a_source_filter.out);
+    a_destination_filter.in(an_intermediate_filter[NUMBER_OF_FILTERS-1].out);
     
-    //for(int i=0;i<NUMBER_OF_FILTERS;i++){
-    //    an_intermediate_filter[i].mediator_ID = i+1;
-    //    an_intermediate_filter[i].engines(eng,teng);
-    //}
+	a_source_filter.engines(eng, teng);
+	a_destination_filter.engines(eng, teng);
+
+	for (int i = 0; i < NUMBER_OF_FILTERS; i++)
+		an_intermediate_filter[i].engines(eng, teng);
     
     eng.start();
     teng.run();
 
 	if (eng.stopped()) {
 		
-		if (PRINT_PRIMES) {
-			std::cout << "the found prime numbers : ";
-			for (int j = 0; j < PRIME_TABLE_SIZE; j++)
-				std::cout << a_source_filter.prime_table[j] << "  ";
-			//for (int i = 0; i < NUMBER_OF_FILTERS; i++)
-			//	for (int j = 0; j < PRIME_TABLE_SIZE; j++)
-			//		std::cout << an_intermediate_filter[i].prime_table[j] << "  ";
-			for (int j = 0; j < PRIME_TABLE_SIZE; j++)
-				std::cout << a_destination_filter.prime_table[j] << "  ";
-			std::cout << std::endl;
+		if (CHECK_PRIMES) {
+			int size = FILTER_PRIME_TABLE_SIZE*(NUMBER_OF_FILTERS+1) + RESULT_PRIME_TABLE_SIZE;
+			long* table = new long[size];
+			build_prime_table(table, size);
+			int cur = 0;
+
+			for (int j = 0; j < FILTER_PRIME_TABLE_SIZE; j++)
+				if (a_source_filter.prime_table[j] != table[cur++]) {
+					std::cout << "mismatch in source_filter.prime_table[" << j << "]";
+					return EXIT_FAILURE;
+				}
+
+			for (int i = 0; i < NUMBER_OF_FILTERS; i++)
+				for (int j = 0; j < FILTER_PRIME_TABLE_SIZE; j++)
+					if (an_intermediate_filter[i].prime_table[j] != table[cur++]) {
+						std::cout << "mismatch in an_intermediate_filter[" << i << "].prime_table[" << j << "]";
+						return EXIT_FAILURE;
+					}
+			
+			for (int j = 0; j < RESULT_PRIME_TABLE_SIZE; j++)
+				if (a_destination_filter.prime_table[j] != table[cur++]) {
+					std::cout << "mismatch in (a_destination_filter.prime_table[" << j << "]";
+					return EXIT_FAILURE;
+				}
+
+			std::cout << "Check primes passed" << std::endl;
 		}
 
 		std::cout << "Maximum number of tasks executed in parallel : " << teng.Pmax() << std::endl;
 		std::cout << "Time of sequential execution of all tasks    : " << teng.T1() << std::endl;
 		std::cout << "Time of parallel   execution of all tasks    : " << teng.Tp() << std::endl;
+		std::cout << "Speed-up                                     : " << teng.T1() / teng.Tp() << std::endl;
 		
 		return EXIT_SUCCESS;
 	}
