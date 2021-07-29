@@ -20,10 +20,15 @@
 #include <iostream>
 #include <ctime>
 #include <cassert>
+#include <list>
+
+#include <templet.hpp>
+#include <basesim.hpp>
 
 const int PRIME_BUFF_SIZE = 100;
 const int PRIME_TABLE_SIZE = 1000000;
 const int NUMBER_OF_TASK_SLOTS = 10;
+const int NUM_WORKERS = 10;
 
 #define DO_TEST
 
@@ -61,7 +66,10 @@ void init_bag_of_tasks()
 	cur_number_to_check = 3;
 	max_number_to_check = 3;
 
-	for (int i = 0; i < NUMBER_OF_TASK_SLOTS; i++) slot[i].is_free = true;
+	for (int i = 0; i < NUMBER_OF_TASK_SLOTS; i++) { 
+		slot[i].is_free = true; 
+		slot[i].is_ready = false; 
+	}
 }
 
 bool any_task_in_bag()
@@ -78,7 +86,7 @@ void get_task_from_bag(int*task_slot)
 	
 	assert (i != NUMBER_OF_TASK_SLOTS);
 
-	slot[i].is_free = false;
+	slot[i].is_free  = false;
 	slot[i].is_ready = false;
 	number_of_free_slots--;
 
@@ -100,7 +108,9 @@ void get_task_from_bag(int*task_slot)
 
 void put_task_to_bag(int task_slot)
 {
-	assert(!slot[task_slot].is_free && slot[task_slot].is_ready);
+	assert(!slot[task_slot].is_free && !slot[task_slot].is_ready);
+
+	slot[task_slot].is_ready = true;
 
 	if (slot[task_slot].task_id == awaiting_task_id) {
 
@@ -153,7 +163,6 @@ void process_task(int task_slot)
 	assert(num >= last);
 
 	slot[task_slot].prime_size = i;
-	slot[task_slot].is_ready = true;
 }
 //////////////////////////////////////////////////////////////////////////
 bool update_prime_table(long num, long*table, int*cur_size, int max_size)
@@ -191,33 +200,160 @@ void build_prime_table(long*table, int size)
 	while (update_prime_table(n, table, &cur_size, size))n += 2;
 }
 //////////////////////////////////////////////////////////////////////////
+class request : public templet::message {
+public:
+	request(templet::actor*a = 0, templet::message_adaptor ma = 0) :templet::message(a, ma) {}
+	bool is_first;
+	int task_slot;
+};
+//////////////////////////////////////////////////////////////////////////
 /*$TET$*/
+
+#pragma templet !worker(r!request,t:basesim)
+
+struct worker :public templet::actor {
+	static void on_r_adapter(templet::actor*a, templet::message*m) {
+		((worker*)a)->on_r(*(request*)m);}
+	static void on_t_adapter(templet::actor*a, templet::task*t) {
+		((worker*)a)->on_t(*(templet::basesim_task*)t);}
+
+	worker(templet::engine&e,templet::basesim_engine&te_basesim) :worker() {
+		worker::engines(e,te_basesim);
+	}
+
+	worker() :templet::actor(true),
+		r(this, &on_r_adapter),
+		t(this, &on_t_adapter)
+	{
+/*$TET$worker$worker*/
+/*$TET$*/
+	}
+
+	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
+		templet::actor::engine(e);
+		t.engine(te_basesim);
+/*$TET$worker$engines*/
+/*$TET$*/
+	}
+
+	void start() {
+/*$TET$worker$start*/
+		r.is_first = true;
+		r.send();
+/*$TET$*/
+	}
+
+	inline void on_r(request&m) {
+/*$TET$worker$r*/
+		t.submit();
+/*$TET$*/
+	}
+
+	inline void on_t(templet::basesim_task&t) {
+/*$TET$worker$t*/
+		auto start = std::chrono::high_resolution_clock::now();
+		process_task(r.task_slot);
+		auto end = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> diff = end - start;
+		t.delay(diff.count());
+		r.send();
+/*$TET$*/
+	}
+
+	request r;
+	templet::basesim_task t;
+
+/*$TET$worker$$footer*/
+/*$TET$*/
+};
+
+#pragma templet master(r?request)
+
+struct master :public templet::actor {
+	static void on_r_adapter(templet::actor*a, templet::message*m) {
+		((master*)a)->on_r(*(request*)m);}
+
+	master(templet::engine&e) :master() {
+		master::engines(e);
+	}
+
+	master() :templet::actor(false)
+	{
+/*$TET$master$master*/
+/*$TET$*/
+	}
+
+	void engines(templet::engine&e) {
+		templet::actor::engine(e);
+/*$TET$master$engines*/
+/*$TET$*/
+	}
+
+	inline void on_r(request&m) {
+/*$TET$master$r*/
+		if (m.is_first) m.is_first = false;
+		else put_task_to_bag(m.task_slot);
+		
+		req_list.push_back(&m);
+
+		while (!req_list.empty() && any_task_in_bag()) {
+			request* r = req_list.front();
+			req_list.pop_front();
+			get_task_from_bag(&(r->task_slot));
+			r->send();
+		}
+		if (req_list.size() == NUM_WORKERS)	stop();
+/*$TET$*/
+	}
+
+	void r(request&m) { m.bind(this, &on_r_adapter); }
+
+/*$TET$master$$footer*/
+	std::list<request*> req_list;
+/*$TET$*/
+};
 
 /*$TET$$footer*/
 int main()
 {
-	init_bag_of_tasks();
-	while (any_task_in_bag()) {
-		int task_slot;
-		get_task_from_bag(&task_slot);
-		process_task(task_slot);
-		put_task_to_bag(task_slot);
+	templet::engine eng;
+	templet::basesim_engine teng;
+
+	master mst(eng);
+	worker wks[NUM_WORKERS];
+
+	for (int i = 0; i < NUM_WORKERS; i++) {
+		wks[i].engines(eng,teng);
+		mst.r(wks[i].r);
 	}
 
-#ifdef DO_TEST
-	auto start = std::chrono::high_resolution_clock::now();
-	build_prime_table(test_prime, PRIME_TABLE_SIZE);
-	auto end = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> diff = end - start;
+	init_bag_of_tasks();
 
-	std::cout << "duration = " << diff.count() << " sec" << std::endl;
+	srand(time(NULL));
+
+	eng.start();
+	teng.run();
+
+	if (!eng.stopped()) {
+		std::cout << "Logical error" << std::endl;
+		return EXIT_FAILURE;
+	}
+
+	std::cout << "Maximum number of tasks executed in parallel : " << teng.Pmax() << std::endl;
+	std::cout << "Time of sequential execution of all tasks    : " << teng.T1() << std::endl;
+	std::cout << "Time of parallel   execution of all tasks    : " << teng.Tp() << std::endl;
+	std::cout << "Estimated speed-up                           : " << teng.T1() / teng.Tp() << std::endl;
+
+#ifdef DO_TEST
+	build_prime_table(test_prime, PRIME_TABLE_SIZE);
+	
 	for (int i = 0; i < PRIME_TABLE_SIZE; i++)
 		if (test_prime[i] != global_prime[i]) {
-			std::cout << "test failed at i = " << i; 
+			std::cout << "Test failed at i = " << i; 
 			return EXIT_FAILURE;
 		}
 
-	std::cout << "test passed";
+	std::cout << "Test passed";
 #endif
 
 	return EXIT_SUCCESS;
