@@ -118,5 +118,7 @@ int main(int argc, char *argv[])
 #endif
 	system(command.c_str());
 
+	if(ret == EXIT_SUCCESS) cout << "Ok";
+	
 	return ret;
 }
