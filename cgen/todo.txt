@@ -1,69 +1,33 @@
---  Переписать lexer.cpp: объединить с parse.cpp, унифицировать верстку, сократить код 
---  Переделать формат разметки первого блока в cgen-actam: /*$TET$$header*/ --> /*$tt$actam*/
---  Провести ревизию интерфейсов
---  В actam-cgen доделать диагностику синтаксических ошибок в при разборе #pragma templet ...
+Plans for future releases:
+-- Implementing a DSL for the actor-task model in C ++;
+-- Determining the boundaries of an implicit markup; 
+-- New architecture:
+				~/lang/tools/tlang -- new Templet language processor;
+				~/lang/tools/actam -- new processor for the actor-task model (based on tlang);
+				~/lang/actam.hpp   -- DSL for the actor-task model in C++.
 
------------skel.exe/templet.exe---------
+-----------tlang.exe---------
     ___
    |_>_|   The Temlet Project SDK (http://templet.ssau.ru)
-   |_>_|   Universal code skeleton processor v.0.9.0
-  TEMPLET  Copyright 2016-2020, Sergei Vostokin
+   |_>_|   Templet language processor  v.0.9.0
+  TEMPLET  Copyright 2016-202?, Sergei Vostokin
   
- Usage:  templet {options}
+ Usage:  tlang {options}
  
  Options:
- -h -H -- print this screen
+ -h -H -- print this screen (it also printed if no options or uncorrect options are set)
  -v -V -- verbose preprocessor's operations;
-          error information is always outputs to the stderr stream  *********************
- -s -S <skeleton-file-name> -- if not defined, the processor gets
-       the skeleton from the stdin stream **********************
- -i -I <input-file>  -- if not defined, the <input-file> name assumed to be
-                        in the first line of the skeleton (if -f is used) or 
-						the intup file is the same as the skeleton file (if -f not used)
- -o -O <output-file> -- assumed to be the same as the <input-file>, if not defined
- -r -R -- use no markup in realease version of the <output-file>
- -b -B -- place blocks that have no pair in the skeleton into the bottom of
-          the output file;
-          assumed to be ON, if one file is used as input/output file and no '-c -C' option 
- -t -T [ <the-first-key> ] -- if <the-first-key> not defined, the processor tries to find out
-       the first markup block, when print it's key to stdout;
-	   otherwise the processor return 0 (EXIT_SUCCESS) if the first markup block key == the-first-key
-	   or 1 (EXIT_FAILURE), if the first markup block key =!= the-first-key or
-	   the first markup block is not found 	   *******************
- -c -C -- check points the overwitten files in *.bak files with the same prefixes	   *******************
- -f -F -- the input file name is in the first line of the skeleton  *******************
+          notice: error information is always outputs to the stderr stream
+ -i -I <file> -- input file
+ -o -O <file> -- output file
+ -s -S <file> -- source template file
+ -d -D <file> -- destination template file
+ -t -T <file> -- transformation template file 
  -m -M <sign_1> <sign_2> <sign_3> -- defines the custom signature of the templet markup;
-           default setting for standard code generators is -M /*$tt$ */ /*$tt$*/ 
+                                     default setting is -M /*$tt$ */ /*$tt$*/ 
+   ...
+ Other options control unreferenced blocks, backup files, block key extraction, getting transformation template from stdin, putting transformation results to stdout, etc.
  
  Examples:
- 
------------cgen.exe/actam.exe-----------
-    ___
-   |_>_|   The Temlet Project SDK (http://templet.ssau.ru)
-   |_>_|   Code skeleton generator for the actor-task model v.0.9.0
-  TEMPLET  Copyright 2016-2020, Sergei Vostokin
-
- Usage: actam {options}
- 
- Options:
- -h -H -- print this screen
- -v -V -- verbose generator operations;
-          error information is always outputs to the stderr stream
- -i -I <input-file>  -- set the <input-file> with commands that control skeleton generation;
-          the command syntax is 
-	      command :: = '#pragma' 'templet' ['!'] id ['(' field {',' field} ')']
-	      field   :: = id '!' id |
-		        	   id '?' id |
-                       id ':' id ['.' id]
-          id stands for a valid C++ identifier				   
- -o -O <output-file> -- the generated skeleton will be writen to the <output-file>;
-                        if no -O option is used, then the generated skeleton will be
-                        written to the stdout stream
- -f -F -- the input file name will be put into the first line of the generated skeleton
- -c -C <command> -- set the <command> to control the code generation;   
-                	then setting commands from the command line, skip '#pragma' & 'templet'
-					in the EBNF definition from the -I option
- -e -E <type> -- skip <type> in the generated file, one can define several -E options
+   ...
    
- Examples:
-  

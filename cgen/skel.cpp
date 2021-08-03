@@ -110,9 +110,15 @@ int main(int argc, char* argv[])
 	}
 
 	if (helpme || argc==1){
-		cout << "Templet skeleton processor. Copyright Sergei Vostokin, 2016" << endl
+		cout <<
+			"  ___ " << endl <<
+			" |_>_|   The Temlet Project SDK (http://templet.ssau.ru)" << endl <<
+			" |_>_|   Templet skeleton processor  v.0.9.0" << endl <<
+			"TEMPLET  Copyright 2016, Sergei Vostokin" << endl << endl;
+
+		cout 
 			<< "Usage:  skel <options>\n" << endl
-			<< " -s -S <skeleton file name> -- if not defined, the skel.exe tries to find out" << endl
+			<< " -s -S <skeleton file name> -- if not defined, the 'skel' tries to find out" << endl
 			<< "       the first markup block, when print it's key or NOBLOCKS to stdout" << endl
 			<< " -i -I <input file>" << endl
 			<< " -o -O <output file> -- assumed to be the same as an input file, if not defined" << endl
@@ -120,7 +126,7 @@ int main(int argc, char* argv[])
 			<< " -b -B -- place blocks that have no pair in the skeleton into the bottom of" << endl
 			<< "          the output file;" << endl
 			<< "          assumed to be ON, if one file is used as input/output file" << endl
-			<< " -h -H -- print this screen" << endl;
+			<< " -h -H -- print this screen" << endl << endl;
 
 	}
 

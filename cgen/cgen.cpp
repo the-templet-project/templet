@@ -358,9 +358,14 @@ void generate(ofstream&outf, list<actor>&alist)
 int main(int argc, char *argv[])
 {
 	if (argc<3){
-		cout<< "Templet code generator. Copyright Sergei Vostokin, 2020" << endl << endl
+		cout <<
+			"  ___ " << endl <<
+			" |_>_|   The Temlet Project SDK (http://templet.ssau.ru)" << endl <<
+			" |_>_|   Templet code generator  v.0.9.0" << endl <<
+			"TEMPLET  Copyright 2020, Sergei Vostokin" << endl << endl;
 
-			<< "Usage: xgen <input: file with the markup> <output: generated C ++ code file>" << endl << endl
+		cout
+			<< "Usage: cgen <input: file with the markup> <output: generated C++ code file>" << endl << endl
 
 			<< "the markup syntax:" << endl << endl
 

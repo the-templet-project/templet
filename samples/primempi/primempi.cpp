@@ -21,6 +21,7 @@
 #include <ctime>
 #include <cassert>
 #include <list>
+#include <climits>
 
 #include <templet.hpp>
 #include <basesim.hpp>
