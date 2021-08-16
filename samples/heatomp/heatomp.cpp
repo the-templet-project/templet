@@ -25,8 +25,19 @@ const bool DO_CHECK = true;
 double field[ROWS][COLUMNS];
 double test_field[ROWS][COLUMNS];
 
+//#define SIMULATION
+//#define TEMPLET_CPP_SYNC
+#define TEMPLET_OMP_SYNC
+
 #include <templet.hpp>
+#include <omp.h>
+
+#ifdef SIMULATION
 #include <basesim.hpp>
+#else
+#include <omptask.hpp>
+#endif
+
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -115,7 +126,7 @@ struct starter :public templet::actor {
 /*$TET$*/
 };
 
-#pragma templet stage(in?signal,out!signal,t:basesim)
+#pragma templet stage(in?signal,out!signal,t:omptask)
 
 struct stage :public templet::actor {
 	static void on_in_adapter(templet::actor*a, templet::message*m) {
@@ -123,10 +134,10 @@ struct stage :public templet::actor {
 	static void on_out_adapter(templet::actor*a, templet::message*m) {
 		((stage*)a)->on_out(*(signal*)m);}
 	static void on_t_adapter(templet::actor*a, templet::task*t) {
-		((stage*)a)->on_t(*(templet::basesim_task*)t);}
+		((stage*)a)->on_t(*(templet::omptask_task*)t);}
 
-	stage(templet::engine&e,templet::basesim_engine&te_basesim) :stage() {
-		stage::engines(e,te_basesim);
+	stage(templet::engine&e,templet::omptask_engine&te_omptask) :stage() {
+		stage::engines(e,te_omptask);
 	}
 
 	stage() :templet::actor(false),
@@ -138,9 +149,9 @@ struct stage :public templet::actor {
 /*$TET$*/
 	}
 
-	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
+	void engines(templet::engine&e,templet::omptask_engine&te_omptask) {
 		templet::actor::engine(e);
-		t.engine(te_basesim);
+		t.engine(te_omptask);
 /*$TET$stage$engines*/
 /*$TET$*/
 	}
@@ -162,21 +173,24 @@ struct stage :public templet::actor {
 /*$TET$*/
 	}
 
-	inline void on_t(templet::basesim_task&t) {
+	inline void on_t(templet::omptask_task&t) {
 /*$TET$stage$t*/
-		auto start = std::chrono::high_resolution_clock::now();
+#ifdef SIMULATION
+		double T = omp_get_wtime();
+#endif		
 		one_iter_of_stage(stage_ID);
-		auto end = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> diff = end - start;
-		out.send(); _in->send();
-		t.delay(diff.count());
-		//t.delay(1.0);
+
+#ifdef SIMULATION		
+		T = omp_get_wtime() - T;
+		t.delay(T);
+#endif
+		out.send();	_in->send();
 /*$TET$*/
 	}
 
 	void in(signal&m) { m.bind(this, &on_in_adapter); }
 	signal out;
-	templet::basesim_task t;
+	templet::omptask_task t;
 
 /*$TET$stage$$footer*/
 	signal* _in;
@@ -230,7 +244,11 @@ stopper a_stopper;
 int main()
 {
 	templet::engine eng;
+#ifdef SIMULATION
     templet::basesim_engine teng;
+#else
+	templet::omptask_engine teng;
+#endif
 
     a_stage[0].in(a_starter.out);
 	a_stage[0].stage_ID = 0;
@@ -250,23 +268,36 @@ int main()
     
 	initial_field(field);
 
+#ifndef SIMULATION
+	double Tp = omp_get_wtime();
+#endif 
+
     eng.start();
     teng.run();
 
-	if (eng.stopped()) {
-		
-		if (DO_CHECK) {
-			initial_field(test_field);
-			test_computation();
-			if(computations_are_equal()) std::cout << "Check passed" << std::endl;
-			else std::cout << "Check failed!!!" << std::endl;
-		}
+#ifndef SIMULATION
+	Tp = omp_get_wtime() - Tp;
+#endif 
 
+
+	if (eng.stopped()) {
+#ifdef SIMULATION
 		std::cout << "Maximum number of tasks executed in parallel : " << teng.Pmax() << std::endl;
 		std::cout << "Time of sequential execution of all tasks    : " << teng.T1() << std::endl;
 		std::cout << "Time of parallel   execution of all tasks    : " << teng.Tp() << std::endl;
 		std::cout << "Speed-up                                     : " << teng.T1() / teng.Tp() << std::endl;
+#else
+		initial_field(test_field);
+		double T1 = omp_get_wtime();
+		test_computation();
+		T1 = omp_get_wtime() - T1;
 		
+		if (!computations_are_equal()) { std::cout << "Check failed!!!" << std::endl; return EXIT_FAILURE; }
+		std::cout << "Maximum number of tasks executed in parallel : " << omp_get_num_procs() << std::endl;
+		std::cout << "Time of sequential execution of all tasks    : " << T1 << std::endl;
+		std::cout << "Time of parallel   execution of all tasks    : " << Tp << std::endl;
+		std::cout << "Speed-up                                     : " << T1 / Tp << std::endl;
+#endif		
 		return EXIT_SUCCESS;
 	}
 
