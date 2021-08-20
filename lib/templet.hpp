@@ -96,16 +96,16 @@ namespace templet{
 		void engine(templet::engine*e);
 		virtual void start() {};
 	public:
-		bool access(message&m) const { return !m._active  && m._actor == this; }
-		bool access(message*m) const { return m && !m->_active && m->_actor == this; }
+		bool access(message&m) const { return  m._actor == this && !m._active; }
+		bool access(message*m) const { return m && m->_actor == this && !m->_active; }
 		void stop();
 		void suspend() { assert(!_suspended); _suspended = true; }
 		void resume();
 	private:
 		bool _suspended;
 		bool _start_it;
-		std::queue<message*> _inbound;
-		std::queue<message*> _outbound;
+		std::queue<message*> _in_queue;
+		std::queue<message*> _out_queue;
 		templet::engine*     _engine;
 	};
 	
@@ -118,33 +118,30 @@ namespace templet{
 
 		void start(){
 			if (!_started) {
+				_lock.lock();
+		
 				for (std::list<actor*>::iterator it = _start_list.begin(); it != _start_list.end(); it++)
 					(*it)->start();
-
-				_lock_1.lock();
-
-				while (!_queue_2.empty()) {
-					message*m = _queue_2.front(); _queue_2.pop();
+		
+				while (!_queue.empty()) {
+					message*m = _queue.front(); _queue.pop();
 					recv(m);
-					if (_stopped) break;
+					if (_stopped) { _lock.unlock(); break; }
 				}
 
-				_lock_1.unlock();
-
 				_started = true;
+				_lock.unlock();
 			}
 		}
 
 		bool stopped() { return _stopped; }
 
 	private:
-		mutex_mock _lock_1;
-		mutex_mock _lock_2;
+		mutex_mock _lock;
 		bool _stopped;
 		bool _started;
 		std::list<actor*>    _start_list;
-		std::queue<actor*>   _queue_1;
-		std::queue<message*> _queue_2;
+		std::queue<message*> _queue;
 
 	private:
 		inline static void send(message*m) {
@@ -157,76 +154,50 @@ namespace templet{
 			m->_adaptor = (m->_from_cli_to_srv ? m->_srv_adaptor : m->_cli_adaptor);
 
 			if (sender_actor->_suspended) 
-				sender_actor->_outbound.push(m);
+				sender_actor->_out_queue.push(m);
 			else {
 				engine* eng = sender_actor->_engine;
-				eng->_queue_2.push(m);
+				eng->_queue.push(m);
 			}
-
 		}
 
 		inline static void recv(message*m) {
 			actor* receiver_actor = m->_actor;
 
 			if (receiver_actor->_suspended)
-				receiver_actor->_inbound.push(m);
+				receiver_actor->_in_queue.push(m);
 			else {
 				m->_active = false;
 				m->_from_cli_to_srv = !m->_from_cli_to_srv;
 				(*m->_adaptor)(receiver_actor,m);
 			}
 		}
-
+		
 		inline static void resume(actor*a) {
 			engine* eng = a->_engine;
 
-			eng->_lock_1.lock();
-			if (eng->_stopped) { eng->_lock_1.unlock(); return; }
-
-			eng->_queue_1.push(a);
-
-		try_get_the_control:
-			if (eng->_lock_2.try_lock()) {
-
-				while (!eng->_queue_1.empty()) {
-					actor* a = eng->_queue_1.front(); eng->_queue_1.pop();
-
-					while (!a->_outbound.empty()) {
-						message*m = a->_outbound.front(); a->_outbound.pop();
-						eng->_queue_2.push(m);
-					}
-
-					while (!a->_inbound.empty()) {
-						message*m = a->_inbound.front(); a->_inbound.pop();
-						eng->_queue_2.push(m);
-					}
-
-					a->_suspended = false;
-				}
-
-				eng->_lock_1.unlock();
-
-				while (!eng->_queue_2.empty()) {
-					message*m = eng->_queue_2.front(); eng->_queue_2.pop();
-					recv(m);
-					if (eng->_stopped) { eng->_lock_2.unlock(); return; }
-				}
-
-				eng->_lock_2.unlock();
-			}
-			else {
-				eng->_lock_1.unlock();
-				return;
+			eng->_lock.lock();
+			if (eng->_stopped) { eng->_lock.unlock(); return; }
+	
+			while (!a->_out_queue.empty()) {
+				message*m = a->_out_queue.front(); a->_out_queue.pop();
+				eng->_queue.push(m);
 			}
 
-			eng->_lock_1.lock();
-
-			if (eng->_queue_1.empty()) {
-				eng->_lock_1.unlock();
-				return;
+			while (!a->_in_queue.empty()) {
+				message*m = a->_in_queue.front(); a->_in_queue.pop();
+				eng->_queue.push(m);
 			}
-			else
-				goto try_get_the_control;
+
+			a->_suspended = false;
+
+			while (!eng->_queue.empty()) {
+				message*m = eng->_queue.front(); eng->_queue.pop();
+				recv(m);
+				if (eng->_stopped) { eng->_lock.unlock(); return; }
+			}
+
+			eng->_lock.unlock();
 		}
 	};
 

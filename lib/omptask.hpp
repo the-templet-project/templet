@@ -31,7 +31,7 @@ namespace templet {
 		friend	class omptask_task;
 	public:
 		omptask_engine(): _num_active(0) {omp_init_lock(&_queue_lock);}
-		~omptask_engine() { omp_destroy_lock(&_queue_lock); }
+		~omptask_engine() {omp_destroy_lock(&_queue_lock);}
 		void run();
 	private:
 		void submit(omptask_task*t);
@@ -46,7 +46,7 @@ namespace templet {
 	public:
 		omptask_task(actor*a, task_adaptor ta) : _actor(a), _tsk_adaptor(ta), _eng(0), _idle(true){}
 		void engine(omptask_engine&e) { assert(_eng == 0); _eng = &e; }
-		void submit() { assert(_idle); _idle = false; _actor->suspend();  _eng->submit(this); }
+		void submit() { assert(_idle); _idle = false; _actor->suspend(); _eng->submit(this); }
 	protected:
 		virtual void run() {}
 	private:
@@ -84,7 +84,8 @@ namespace templet {
 					
 					tsk->run();
 					(*tsk->_tsk_adaptor)(tsk->_actor, tsk);
-					tsk->_idle = true;
+					tsk->_idle = true;					
+
 					tsk->_actor->resume();
 				}
 			}

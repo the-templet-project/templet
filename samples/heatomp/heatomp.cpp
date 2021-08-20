@@ -15,7 +15,7 @@
 /*  limitations under the License.                                          */
 /*--------------------------------------------------------------------------*/
 
-const int NUMBER_OF_STAGES     = 20;
+const int NUMBER_OF_STAGES = 10;
 const int NUMBER_OF_ITERATIONS = 1000;
 
 const int COLUMNS = 1000; // sequential
@@ -236,52 +236,54 @@ struct stopper :public templet::actor {
 };
 
 /*$TET$$footer*/
-
-stage   a_stage[NUMBER_OF_STAGES];
-starter a_starter;
-stopper a_stopper;
-
 int main()
 {
+	stage   a_stage[NUMBER_OF_STAGES];
+	starter a_starter;
+	stopper a_stopper;
+			
 	templet::engine eng;
 #ifdef SIMULATION
-    templet::basesim_engine teng;
+	templet::basesim_engine teng;
 #else
 	templet::omptask_engine teng;
 #endif
 
-    a_stage[0].in(a_starter.out);
+	a_stage[0].in(a_starter.out);
 	a_stage[0].stage_ID = 0;
-    
+
 	for (int i = 1; i < NUMBER_OF_STAGES; i++) {
 		a_stage[i].in(a_stage[i - 1].out);
 		a_stage[i].stage_ID = i;
 	}
 
-    a_stopper.in(a_stage[NUMBER_OF_STAGES-1].out);
-    
+	a_stopper.in(a_stage[NUMBER_OF_STAGES - 1].out);
+
 	a_starter.engines(eng);
 	a_stopper.engines(eng);
 
 	for (int i = 0; i < NUMBER_OF_STAGES; i++)
 		a_stage[i].engines(eng, teng);
-    
+
 	initial_field(field);
 
 #ifndef SIMULATION
 	double Tp = omp_get_wtime();
 #endif 
 
-    eng.start();
-    teng.run();
+	eng.start();
+	teng.run();
 
 #ifndef SIMULATION
 	Tp = omp_get_wtime() - Tp;
 #endif 
 
-
 	if (eng.stopped()) {
 #ifdef SIMULATION
+		initial_field(test_field);
+		test_computation();
+
+		if (!computations_are_equal()) { std::cout << "Check failed!!!" << std::endl; return EXIT_FAILURE; }
 		std::cout << "Maximum number of tasks executed in parallel : " << teng.Pmax() << std::endl;
 		std::cout << "Time of sequential execution of all tasks    : " << teng.T1() << std::endl;
 		std::cout << "Time of parallel   execution of all tasks    : " << teng.Tp() << std::endl;
@@ -291,7 +293,7 @@ int main()
 		double T1 = omp_get_wtime();
 		test_computation();
 		T1 = omp_get_wtime() - T1;
-		
+
 		if (!computations_are_equal()) { std::cout << "Check failed!!!" << std::endl; return EXIT_FAILURE; }
 		std::cout << "Maximum number of tasks executed in parallel : " << omp_get_num_procs() << std::endl;
 		std::cout << "Time of sequential execution of all tasks    : " << T1 << std::endl;
@@ -300,8 +302,7 @@ int main()
 #endif		
 		return EXIT_SUCCESS;
 	}
-
-	std::cout << "something broke (((" << std::endl;
+	else std::cout << "something broke (((" << std::endl;
 	return EXIT_FAILURE;
 }
 /*$TET$*/
