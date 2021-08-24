@@ -28,12 +28,17 @@ The components are arranged as described below.
 * **~/lib/everest.hpp** – Everest task engine
 * **~/lib/basesim.hpp** – task engine for the paracomputer simulation;
 * **~/cgen/** – code generator sources
+* **~/cgen/acta** - integrated actor-task model processor
+* **~/cgen/cgen** - code generator for actor-task model
+* **~/cgen/skel** - skeleton processor
 * **~/samples/** – gallery of small examples
 * **~/samples/brickmov/** – model of transferring bricks from the original heap to the new one along the chain of workers
 * **~/samples/pythagor/** – demonstration of the lightweight actor specification language, core actor engine and base task engine APIs
 * **~/samples/pingpong/** – demonstration of the Everest task engine
 * **~/samples/diamond/** – demonstration of the paracomputer simulation engine
 * **~/samples/parsweep/** - parameter sweep application (calculation of the Lyapunov spectrum for the Lorentz equation with different values of rho, sigma, beta)
+* **~/samples/heatomp/** - solving the heat equation using multicore systems with OpenMP 2.0 or higher
+* **~/samples/primempi/** - distributed prime search algorithm
 
 ### Templet developers
 **********************

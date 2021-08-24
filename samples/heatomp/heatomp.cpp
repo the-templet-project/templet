@@ -28,6 +28,7 @@ double test_field[ROWS][COLUMNS];
 //#define SIMULATION
 //#define TEMPLET_CPP_SYNC
 #define TEMPLET_OMP_SYNC
+//#define SIMPLE_RESUME
 
 #include <templet.hpp>
 #include <omp.h>

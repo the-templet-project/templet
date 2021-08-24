@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------*/
-/*  Copyright 2020 Sergei Vostokin                                     */
+/*  Copyright 2020-2021 Sergei Vostokin                                     */
 /*                                                                          */
 /*  Licensed under the Apache License, Version 2.0 (the "License");         */
 /*  you may not use this file except in compliance with the License.        */
@@ -118,30 +118,32 @@ namespace templet{
 
 		void start(){
 			if (!_started) {
-				_lock.lock();
+				_mes_lock.lock();
 		
 				for (std::list<actor*>::iterator it = _start_list.begin(); it != _start_list.end(); it++)
 					(*it)->start();
 		
-				while (!_queue.empty()) {
-					message*m = _queue.front(); _queue.pop();
+				while (!_mes_queue.empty()) {
+					message*m = _mes_queue.front(); _mes_queue.pop();
 					recv(m);
-					if (_stopped) { _lock.unlock(); break; }
+					if (_stopped) { _mes_lock.unlock(); break; }
 				}
 
 				_started = true;
-				_lock.unlock();
+				_mes_lock.unlock();
 			}
 		}
 
 		bool stopped() { return _stopped; }
 
 	private:
-		mutex_mock _lock;
+		mutex_mock _mes_lock;
+		mutex_mock _act_lock;
 		bool _stopped;
 		bool _started;
 		std::list<actor*>    _start_list;
-		std::queue<message*> _queue;
+		std::queue<message*> _mes_queue;
+		std::queue<actor*>   _act_queue;
 
 	private:
 		inline static void send(message*m) {
@@ -157,7 +159,7 @@ namespace templet{
 				sender_actor->_out_queue.push(m);
 			else {
 				engine* eng = sender_actor->_engine;
-				eng->_queue.push(m);
+				eng->_mes_queue.push(m);
 			}
 		}
 
@@ -172,33 +174,87 @@ namespace templet{
 				(*m->_adaptor)(receiver_actor,m);
 			}
 		}
-		
+
+#ifndef SIMPLE_RESUME
+        inline static void resume(actor*a) {
+			engine* eng = a->_engine;
+
+			while(!eng->_act_lock.try_lock());
+			if (eng->_stopped) { eng->_act_lock.unlock(); return; }
+
+			eng->_act_queue.push(a);
+
+		try_get_the_control:
+			if (eng->_mes_lock.try_lock()) {
+
+				while (!eng->_act_queue.empty()) {
+					actor* a = eng->_act_queue.front(); eng->_act_queue.pop();
+
+					while (!a->_out_queue.empty()) {
+						message*m = a->_out_queue.front(); a->_out_queue.pop();
+						eng->_mes_queue.push(m);
+					}
+
+					while (!a->_in_queue.empty()) {
+						message*m = a->_in_queue.front(); a->_in_queue.pop();
+						eng->_mes_queue.push(m);
+					}
+
+					a->_suspended = false;
+				}
+
+				eng->_act_lock.unlock();
+
+				while (!eng->_mes_queue.empty()) {
+					message*m = eng->_mes_queue.front(); eng->_mes_queue.pop();
+					recv(m);
+					if (eng->_stopped) { eng->_mes_lock.unlock(); return; }
+				}
+
+				eng->_mes_lock.unlock();
+			}
+			else {
+				eng->_act_lock.unlock();
+				return;
+			}
+
+			while(!eng->_act_lock.try_lock());
+
+			if (eng->_act_queue.empty()) {
+				eng->_act_lock.unlock();
+				return;
+			}
+			else
+				goto try_get_the_control;
+		}
+#else // SIMPLE RESUME
 		inline static void resume(actor*a) {
 			engine* eng = a->_engine;
 
-			eng->_lock.lock();
-			if (eng->_stopped) { eng->_lock.unlock(); return; }
+			eng->_mes_lock.lock();
+			if (eng->_stopped) { eng->_mes_lock.unlock(); return; }
 	
 			while (!a->_out_queue.empty()) {
 				message*m = a->_out_queue.front(); a->_out_queue.pop();
-				eng->_queue.push(m);
+				eng->_mes_queue.push(m);
 			}
 
 			while (!a->_in_queue.empty()) {
 				message*m = a->_in_queue.front(); a->_in_queue.pop();
-				eng->_queue.push(m);
+				eng->_mes_queue.push(m);
 			}
 
 			a->_suspended = false;
 
-			while (!eng->_queue.empty()) {
-				message*m = eng->_queue.front(); eng->_queue.pop();
+			while (!eng->_mes_queue.empty()) {
+				message*m = eng->_mes_queue.front(); eng->_mes_queue.pop();
 				recv(m);
-				if (eng->_stopped) { eng->_lock.unlock(); return; }
+				if (eng->_stopped) { eng->_mes_lock.unlock(); return; }
 			}
 
-			eng->_lock.unlock();
+			eng->_mes_lock.unlock();
 		}
+#endif
 	};
 
 	void message::send() {	engine::send(this); }
