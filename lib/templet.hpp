@@ -21,9 +21,6 @@
 #include <cstdlib>
 #include <cassert>
 
-#if   defined(TEMPLET_DEBUG)
-#define SIMPLE_RESUME
-#endif
 
 #if   defined(TEMPLET_CPP_SYNC)
 #include <mutex>
@@ -122,20 +119,6 @@ namespace templet{
 
 		void start(){
 			if (!_started) {
-#if defined(TEMPLET_DEBUG)
-/*
-				for (std::list<actor*>::iterator it = _start_list.begin(); it != _start_list.end(); it++)
-					(*it)->start();
-				size_t rsize;
-				while ((rsize = e->_ready.size())){
-					int n = rand() % rsize;	std::vector<message*>::iterator it = e->_ready.begin() + n;
-					message* m = *it; e->_ready.erase(it); m->_sending = false;
-					actor* a = m->_actor;
-					a->_recv(a,m,m->_tag);
-					if (e->_stop) break;
-				}
-*/
-#else
 				_mes_lock.lock();
 		
 				for (std::list<actor*>::iterator it = _start_list.begin(); it != _start_list.end(); it++)
@@ -149,7 +132,6 @@ namespace templet{
 
 				_started = true;
 				_mes_lock.unlock();
-#endif
 			}
 		}
 
