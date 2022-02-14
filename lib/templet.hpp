@@ -21,7 +21,6 @@
 #include <cstdlib>
 #include <cassert>
 
-
 #if   defined(TEMPLET_CPP_SYNC)
 #include <mutex>
 #elif defined(TEMPLET_OMP_SYNC)
