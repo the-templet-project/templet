@@ -55,7 +55,7 @@ struct master :public templet::actor {
 	{
 /*$TET$master$master*/
 		x = 0.0;
-		_cw.actor(this);
+		_cw.bind(this);
 /*$TET$*/
 	}
 
