@@ -1,33 +1,59 @@
 Plans for future releases:
 -- Implementing a DSL for the actor-task model in C ++;
 -- Determining the boundaries of an implicit markup; 
--- New architecture:
-				~/lang/tools/tlang -- new Templet language processor;
-				~/lang/tools/actam -- new processor for the actor-task model (based on tlang);
-				~/lang/actam.hpp   -- DSL for the actor-task model in C++.
+-- New tools:
+				~/lang/tools/reskel -- restoring the templet markup using a template file;
+				~/lang/tools/macta  -- new meta-processor for the actor-task model;
+				~/lang/mactam.hpp   -- DSL for the actor-task model in C++.
+				
+//  in the mactam.hpp to define
+class meta_actor{
+public:
+	 meta_actor& start();
+	 meta_actor& in(const char* port_name,const char* message_type);
+	 meta_actor& out(const char* port_name,const char* message_type);
+	 meta_actor& task(const char* task_name,const char* task_engine_type,const char* task_type);
+	 meta_actor& task(const char* task_name,const char* task_engine_type);
+};
+class meta_engine{
+public:
+	meta_actor& actor(const char* name);
+private:
+	void print_temlate(ostream&);
+	void print_template_with_acta_dsl(ostream&);
+};
+//  usage in the code
+void meta(meta_engine&e){
+	e.actor("A").start().in("in","M").out("out","M").task("tsk","everest","mytask");
+}
 
------------tlang.exe---------
+-----------reskel.exe---------
     ___
    |_>_|   The Temlet Project SDK (http://templet.ssau.ru)
-   |_>_|   Templet language processor  v.0.9.0
-  TEMPLET  Copyright 2016-202?, Sergei Vostokin
+   |_>_|   Utility for restoring a markup by the given template v.0.9.0
+  TEMPLET  Copyright 2016-202?, Sergei Vostokin, ?
   
- Usage:  tlang {options}
+ Usage:  reskel {options}
  
  Options:
  -h -H -- print this screen (it also printed if no options or uncorrect options are set)
- -v -V -- verbose preprocessor's operations;
-          notice: error information is always outputs to the stderr stream
+ -v -V -- verbose operations for debugging;
  -i -I <file> -- input file
  -o -O <file> -- output file
- -s -S <file> -- source template file
- -d -D <file> -- destination template file
- -t -T <file> -- transformation template file 
- -m -M <sign_1> <sign_2> <sign_3> -- defines the custom signature of the templet markup;
-                                     default setting is -M /*$tt$ */ /*$tt$*/ 
-   ...
- Other options control unreferenced blocks, backup files, block key extraction, getting transformation template from stdin, putting transformation results to stdout, etc.
+ -s -S <file> -- template file
+
+-----------macta.exe---------
+    ___
+   |_>_|   The Temlet Project SDK (http://templet.ssau.ru)
+   |_>_|   Meta-processor for the actor-task model in C ++ v.0.9.0
+  TEMPLET  Copyright 2016-202?, Sergei Vostokin, ?
+  
+ Usage:  macta {options} file
  
- Examples:
-   ...
+ Options:
+ -h -H -- print this screen (it also printed if no options or uncorrect options are set)
+ -v -V -- verbose operations for debugging;
+ -n -N -- create new c++ file with integrated or separate template
+ -m -M -- use integrated template
+ -o -O -- convert to the old acta format 
    
