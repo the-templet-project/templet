@@ -55,5 +55,6 @@ void meta(meta_engine&e){
  -v -V -- verbose operations for debugging;
  -n -N -- create new c++ file with integrated or separate template
  -m -M -- use integrated template
+ -c -C -- only check for consistency, do not transform the code
  -o -O -- convert to the old acta format 
    
