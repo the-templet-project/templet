@@ -37,7 +37,6 @@ void meta(meta_engine&e){
  
  Options:
  -h -H -- print this screen (it also printed if no options or uncorrect options are set)
- -v -V -- verbose operations for debugging;
  -i -I <file> -- input file
  -o -O <file> -- output file
  -s -S <file> -- template file
@@ -52,7 +51,6 @@ void meta(meta_engine&e){
  
  Options:
  -h -H -- print this screen (it also printed if no options or uncorrect options are set)
- -v -V -- verbose operations for debugging;
  -n -N -- create new c++ file with integrated or separate template
  -m -M -- use integrated template
  -c -C -- only check for consistency, do not transform the code
