@@ -14,6 +14,9 @@ public:
 	 meta_actor& out(const char* port_name,const char* message_type);
 	 meta_actor& task(const char* task_name,const char* task_engine_type,const char* task_type);
 	 meta_actor& task(const char* task_name,const char* task_engine_type);
+	 //for one task request object & many inbound tasks objects
+	 meta_actor& todo(const char* task_name,const char* task_engine_type,const char* task_type);
+	 meta_actor& todo(const char* task_name,const char* task_engine_type);//for one task request object & many inbound task objects
 };
 class meta_engine{
 public:
