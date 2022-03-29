@@ -15,8 +15,8 @@ public:
 	 meta_actor& task(const char* task_name,const char* task_engine_type,const char* task_type);
 	 meta_actor& task(const char* task_name,const char* task_engine_type);
 	 //for one task request object & many inbound tasks objects
-	 meta_actor& todo(const char* task_name,const char* task_engine_type,const char* task_type);
-	 meta_actor& todo(const char* task_name,const char* task_engine_type);//for one task request object & many inbound task objects
+	 meta_actor& request(const char* request_name,const char* request_engine_type,const char* task_type);
+	 meta_actor& request(const char* request_name,const char* request_engine_type);//for one task request object & many inbound task objects
 };
 class meta_engine{
 public:
@@ -85,12 +85,12 @@ void meta(meta_engine&e){
  -m | -M file -- modify the input file instead of outputing to file or stdout 
                  (used with modes: put, rst, clr, flt)
  -r | -R      -- do not worn when rewriting file (used with modes: put, rst, clr, flt)
- -s | -S sign-beg sign-mid sign-end 
-              -- use specific signature for the blocks, default: -S /*$TET$ */ /*$TET$*/
-                 (used with modes: chk, put, rst, clr, flt)
- -N | -N sign-beg sign-mid sign-end 
-              -- use new signature for the blocks, default: -S /*$TET$ */ /*$TET$*/
-                 (used with modes: put, rst)
+ -s | -S Dsign-begDsign-midDsign-end 
+              -- use specific signature for the blocks, default: -S -/*$TET$-*/-/*$TET$*/
+                 (used with modes: chk, put, rst, clr, flt) D is a delimeter character, e.g. '-'
+ -N | -N Dsign-begDsign-midDsign-end 
+              -- use new signature for the blocks (used with modes: put, rst)
+                 D is a delimeter character, e.g. '-'
  -f | -F reg-expr 
               -- set the regular expression for the 'flt' mode
  -c | -C (markup|inner|outer) 
@@ -114,7 +114,7 @@ void meta(meta_engine&e){
  templet chk myfile.cpp       -- checking 'myfile.cpp' for correct block markup
  cat myfile.cpp | templet chk -t template.txt 
                               -- checking the 'myfile.cpp' from stdin for compliance with the 'template.txt'
- templet put file.cpp -t template.txt -o file1.cpp -s /*$tet$ */ /*$tet$*/
+ templet put file.cpp -t template.txt -o file1.cpp -s -/*$tet$-*/-/*$tet$*/
                               -- place blocks from 'file.cpp' to the content of template 'template.txt' and
                                  write the result to 'file1.cpp', use lowcase markup format
  templet rst file.cpp -t template.txt
@@ -128,5 +128,5 @@ void meta(meta_engine&e){
                                  rewrite 'file1.cpp' if existed
  templet flt -f actor* file.cpp
                               -- show all blocks from 'file.cpp' with name(key) started with 'actor'
- echo "nothing" | templet put -r -n /*$tet$ */ /*$tet$*/ -t file.cpp -o file.cpp
+ echo "nothing" | templet put -r -n -/*$tet$-*/-/*$tet$*/ -t file.cpp -o file.cpp
                               -- replacing the standard markup in 'file.cpp' with its lowcase variant 
