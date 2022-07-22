@@ -15,8 +15,8 @@ public:
 	 meta_actor& task(const char* task_name,const char* task_engine_type,const char* task_type);
 	 meta_actor& task(const char* task_name,const char* task_engine_type);
 	 //for one task request object & many inbound tasks objects
-	 meta_actor& todo(const char* task_name,const char* task_engine_type,const char* task_type);
-	 meta_actor& todo(const char* task_name,const char* task_engine_type);//for one task request object & many inbound task objects
+	 //meta_actor& todo(const char* task_name,const char* task_engine_type,const char* task_type);
+	 //meta_actor& todo(const char* task_name,const char* task_engine_type);
 };
 class meta_engine{
 public:
@@ -30,7 +30,7 @@ void meta(meta_engine&e){
 	e.actor("A").start().in("in","M").out("out","M").task("tsk","everest","mytask");
 }
 
------------reskel.exe---------
+-----------rskel.exe---------
     ___
    |_>_|   The Temlet Project SDK (http://templet.ssau.ru)
    |_>_|   Utility for restoring a markup by the given template v.0.9.0
@@ -54,7 +54,7 @@ void meta(meta_engine&e){
  
  Options:
  -h -H -- print this screen (it also printed if no options or uncorrect options are set)
- -n -N -- create new c++ file with integrated or separate template
+ -n -N -- create new C++ file with integrated or separate template
  -m -M -- use integrated template
  -c -C -- only check for consistency, do not transform the code
  -o -O -- convert to the old acta format 
@@ -62,71 +62,67 @@ void meta(meta_engine&e){
 -----------templet.exe---------- 
     ___
    |_>_|   The Temlet Project SDK (http://templet.ssau.ru)
-   |_>_|   The block markup processor for C/C++ v.0.9.0
+   |_>_|   Processor for applying templates to code v.0.9.0
   TEMPLET  Copyright 2016-202?, Sergei Vostokin, ?
   
- Usage:  templet {modes} {options} [input-file] 
+ Usage:  templet {options} <template-file> 
+ 
+ Input/output options:
+ ---------------------
+ -i | -I <file> -- input (substitution source), default is stdin
+ -o | -O <file> -- output (substitution result), default is stdout
+ -m | -M <file> -- substitution result ovewrites the substitution source
+ 
+ Mode options:
+ -------------
+ -d | -D -- detecting the block boundaries in input (by default the boundaries are marked-up)
+ -r | -R -- output the rest of the source (that was not used in substitution)
+ -w | -W -- warn possible lose of data 
 
- Modes (use one of the listed below):
- ------------------------------------
- hlp -- print the help screen
- chk -- check the input file (or stdin, if input file is skiped)
- put -- put blocks from the input file (or stdin) into the given template
- rst -- restore the block markup of the input file (or stdin)
- clr -- clear block markup, or block content, or code between blocks 
-        of the input file (or stdin)
- flt -- filter blocks by the given regexpr from the input file (or stdin)
+ Filtering options:
+ ------------------
+ -f | -F regexpr -- output only blocks that fit the regular expression
+ -c | -C mark | inner | outer | all -- clear markup, or inner,
+                                  or outer, or all parts of blocks in the output
+ Block signature options:
+ ------------------------
+ -s | -S <coded block signature> -- block signature for source and template files
+ -t | -T <coded block signature> -- block signature for target (output) file
  
- Options:
- --------
- -t | -T file -- template file (used with modes: chk, put, rst)
- -o | -O file -- output file, default output is stdout
-                 (used with modes: chk, put, rst, clr, flt)
- -m | -M file -- modify the input file instead of outputing to file or stdout 
-                 (used with modes: put, rst, clr, flt)
- -r | -R      -- do not worn when rewriting file (used with modes: put, rst, clr, flt)
- -s | -S sign-beg sign-mid sign-end 
-              -- use specific signature for the blocks, default: -S /*$TET$ */ /*$TET$*/
-                 (used with modes: chk, put, rst, clr, flt)
- -N | -N sign-beg sign-mid sign-end 
-              -- use new signature for the blocks, default: -S /*$TET$ */ /*$TET$*/
-                 (used with modes: put, rst)
- -f | -F reg-expr 
-              -- set the regular expression for the 'flt' mode
- -c | -C (markup|inner|outer) 
-              -- clear block markup (markup), or block content(inner),
-                 or code between blocks (outer), used with mode 'clr'
- -d | -D      -- debug mode, print current operations on blocks to the stderr; by default
-                 print only error infrmation (used with modes: chk, put, rst, clr, flt)
- 
+ Default signature for the beginning of the block is /*$TET$--blockID--*/ ,
+                      and the ending of the block is /*$TET$*/  .
+ The signature is coded as -/*$TET$-*/-/*$TET$*/, where random simbol '-' 
+                      stands for the delimeter 
+  
  Error codes:
  ------------
  0 -- success
  1 -- bad parameters, see the stderr for details
  2 -- cannot read from input file(s), see the stderr for details
- 3 -- panic, cannot overwrite existing file, see the stderr for details
-      (use -r | -R flag, if rewriting is legal; if -m | -M is used, rewriting is always legal)
+ 3 -- cannot write to output file, see the stderr for details
  4 -- processing error occures, see the stderr for details
  
  Examples:
  ---------
- templet hlp                  -- print this screen
- templet chk myfile.cpp       -- checking 'myfile.cpp' for correct block markup
- cat myfile.cpp | templet chk -t template.txt 
+ templet                      -- print this screen
+ templet myfile.cpp           -- checking 'myfile.cpp' for correct block markup, output myfile.cpp to the screen
+ cat myfile.cpp | templet -D -C all template.txt 
                               -- checking the 'myfile.cpp' from stdin for compliance with the 'template.txt'
- templet put file.cpp -t template.txt -o file1.cpp -s /*$tet$ */ /*$tet$*/
+ templet -i file.cpp template.txt -o file1.cpp -T -/*$tet$-*/-/*$tet$*/
                               -- place blocks from 'file.cpp' to the content of template 'template.txt' and
                                  write the result to 'file1.cpp', use lowcase markup format
- templet rst file.cpp -t template.txt
+ templet -i file.cpp -D template.txt
                               -- restore block markup for the 'file.cpp', write the result to stdout
                                  (here it means to write on the screen)
- templet rst -m file.cpp -t template.txt 
+ templet -D -m file.cpp template.txt 
                               -- restore block markup for the 'file.cpp', overwrite the existing 'file.txt'
                                  with the resulting marked-up content
- templet clr -r -c markup file.cpp -o file1.cpp
+ templet -W -c mark file.cpp -o file1.cpp
                               -- clear the markup in 'file.cpp', put resut to 'file1.cpp', 
-                                 rewrite 'file1.cpp' if existed
- templet flt -f actor* file.cpp
+                                 write to 'file1.cpp' if the file not existed
+ templet -f actor* -C outer file.cpp
                               -- show all blocks from 'file.cpp' with name(key) started with 'actor'
- echo "nothing" | templet put -r -n /*$tet$ */ /*$tet$*/ -t file.cpp -o file.cpp
-                              -- replacing the standard markup in 'file.cpp' with its lowcase variant 
+ echo "nothing" | templet -T -/*$tet$-*/-/*$tet$*/ file.cpp -o file.cpp
+                              -- replacing the standard markup in 'file.cpp' with its lowcase variant
+ templet -r -i file.cpp template.txt -o rest.txt
+                              -- show blocks from file.cpp that was not used in substitution
