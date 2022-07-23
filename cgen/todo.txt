@@ -50,16 +50,10 @@ void meta(meta_engine&e){
    |_>_|   Meta-processor for the actor-task model in C ++ v.0.9.0
   TEMPLET  Copyright 2016-202?, Sergei Vostokin, ?
   
- Usage:  macta {options} file
+ Usage:  macta file [template-file]
+  
  
- Options:
- -h -H -- print this screen (it also printed if no options or uncorrect options are set)
- -n -N -- create new C++ file with integrated or separate template
- -m -M -- use integrated template
- -c -C -- only check for consistency, do not transform the code
- -o -O -- convert to the old acta format 
-
------------templet.exe---------- 
+-----------templet.exe-------- 
     ___
    |_>_|   The Temlet Project SDK (http://templet.ssau.ru)
    |_>_|   Processor for applying templates to code v.0.9.0
@@ -71,14 +65,15 @@ void meta(meta_engine&e){
  ---------------------
  -i | -I <file> -- input (substitution source), default is stdin
  -o | -O <file> -- output (substitution result), default is stdout
- -m | -M <file> -- substitution result ovewrites the substitution source
+ -m | -M <file> -- result of the substitution to template ovewrites the input file
+ -x | -X        -- empty input is used 
  
  Mode options:
  -------------
  -d | -D -- detecting the block boundaries in input (by default the boundaries are marked-up)
- -r | -R -- output the rest of the source (that was not used in substitution)
- -w | -W -- warn possible lose of data 
-
+ -r | -R -- output the rest of the source (that was not used in substitution),
+            if no rest of input detected error code = 4 is raised 
+ 
  Filtering options:
  ------------------
  -f | -F regexpr -- output only blocks that fit the regular expression
@@ -104,25 +99,32 @@ void meta(meta_engine&e){
  
  Examples:
  ---------
- templet                      -- print this screen
- templet myfile.cpp           -- checking 'myfile.cpp' for correct block markup, output myfile.cpp to the screen
- cat myfile.cpp | templet -D -C all template.txt 
-                              -- checking the 'myfile.cpp' from stdin for compliance with the 'template.txt'
+ templet                  -- print this screen
+ templet code.cpp -X-Call -- checking consistancy of code with integrated mark-up
+ templet -i code.cpp template.txt -c all
+                          -- checking consistancy of code with separet mark-up
+ templet -d -i code.cpp template.txt -o marked-up-code.cpp
+                          -- detecting mark-up in code.cpp using template.txt
+ templet -d -r -i code.cpp template.txt -o rest-of-code.cpp
+                          -- detecting if code.cpp has a tait which does not fit template.txt
+ cat marked-up-code.cpp | template template.txt -o new-marked-up-code.cpp
+                          -- using template.txt to transform marked-up-code.cpp to new-marked-up-code.cpp
+ template -r -i code.cpp template.txt -o rest-of-code.cpp
+                          -- detecting if marked-up code.cpp has a tait which does not fit template.txt
+                             and putting it to rest-of-code.cpp
  templet -i file.cpp template.txt -o file1.cpp -T -/*$tet$-*/-/*$tet$*/
-                              -- place blocks from 'file.cpp' to the content of template 'template.txt' and
-                                 write the result to 'file1.cpp', use lowcase markup format
+                          -- place blocks from 'file.cpp' to the content of template 'template.txt' and
+                             write the result to 'file1.cpp', use lowcase markup format
  templet -i file.cpp -D template.txt
-                              -- restore block markup for the 'file.cpp', write the result to stdout
-                                 (here it means to write on the screen)
+                          -- restore block markup for the 'file.cpp' using template.txt,
+                             show the result on the screen
  templet -D -m file.cpp template.txt 
-                              -- restore block markup for the 'file.cpp', overwrite the existing 'file.txt'
-                                 with the resulting marked-up content
- templet -W -c mark file.cpp -o file1.cpp
-                              -- clear the markup in 'file.cpp', put resut to 'file1.cpp', 
-                                 write to 'file1.cpp' if the file not existed
- templet -f actor* -C outer file.cpp
-                              -- show all blocks from 'file.cpp' with name(key) started with 'actor'
- echo "nothing" | templet -T -/*$tet$-*/-/*$tet$*/ file.cpp -o file.cpp
-                              -- replacing the standard markup in 'file.cpp' with its lowcase variant
- templet -r -i file.cpp template.txt -o rest.txt
-                              -- show blocks from file.cpp that was not used in substitution
+                          -- restore block markup for the 'file.cpp' using template.txt,
+                             overwrite the existing 'file.txt' with the resulting marked-up content
+ templet -x -c mark file.cpp -o file1.cpp
+                          -- clear the markup in 'file.cpp', put resut to 'file1.cpp' 
+ echo | templet -f actor* -C outer file.cpp
+                          -- show all blocks from 'file.cpp' with name(key) started with 'actor'
+ templet -X -T -/*$tet$-*/-/*$tet$*/ file.cpp -O file.cpp
+                          -- replacing the standard markup in 'file.cpp' with its lowcase variant
+ 
