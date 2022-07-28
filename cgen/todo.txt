@@ -30,19 +30,20 @@ void meta(meta_engine&e){
 	e.actor("A").start().in("in","M").out("out","M").task("tsk","everest","mytask");
 }
 
------------rskel.exe---------
+-----------reskel.exe---------
     ___
    |_>_|   The Temlet Project SDK (http://templet.ssau.ru)
    |_>_|   Utility for restoring a markup by the given template v.0.9.0
   TEMPLET  Copyright 2016-202?, Sergei Vostokin, ?
   
- Usage:  rskel {options}
+ Usage:  reskel {options}
  
  Options:
  -h -H -- print this screen (it also printed if no options or uncorrect options are set)
  -i -I <file> -- input file
  -o -O <file> -- output file
  -s -S <file> -- template file
+ -r -R <file> -- rest of input after restoring
 
 -----------macta.exe---------
     ___
@@ -56,75 +57,78 @@ void meta(meta_engine&e){
 -----------templet.exe-------- 
     ___
    |_>_|   The Temlet Project SDK (http://templet.ssau.ru)
-   |_>_|   Processor for applying templates to code v.0.9.0
+   |_>_|   Templet meta-language processor for C/C++ v.0.9.0
   TEMPLET  Copyright 2016-202?, Sergei Vostokin, ?
   
- Usage:  templet {options} <template-file> 
+ Usage:  templet {options} <transform-template-file> 
  
- Input/output options:
- ---------------------
+ Input/output:
+ -------------
  -i | -I <file> -- input (substitution source), default is stdin
  -o | -O <file> -- output (substitution result), default is stdout
- -m | -M <file> -- result of the substitution to template ovewrites the input file
- -x | -X        -- empty input is used 
+ -m | -M <file> -- the result of the substitution overwrites the input file
+ -n | -N        -- null input is used
+ -x | -X        -- null ouput is used
  
  Mode options:
  -------------
- -d | -D -- detecting the block boundaries in input (by default the boundaries are marked-up)
- -r | -R -- output the rest of the source (that was not used in substitution),
-            if no rest of input detected error code = 4 is raised 
- 
- Filtering options:
- ------------------
- -f | -F regexpr -- output only blocks that fit the regular expression
- -c | -C mark | inner | outer | all -- clear markup, or inner,
-                                  or outer, or all parts of blocks in the output
- Block signature options:
- ------------------------
- -s | -S <coded block signature> -- block signature for source and template files
- -t | -T <coded block signature> -- block signature for target (output) file
- 
- Default signature for the beginning of the block is /*$TET$--blockID--*/ ,
-                      and the ending of the block is /*$TET$*/  .
- The signature is coded as -/*$TET$-*/-/*$TET$*/, where random simbol '-' 
-                      stands for the delimeter 
+ -d | -D -- detection of block boundaries at the input (boundaries are marked-up by default)
+ -r | -R -- print the remainder of the input (which was not used in the substitution),
+            if the remainder is not found, an error occurs
+ -f | -F -- if not all parts of the transformation template were used in the substitution,
+            an error occurs
+ -c | -C -- clear (do not use) mark-up for output
   
- Error codes:
- ------------
- 0 -- success
- 1 -- bad parameters, see the stderr for details
- 2 -- cannot read from input file(s), see the stderr for details
- 3 -- cannot write to output file, see the stderr for details
- 4 -- processing error occures, see the stderr for details
+ Mark-up format:
+ ---------------
+ /*$TT$  -- block start signature  <BSS>
+ <ID>    -- ID of the marked block <IDB>
+ */      -- block start ending     <BSE>
+ /*$TT$*/-- block end signature    <BES>
  
- Examples:
- ---------
- templet                  -- print this screen
- templet code.cpp -X-Call -- checking consistancy of code with integrated mark-up
- templet -i code.cpp template.txt -c all
-                          -- checking consistancy of code with separet mark-up
- templet -d -i code.cpp template.txt -o marked-up-code.cpp
-                          -- detecting mark-up in code.cpp using template.txt
- templet -d -r -i code.cpp template.txt -o rest-of-code.cpp
-                          -- detecting if code.cpp has a tait which does not fit template.txt
- cat marked-up-code.cpp | template template.txt -o new-marked-up-code.cpp
-                          -- using template.txt to transform marked-up-code.cpp to new-marked-up-code.cpp
- template -r -i code.cpp template.txt -o rest-of-code.cpp
-                          -- detecting if marked-up code.cpp has a tait which does not fit template.txt
-                             and putting it to rest-of-code.cpp
- templet -i file.cpp template.txt -o file1.cpp -T -/*$tet$-*/-/*$tet$*/
-                          -- place blocks from 'file.cpp' to the content of template 'template.txt' and
-                             write the result to 'file1.cpp', use lowcase markup format
- templet -i file.cpp -D template.txt
-                          -- restore block markup for the 'file.cpp' using template.txt,
-                             show the result on the screen
- templet -D -m file.cpp template.txt 
-                          -- restore block markup for the 'file.cpp' using template.txt,
-                             overwrite the existing 'file.txt' with the resulting marked-up content
- templet -x -c mark file.cpp -o file1.cpp
-                          -- clear the markup in 'file.cpp', put resut to 'file1.cpp' 
- echo | templet -f actor* -C outer file.cpp
-                          -- show all blocks from 'file.cpp' with name(key) started with 'actor'
- templet -X -T -/*$tet$-*/-/*$tet$*/ file.cpp -O file.cpp
-                          -- replacing the standard markup in 'file.cpp' with its lowcase variant
+ Marked-up file format in EBNF:
+ ------------------------------
+ <marked block> ::= <BSS> <IDB> <BSE> <new line> { <line> <new line> } <BES> <new line>
+ <line> ::= character sequence not starting with /*$TT$
+ <not marked block> ::= { <line> <new line> }
+ <marked file> ::= {<not marked block> <marked block>} <not marked block>
+  
+ Options usage:
+ --------------
+ 1) transformation with marked-up input
+      templet -i code.cpp code.tt.cpp -o new.cpp
+      cat code.cpp | templet code.tt.cpp -o new.cpp
+      templet -m modified.cpp code.tt.cpp 
+
+ 2) rest of input in transformation with marked-up input
+      templet -r -i code.cpp code.tt.cpp -o rest.cpp
+      cat code.cpp | templet -r code.tt.cpp -o rest.cpp
+
+ 3) detecting specific block(s) in marked-up input
+      templet -f -x -i code.cpp block.cpp
+
+ 4) transformation with not marked-up input
+      templet -d -i code.cpp code.tt.cpp -o marked.cpp
+      cat code.cpp | templet -d code.tt.cpp -o marked.cpp
+
+ 5) rest of input in transformation with not marked-up input
+      templet -d -r -i code.cpp code.tt.cpp -o rest.cpp
+      cat code.cpp | templet -d -r code.tt.cpp -o rest.cpp
+
+ 6) converting marked-up to not marked-up format
+      templet -n -c marked.cpp -o unmarked.cpp
+ 
+ Use cases for the meta-language processor:
+ ------------------------------------------
+ 1) <tt-new-single>     -- create some *.cpp file with initial mark-up  
+ 2) <tt-new-pair>       -- create some pair of *.cpp file and corresponding template *.tt.cpp
+ 3) <tt-check-single>   -- only check *.cpp for consistency, do not transform to the consistent state
+ 4) <tt-check-pair>     -- check pair of *.cpp and *.tt.cpp for consistency, do not transform to the consistent state
+ 5) <tt-modify-single>  -- transform *.cpp to the consistent state
+ 6) <tt-modify-pair>    -- transform *.cpp and *.tt.cpp to the consistent state
+ 7) <tt-pair-to-single> -- unite *.cpp and *.tt.cpp pair into the single marked-up *.cpp
+ 8) <tt-single-to-pair> -- split the single marked-up *.cpp into *.cpp and *.tt.cpp pair
+ 
+ 
+ 
  
