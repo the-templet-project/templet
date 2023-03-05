@@ -43,7 +43,7 @@ public:
 /**/    double the_best_L1=0.0, the_best_L2=0.0, the_best_L3=0.0;
 /*************/
 
-	char*  app_ID;
+	string app_ID;
 	string maple_code;
 
 /*$TET$*/
@@ -65,7 +65,7 @@ struct worker :public templet::actor {
 		t(this, &on_t_adapter)
 	{
 /*$TET$worker$worker*/
-		t.app_id(app_ID);
+		t.app_id(app_ID.c_str());
 /*$TET$*/
 	}
 
