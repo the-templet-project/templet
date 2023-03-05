@@ -41,6 +41,21 @@ The components are arranged as described below.
 * **~/samples/primempi/** - distributed prime search algorithm
 * **~/samples/pythagor/** – demonstration of the lightweight actor specification language, core actor engine and base task engine APIs
 
+* I also added a Dockerfile so that based on the image sehrig / cling: 0.7-dev
+You can then run the docker compose file and run locally the jupiter lab environment with all the C++ libraries and it will work, if you need to specify different paths in the docker compose file, you are free to do this.
+
+In order to build your own docker image with the necessary binary files, you must perform the following steps:
+
+docker build -t jupyter-notebook1 .
+
+after that, the download of the image and the addition and compilation of the necessary binaries will begin
+
+these actions are made so that laptops with c ++ syntax can be executed
+
+then feel free to run the command:
+docker-compose-up
+in turn, in the terminal you will see that the environment will unfold
+
 ### Templet developers
 **********************
 This project is a part of learning and research activities of [Samara University](http://www.ssau.ru/english), Institute of IT, Mathematics and Electronics. For more details feel free to contact the author: Dr. Sergei Vostokin (sergey.vostokin@gmail.com).

@@ -1,0 +1,14 @@
+version: '3'
+services:
+  jupyter:
+    image: jupyter-notebook1:latest
+    ports:
+      - "8888:8888"
+    volumes:
+#      - ./bin:/root/bin
+      - ./lib:/root/lib
+      - ./cgen:/root/cgen
+      - ./samples:/root/samples
+    environment:
+      - JUPYTER_TOKEN=
+    command: ["jupyter-lab",  "--allow-root"]

@@ -1,0 +1,72 @@
+{
+  "data": {
+    "layout-restorer:data": {
+      "main": {
+        "dock": {
+          "type": "split-area",
+          "orientation": "horizontal",
+          "sizes": [
+            0.5,
+            0.5
+          ],
+          "children": [
+            {
+              "type": "split-area",
+              "orientation": "vertical",
+              "sizes": [
+                0.7,
+                0.3
+              ],
+              "children": [
+                {
+                  "type": "tab-area",
+                  "currentIndex": 0,
+                  "widgets": [
+                    "markdownviewer-widget:README.md"
+                  ]
+                },
+                {
+                  "type": "tab-area",
+                  "currentIndex": 0,
+                  "widgets": [
+                    "terminal:1"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "mode": "multiple-document",
+        "current": "terminal:1"
+      },
+      "left": {
+        "collapsed": true,
+        "widgets": [
+          "filebrowser",
+          "running-sessions",
+          "command-palette",
+          "tab-manager",
+          "extensionmanager.main-view"
+        ]
+      },
+      "right": {
+        "collapsed": true,
+        "widgets": []
+      }
+    },
+    "terminal:1": {
+      "data": {
+        "name": "1"
+      }
+    },
+    "markdownviewer-widget:README.md": {
+      "data": {
+        "path": "README.md",
+        "factory": "Markdown Preview"
+      }
+    }
+  },
+  "metadata": {
+    "id": "/lab"
+  }
+}
