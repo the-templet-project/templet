@@ -1,6 +1,6 @@
 #!/bin/bash
 
-mamba install -c conda-forge xeus-cling
+yes | mamba install -c conda-forge xeus-cling
 #conda install -c conda-forge xeus-cling
 #jupyter lab workspaces import binder/workspace.json
 

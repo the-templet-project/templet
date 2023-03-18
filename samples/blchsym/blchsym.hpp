@@ -28,8 +28,8 @@ using namespace templet;
 using namespace std;
 
 const int DELAY = 1.0;
-const int NUM_WORKERS = 10;
-const int NUM_TASKS = 20;
+const int NUM_WORKERS = 5;
+const int NUM_TASKS = 50;
 
 int EXEC_ORDER[NUM_WORKERS][NUM_TASKS];
 
@@ -101,6 +101,7 @@ struct bchain :public templet::actor {
             num_solved++;
             
             // chain update
+            cout << "bchain -> ";
             cout << "[" << solved_tasks[0];
             for(int i = 1; i<num_solved; i++) cout << ", " << solved_tasks[i];
             cout << "]" << endl; 
@@ -162,7 +163,21 @@ struct bworker :public templet::actor {
 
 	inline void on_out(request&m) {
 /*$TET$bworker$out*/
-        t.submit();    
+        bool solved;
+        do{         
+            cur_task_temp = EXEC_ORDER[worker_ID][cur_task];
+            solved = false;
+            
+            for(int i=0; i<out.num_solved; i++){
+                if(out.solved_tasks[i] == cur_task_temp){
+                    solved = true; break;
+                }
+            }
+                
+            cur_task++;    
+        }while(solved && cur_task<NUM_TASKS);
+        
+        if (solved) ready.send(); else t.submit();    
 /*$TET$*/
 	}
 
@@ -172,34 +187,13 @@ struct bworker :public templet::actor {
 	}
 
 	inline void on_t(templet::basesim_task&t) {
-/*$TET$bworker$t*/
-        int cur_task_ID;
-        bool solved;
-        do{         
-            cur_task_ID = EXEC_ORDER[worker_ID][cur_task];
-            solved = false;
+/*$TET$bworker$t*/     
+        t.delay(DELAY); // do task
+        cout << "worker(" << worker_ID <<") -> " << cur_task_temp << endl;  
             
-            for(int i=0; i<out.num_solved; i++){
-                if(out.solved_tasks[i] == cur_task_ID){
-                    solved = true; break;
-                }
-            }
-                
-            cur_task++;    
-        }while(solved && cur_task<NUM_TASKS);
-        
-        if(solved){
-            t.delay(0.0);
-            ready.send();
-        }
-        else{
-            t.delay(DELAY); // do task
-            cout << "worker(" << worker_ID <<") -> " << cur_task_ID << endl;  
-            
-            out.solved_task = cur_task_ID;
-            out.send();
-        }
-/*$TET$*/
+        out.solved_task = cur_task_temp;
+        out.send();
+ /*$TET$*/
 	}
 
 	request out;
@@ -207,6 +201,7 @@ struct bworker :public templet::actor {
 	templet::basesim_task t;
 
 /*$TET$bworker$$footer*/
+    int cur_task_temp;
     int cur_task;
     int worker_ID;
 /*$TET$*/
