@@ -27,9 +27,9 @@
 using namespace templet;
 using namespace std;
 
-const int DELAY = 1.0;
-const int NUM_WORKERS = 5;
-const int NUM_TASKS = 50;
+//const int DELAY = 1.0;
+//const int NUM_WORKERS = 50;
+//const int NUM_TASKS = 50;
 
 int EXEC_ORDER[NUM_WORKERS][NUM_TASKS];
 
@@ -95,7 +95,7 @@ struct bchain :public templet::actor {
 /*$TET$bchain$in*/
         if(m.solved_task != -1){
             for(int i = 0; i<num_solved; i++)
-                if(solved_tasks[i]==m.solved_task){m.send();goto go_on;}
+                if(solved_tasks[i]==m.solved_task) goto go_on;
             
             solved_tasks[num_solved] = m.solved_task;
             num_solved++;
