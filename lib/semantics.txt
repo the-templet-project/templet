@@ -23,7 +23,7 @@ message's variables -- mobile[m] in {true,false} for any program state
                        actor[m]  in set(Actors) for any program state
 .............................................................................
 
-procedure TPM
+procedure ActorModel
 |  { init() | send(_,_) | bind(_,_) }
 |  for( m : mobile[m]=true ) parallel 
 |  |    local a := actor[m]
@@ -33,7 +33,7 @@ procedure TPM
 |  |    { next(m,a) | send(_,_)  | access(_,a) }
 |  |    active[a] := false
 |  end for
-end AM
+end ActorModel
 
 procedure send(m,a) atomic
 |  actor[m]  := a
