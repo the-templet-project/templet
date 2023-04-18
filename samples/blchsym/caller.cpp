@@ -11,8 +11,10 @@ using namespace std;
 const unsigned RND_SEED = 0;
 const int NUM_WORKERS = 20;
 const int NUM_TASKS = 20;
+const int TASK_DELAY_IN_SEC = 5;
+
 const std::chrono::seconds RESUB_DELAY_SEC(1);
-const std::chrono::seconds TASK_DELAY_SEC(1);
+const std::chrono::seconds TASK_DELAY_SEC(TASK_DELAY_IN_SEC);
 
 int EXEC_ORDER[NUM_WORKERS][NUM_TASKS];
 int this_worker_in_EXEC_ORDER;
@@ -59,12 +61,11 @@ bool task_solved(int task)
 int main(int argc, char* argv[])
 {
 	if (argc != 3) {
-		cout << "Usage: caller <process ID=0..NUM_WORKERS-1> <session token>";
+		cout << "Usage: caller <process ID=0..NUM_WORKERS-1> <session token>" << endl;
 		return EXIT_FAILURE;
 	}
 
-	//templet::everest_engine teng(argv[2]);
-	templet::everest_engine teng("login","pass");
+	templet::everest_engine teng(argv[2]);
 	templet::everest_task task(teng,"643a76ae14000084cc249ad7");
 	templet::everest_error cntxt;
 
@@ -85,7 +86,7 @@ int main(int argc, char* argv[])
 	init();
 
 	bool execution_started = false;
-	chrono::steady_clock::time_point start_time, end_time;
+	auto start_time=chrono::high_resolution_clock::now();
 
 	for (int i = 0; i < NUM_TASKS; i++) {
 		int task_num = EXEC_ORDER[this_worker_in_EXEC_ORDER][i];
@@ -94,9 +95,10 @@ int main(int argc, char* argv[])
 
 		in["inputs"]["task"] = task_num;
 		std::this_thread::sleep_for(TASK_DELAY_SEC);
+        task.submit(in);
 
 resubmit:
-		task.submit(in);
+		teng.run();
 
 		if (teng.error(&cntxt)) {
 
@@ -123,11 +125,14 @@ resubmit:
 
 	}
 
-	end_time = chrono::high_resolution_clock::now();
-
+	auto end_time = chrono::high_resolution_clock::now();
 	std::chrono::duration<double> duration = end_time - start_time;
+    
 	cout << "Success !!!" << endl;
 	cout << "App executon time is " << duration.count() << " seconds" << endl;
+    cout << "Speedup is " << (DELAY * NUM_TASKS) / duration << endl;
+    cout << "Number of worker processes is " << NUM_WORKERS << endl;
+    cout << "Efficiency is " << DELAY * NUM_TASKS / duration / NUM_WORKERS << endl;
     
     return EXIT_SUCCESS;
 }
