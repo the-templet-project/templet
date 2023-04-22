@@ -27,15 +27,16 @@
 using namespace templet;
 using namespace std;
 
-//const int DELAY = 1.0;
+//const int TASK_DELAY_IN_SEC = 10;
 //const int NUM_WORKERS = 50;
 //const int NUM_TASKS = 50;
+//const unsigned RND_SEED = (unsigned)time(NULL);
 
 int EXEC_ORDER[NUM_WORKERS][NUM_TASKS];
 
 struct exec_order{
     static void define(){
-        srand(time(NULL));    
+        srand(RND_SEED);    
         for(int i=0; i<NUM_WORKERS; i++){
             for(int j=0; j<NUM_TASKS; j++){
 redogen:                
@@ -188,7 +189,7 @@ struct bworker :public templet::actor {
 
 	inline void on_t(templet::basesim_task&t) {
 /*$TET$bworker$t*/     
-        t.delay(DELAY); // do task
+        t.delay(TASK_DELAY_IN_SEC); // do task
         cout << "worker(" << worker_ID <<") -> " << cur_task_temp << endl;  
             
         out.solved_task = cur_task_temp;
