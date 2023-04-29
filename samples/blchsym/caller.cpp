@@ -9,7 +9,7 @@
 using namespace std;
 
 /////////////////////////////////////////////////////////
-const int NUM_TASKS = 20;        // 10  20  30  40  50 //
+const int NUM_TASKS = 10;        // 10  20  30  40  50 //
 const int TASK_DELAY_IN_SEC = 10;// 10  20  30  40  50 //
 /////////////////////////////////////////////////////////
 
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	templet::everest_engine teng("vostokinsv","WertyOp1");
+	templet::everest_engine teng("login","password");
 	templet::everest_task task(teng,"643a76ae14000084cc249ad7");
 	templet::everest_error cntxt;
 
