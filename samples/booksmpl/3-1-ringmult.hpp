@@ -1,6 +1,6 @@
 /*$TET$$header*/
 /*--------------------------------------------------------------------------*/
-/*  Copyright 2020 Sergei Vostokin                                          */
+/*  Copyright 2023 Sergei Vostokin                                          */
 /*                                                                          */
 /*  Licensed under the Apache License, Version 2.0 (the "License");         */
 /*  you may not use this file except in compliance with the License.        */
@@ -16,242 +16,114 @@
 /*--------------------------------------------------------------------------*/
 
 #pragma once
+
 #include <templet.hpp>
-#include <basesim.hpp>
+#include <iostream>
+
 using namespace templet;
+using namespace std;
+
+class column : public templet::message {
+public:
+	column(templet::actor*a=0, templet::message_adaptor ma=0) :templet::message(a, ma) {}
+	double col[N];
+    int col_j;
+};
+
+
 /*$TET$*/
 
-#pragma templet !A(b!message,c!message,t:basesim)
+#pragma templet !Link(in?column,out!column,stop!message)
 
-struct A :public templet::actor {
-	static void on_b_adapter(templet::actor*a, templet::message*m) {
-		((A*)a)->on_b(*(message*)m);}
-	static void on_c_adapter(templet::actor*a, templet::message*m) {
-		((A*)a)->on_c(*(message*)m);}
-	static void on_t_adapter(templet::actor*a, templet::task*t) {
-		((A*)a)->on_t(*(templet::basesim_task*)t);}
+struct Link :public templet::actor {
+	static void on_in_adapter(templet::actor*a, templet::message*m) {
+		((Link*)a)->on_in(*(column*)m);}
+	static void on_out_adapter(templet::actor*a, templet::message*m) {
+		((Link*)a)->on_out(*(column*)m);}
+	static void on_stop_adapter(templet::actor*a, templet::message*m) {
+		((Link*)a)->on_stop(*(message*)m);}
 
-	A(templet::engine&e,templet::basesim_engine&te_basesim) :A() {
-		A::engines(e,te_basesim);
+	Link(templet::engine&e) :Link() {
+		Link::engines(e);
 	}
 
-	A() :templet::actor(true),
-		b(this, &on_b_adapter),
-		c(this, &on_c_adapter),
-		t(this, &on_t_adapter)
+	Link() :templet::actor(true),
+		out(this, &on_out_adapter),
+		stop(this, &on_stop_adapter)
 	{
-/*$TET$A$A*/
+/*$TET$Link$Link*/
 /*$TET$*/
 	}
 
-	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
+	void engines(templet::engine&e) {
 		templet::actor::engine(e);
-		t.engine(te_basesim);
-/*$TET$A$engines*/
+/*$TET$Link$engines*/
 /*$TET$*/
 	}
 
 	void start() {
-/*$TET$A$start*/
-		t.submit();
+/*$TET$Link$start*/
 /*$TET$*/
 	}
 
-	inline void on_b(message&m) {
-/*$TET$A$b*/
+	inline void on_in(column&m) {
+/*$TET$Link$in*/
 /*$TET$*/
 	}
 
-	inline void on_c(message&m) {
-/*$TET$A$c*/
+	inline void on_out(column&m) {
+/*$TET$Link$out*/
 /*$TET$*/
 	}
 
-	inline void on_t(templet::basesim_task&t) {
-/*$TET$A$t*/
-		t.delay(delay);
-		b.send(); c.send();
+	inline void on_stop(message&m) {
+/*$TET$Link$stop*/
 /*$TET$*/
 	}
 
-	message b;
-	message c;
-	templet::basesim_task t;
+	void in(column&m) { m.bind(this, &on_in_adapter); }
+	column out;
+	message stop;
 
-/*$TET$A$$footer*/
-	double delay;
+/*$TET$Link$$footer*/
 /*$TET$*/
 };
 
-#pragma templet B(a?message,d!message,t:basesim)
+#pragma templet !Stopper(in?message)
 
-struct B :public templet::actor {
-	static void on_a_adapter(templet::actor*a, templet::message*m) {
-		((B*)a)->on_a(*(message*)m);}
-	static void on_d_adapter(templet::actor*a, templet::message*m) {
-		((B*)a)->on_d(*(message*)m);}
-	static void on_t_adapter(templet::actor*a, templet::task*t) {
-		((B*)a)->on_t(*(templet::basesim_task*)t);}
+struct Stopper :public templet::actor {
+	static void on_in_adapter(templet::actor*a, templet::message*m) {
+		((Stopper*)a)->on_in(*(message*)m);}
 
-	B(templet::engine&e,templet::basesim_engine&te_basesim) :B() {
-		B::engines(e,te_basesim);
+	Stopper(templet::engine&e) :Stopper() {
+		Stopper::engines(e);
 	}
 
-	B() :templet::actor(false),
-		d(this, &on_d_adapter),
-		t(this, &on_t_adapter)
+	Stopper() :templet::actor(true)
 	{
-/*$TET$B$B*/
+/*$TET$Stopper$Stopper*/
 /*$TET$*/
 	}
 
-	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
+	void engines(templet::engine&e) {
 		templet::actor::engine(e);
-		t.engine(te_basesim);
-/*$TET$B$engines*/
+/*$TET$Stopper$engines*/
 /*$TET$*/
 	}
 
-	inline void on_a(message&m) {
-/*$TET$B$a*/
-		t.submit();
+	void start() {
+/*$TET$Stopper$start*/
 /*$TET$*/
 	}
 
-	inline void on_d(message&m) {
-/*$TET$B$d*/
+	inline void on_in(message&m) {
+/*$TET$Stopper$in*/
 /*$TET$*/
 	}
 
-	inline void on_t(templet::basesim_task&t) {
-/*$TET$B$t*/
-		t.delay(delay);
-		d.send();
-/*$TET$*/
-	}
+	void in(message&m) { m.bind(this, &on_in_adapter); }
 
-	void a(message&m) { m.bind(this, &on_a_adapter); }
-	message d;
-	templet::basesim_task t;
-
-/*$TET$B$$footer*/
-	double delay;
-/*$TET$*/
-};
-
-#pragma templet C(a?message,d!message,t:basesim)
-
-struct C :public templet::actor {
-	static void on_a_adapter(templet::actor*a, templet::message*m) {
-		((C*)a)->on_a(*(message*)m);}
-	static void on_d_adapter(templet::actor*a, templet::message*m) {
-		((C*)a)->on_d(*(message*)m);}
-	static void on_t_adapter(templet::actor*a, templet::task*t) {
-		((C*)a)->on_t(*(templet::basesim_task*)t);}
-
-	C(templet::engine&e,templet::basesim_engine&te_basesim) :C() {
-		C::engines(e,te_basesim);
-	}
-
-	C() :templet::actor(false),
-		d(this, &on_d_adapter),
-		t(this, &on_t_adapter)
-	{
-/*$TET$C$C*/
-/*$TET$*/
-	}
-
-	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
-		templet::actor::engine(e);
-		t.engine(te_basesim);
-/*$TET$C$engines*/
-/*$TET$*/
-	}
-
-	inline void on_a(message&m) {
-/*$TET$C$a*/
-		t.submit();
-/*$TET$*/
-	}
-
-	inline void on_d(message&m) {
-/*$TET$C$d*/
-/*$TET$*/
-	}
-
-	inline void on_t(templet::basesim_task&t) {
-/*$TET$C$t*/
-		t.delay(delay);
-		d.send();
-/*$TET$*/
-	}
-
-	void a(message&m) { m.bind(this, &on_a_adapter); }
-	message d;
-	templet::basesim_task t;
-
-/*$TET$C$$footer*/
-	double delay;
-/*$TET$*/
-};
-
-#pragma templet D(b?message,c?message,t:basesim)
-
-struct D :public templet::actor {
-	static void on_b_adapter(templet::actor*a, templet::message*m) {
-		((D*)a)->on_b(*(message*)m);}
-	static void on_c_adapter(templet::actor*a, templet::message*m) {
-		((D*)a)->on_c(*(message*)m);}
-	static void on_t_adapter(templet::actor*a, templet::task*t) {
-		((D*)a)->on_t(*(templet::basesim_task*)t);}
-
-	D(templet::engine&e,templet::basesim_engine&te_basesim) :D() {
-		D::engines(e,te_basesim);
-	}
-
-	D() :templet::actor(false),
-		t(this, &on_t_adapter)
-	{
-/*$TET$D$D*/
-		_b = _c = 0;
-/*$TET$*/
-	}
-
-	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
-		templet::actor::engine(e);
-		t.engine(te_basesim);
-/*$TET$D$engines*/
-/*$TET$*/
-	}
-
-	inline void on_b(message&m) {
-/*$TET$D$b*/
-		_b = &m; on_b_and_c();
-/*$TET$*/
-	}
-
-	inline void on_c(message&m) {
-/*$TET$D$c*/
-		_c = &m; on_b_and_c();
-/*$TET$*/
-	}
-
-	inline void on_t(templet::basesim_task&t) {
-/*$TET$D$t*/
-		t.delay(delay);
-		stop();
-/*$TET$*/
-	}
-
-	void b(message&m) { m.bind(this, &on_b_adapter); }
-	void c(message&m) { m.bind(this, &on_c_adapter); }
-	templet::basesim_task t;
-
-/*$TET$D$$footer*/
-	message *_c;
-	message *_b;
-	double delay;
-	void on_b_and_c(){ if(access(_c) && access(_b)) t.submit(); }
+/*$TET$Stopper$$footer*/
 /*$TET$*/
 };
 

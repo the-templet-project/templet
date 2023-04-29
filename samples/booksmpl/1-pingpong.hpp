@@ -57,7 +57,7 @@ struct Ping :public templet::actor {
 
 	inline void on_out(message&m) {
 /*$TET$Ping$out*/
-        cout << "Ping recv message from Pong.." << endl;
+        cout << "Ping received message from Pong.." << endl;
         stop();
 /*$TET$*/
 	}
@@ -92,7 +92,7 @@ struct Pong :public templet::actor {
 
 	inline void on_in(message&m) {
 /*$TET$Pong$in*/
-        cout << "Pong recv message from Ping.." << endl;
+        cout << "Pong received message from Ping.." << endl;
         m.send();
 /*$TET$*/
 	}
