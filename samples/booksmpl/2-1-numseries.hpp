@@ -23,10 +23,12 @@
 using namespace templet;
 using namespace std;
 
+const int NO_RANGE_ID = -1;
+
 class range : public templet::message {
 public:
 	range(templet::actor*a=0, templet::message_adaptor ma=0) :templet::message(a, ma) {}
-	double start, end;
+	int range_id;
     double result;
 };
 
@@ -46,6 +48,9 @@ struct Master :public templet::actor {
 	Master() :templet::actor(false)
 	{
 /*$TET$Master$Master*/
+        current_range = 0;
+        num_of_ready_workers = 0;
+        PI = 0.0;        
 /*$TET$*/
 	}
 
@@ -57,12 +62,24 @@ struct Master :public templet::actor {
 
 	inline void on_in(range&m) {
 /*$TET$Master$in*/
+        if(m.range_id == NO_RANGE_ID){
+            m.range_id = current_range++;
+            m.send();
+        }
+        else{
+            PI = PI + m.result;
+            num_of_ready_workers++;
+            if(num_of_ready_workers == N) stop();
+        }
 /*$TET$*/
 	}
 
 	void in(range&m) { m.bind(this, &on_in_adapter); }
 
 /*$TET$Master$$footer*/
+    int current_range;
+    int num_of_ready_workers;
+    double PI;    
 /*$TET$*/
 };
 
@@ -91,11 +108,20 @@ struct Worker :public templet::actor {
 
 	void start() {
 /*$TET$Worker$start*/
+        out.range_id = NO_RANGE_ID;
+        out.send();
 /*$TET$*/
 	}
 
 	inline void on_out(range&m) {
 /*$TET$Worker$out*/
+        double sum = 0.0;           
+        for (long i=m.range_id; i < num_steps; i=i+N) {
+             double x = (i+0.5)*step;
+             sum += 4.0/(1.0+x*x);
+        }
+        m.result = sum*step;
+        m.send();
 /*$TET$*/
 	}
 
