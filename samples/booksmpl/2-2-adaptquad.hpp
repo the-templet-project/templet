@@ -19,6 +19,7 @@
 
 #include <templet.hpp>
 #include <iostream>
+#include <list>
 
 using namespace templet;
 using namespace std;
@@ -26,10 +27,17 @@ using namespace std;
 class range : public templet::message {
 public:
 	range(templet::actor*a=0, templet::message_adaptor ma=0) :templet::message(a, ma) {}
-	double start, end;
-    double result;
+    bool is_first;
+
+    double left, right, fleft, fright, lrarea;
+    double mid, fmid, larea, rarea;
+    double area; bool area_computed;
 };
 
+struct range_task{
+    range_task(double l,double r,double fl, double fr, double lr):left(l), right(r), fleft(fl), fright(fr), lrarea(lr){}
+    double left, right, fleft, fright, lrarea;
+};
 
 /*$TET$*/
 
@@ -57,12 +65,33 @@ struct Master :public templet::actor {
 
 	inline void on_in(range&m) {
 /*$TET$Master$in*/
+		if (m.is_first) m.is_first = false;
+		else {
+/***** do it when the task is ready *****/
+		}
+		range_list.push_back(&m);
+
+		
+		while (!range_list.empty() &&
+/***** check if we have a task *****/
+                true
+/*************/
+			) {
+			range* r = range_list.front();
+			range_list.pop_front();
+/***** form a new task *****/
+/*************/
+			r->send();
+		}
+		if (range_list.size() == N)	stop();        
 /*$TET$*/
 	}
 
 	void in(range&m) { m.bind(this, &on_in_adapter); }
 
 /*$TET$Master$$footer*/
+    list<range*> range_list;
+    list<range_task> task_list;
 /*$TET$*/
 };
 
@@ -91,11 +120,15 @@ struct Worker :public templet::actor {
 
 	void start() {
 /*$TET$Worker$start*/
+        out.is_first = true;
+        out.send();
 /*$TET$*/
 	}
 
 	inline void on_out(range&m) {
 /*$TET$Worker$out*/
+        ///////////////
+        out.send();
 /*$TET$*/
 	}
 
