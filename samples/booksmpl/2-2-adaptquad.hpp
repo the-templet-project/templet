@@ -54,6 +54,7 @@ struct Master :public templet::actor {
 	Master() :templet::actor(false)
 	{
 /*$TET$Master$Master*/
+        integral = 0.0;
 /*$TET$*/
 	}
 
@@ -67,20 +68,32 @@ struct Master :public templet::actor {
 /*$TET$Master$in*/
 		if (m.is_first) m.is_first = false;
 		else {
-/***** do it when the task is ready *****/
+/////// do it when the task is ready //////
+            if(m.area_computed) integral += m.area;
+            else{
+                task_list.push_back(range_task(m.left,m.mid,m.fleft,m.fmid,m.larea));
+                task_list.push_back(range_task(m.mid,m.right,m.fmid, m.fright,m.rarea));
+            }
+///////////////////////////////////////////            
 		}
 		range_list.push_back(&m);
 
 		
 		while (!range_list.empty() &&
-/***** check if we have a task *****/
-                true
-/*************/
+//// check if we have something to do /////
+            !task_list.empty()
+///////////////////////////////////////////
 			) {
 			range* r = range_list.front();
 			range_list.pop_front();
-/***** form a new task *****/
-/*************/
+////////// form a new task ////////////////
+            range_task t = task_list.front();
+            task_list.pop_front();
+            
+            r->left = t.left; r->right = t.right;
+            r->fleft = t.fleft; r->fright = t.fright;
+            r->lrarea = t.lrarea; 
+///////////////////////////////////////////
 			r->send();
 		}
 		if (range_list.size() == N)	stop();        
@@ -92,6 +105,7 @@ struct Master :public templet::actor {
 /*$TET$Master$$footer*/
     list<range*> range_list;
     list<range_task> task_list;
+    double integral;
 /*$TET$*/
 };
 
@@ -127,7 +141,20 @@ struct Worker :public templet::actor {
 
 	inline void on_out(range&m) {
 /*$TET$Worker$out*/
-        ///////////////
+        //////// do the task  ////////
+        m.mid = (m.left + m.right)/2;
+        m.fmid = FUNCTION(m.mid);
+        m.larea = (m.fleft + m.fmid)*(m.mid - m.left)/2.0;
+        m.rarea = (m.fmid + m.fright)*(m.right - m.mid)/2.0;
+        m.area = m.larea + m.rarea;
+        m.area_computed = abs(m.area - m.lrarea) < epsilon;
+        //////////////////////////////
+        
+        std::cout << "range[" << m.left << ";" << m.right << "]";
+        if(m.area_computed) std::cout << " computed: " << m.area;
+        else std::cout << " splited ";
+        std::cout << " by worker # "<< ID << std::endl;
+        
         out.send();
 /*$TET$*/
 	}
@@ -135,6 +162,7 @@ struct Worker :public templet::actor {
 	range out;
 
 /*$TET$Worker$$footer*/
+    int ID;
 /*$TET$*/
 };
 
