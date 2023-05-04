@@ -26,10 +26,8 @@ using namespace std;
 class column : public templet::message {
 public:
 	column(templet::actor*a=0, templet::message_adaptor ma=0) :templet::message(a, ma) {}
-	double col[N];
-    int col_j;
+    int j; // column index
 };
-
 
 /*$TET$*/
 
@@ -52,6 +50,7 @@ struct Link :public templet::actor {
 		stop(this, &on_stop_adapter)
 	{
 /*$TET$Link$Link*/
+        num_of_ready_columns = 0;
 /*$TET$*/
 	}
 
@@ -63,11 +62,19 @@ struct Link :public templet::actor {
 
 	void start() {
 /*$TET$Link$start*/
+        on_in(out);
 /*$TET$*/
 	}
 
 	inline void on_in(column&m) {
 /*$TET$Link$in*/
+        if(num_of_ready_columns!=0 &&  &m == &out) return;
+        
+        int j = m.j;
+        for(int k = 0; k < N; k++) C[i][j] += A[i][k] * B[k][j];
+        
+        next->in(m); m.send();
+        if(++num_of_ready_columns == N) stop.send();       
 /*$TET$*/
 	}
 
@@ -85,7 +92,10 @@ struct Link :public templet::actor {
 	column out;
 	message stop;
 
-/*$TET$Link$$footer*/
+/*$TET$Link$$footer*/ 
+    int i; // row index
+    int num_of_ready_columns;
+    Link *next;
 /*$TET$*/
 };
 
@@ -102,6 +112,7 @@ struct Stopper :public templet::actor {
 	Stopper() :templet::actor(true)
 	{
 /*$TET$Stopper$Stopper*/
+        num_of_ready_rows = 0;
 /*$TET$*/
 	}
 
@@ -118,12 +129,14 @@ struct Stopper :public templet::actor {
 
 	inline void on_in(message&m) {
 /*$TET$Stopper$in*/
+        if(++num_of_ready_rows == N) stop();
 /*$TET$*/
 	}
 
 	void in(message&m) { m.bind(this, &on_in_adapter); }
 
 /*$TET$Stopper$$footer*/
+    int num_of_ready_rows;
 /*$TET$*/
 };
 

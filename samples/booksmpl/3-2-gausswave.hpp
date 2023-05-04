@@ -27,8 +27,6 @@ class border : public templet::message {
 public:
 	border(templet::actor*a=0, templet::message_adaptor ma=0) :templet::message(a, ma) {}
 };
-
-
 /*$TET$*/
 
 #pragma templet !Begin(out!border)
@@ -45,6 +43,7 @@ struct Begin :public templet::actor {
 		out(this, &on_out_adapter)
 	{
 /*$TET$Begin$Begin*/
+        wave_num = 0;
 /*$TET$*/
 	}
 
@@ -56,17 +55,20 @@ struct Begin :public templet::actor {
 
 	void start() {
 /*$TET$Begin$start*/
+        on_out(out);
 /*$TET$*/
 	}
 
 	inline void on_out(border&m) {
 /*$TET$Begin$out*/
+        if(++wave_num <= T) out.send();
 /*$TET$*/
 	}
 
 	border out;
 
 /*$TET$Begin$$footer*/
+    int wave_num;
 /*$TET$*/
 };
 
@@ -86,6 +88,7 @@ struct Stage :public templet::actor {
 		out(this, &on_out_adapter)
 	{
 /*$TET$Stage$Stage*/
+        _in = 0; 
 /*$TET$*/
 	}
 
@@ -97,11 +100,14 @@ struct Stage :public templet::actor {
 
 	inline void on_in(border&m) {
 /*$TET$Stage$in*/
+        _in = &m;
+        calculate();
 /*$TET$*/
 	}
 
 	inline void on_out(border&m) {
 /*$TET$Stage$out*/
+        calculate();
 /*$TET$*/
 	}
 
@@ -109,6 +115,14 @@ struct Stage :public templet::actor {
 	border out;
 
 /*$TET$Stage$$footer*/
+    void calculate(){
+        if(access(_in) && access(out)){
+            area[offset] = 0.5*(area[offset-1]+area[offset+1]);
+            _in->send(); out.send();
+        }        
+    }
+    border* _in;
+    int  offset;
 /*$TET$*/
 };
 
@@ -125,6 +139,7 @@ struct End :public templet::actor {
 	End() :templet::actor(false)
 	{
 /*$TET$End$End*/
+        wave_num = 0;
 /*$TET$*/
 	}
 
@@ -136,12 +151,15 @@ struct End :public templet::actor {
 
 	inline void on_in(border&m) {
 /*$TET$End$in*/
+        if(++wave_num == T) stop();
+        else m.send();
 /*$TET$*/
 	}
 
 	void in(border&m) { m.bind(this, &on_in_adapter); }
 
 /*$TET$End$$footer*/
+    int wave_num;
 /*$TET$*/
 };
 
