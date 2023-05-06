@@ -1,40 +1,24 @@
 /*$TET$$header*/
-/*--------------------------------------------------------------------------*/
-/*  Copyright 2023 Sergei Vostokin                                          */
-/*                                                                          */
-/*  Licensed under the Apache License, Version 2.0 (the "License");         */
-/*  you may not use this file except in compliance with the License.        */
-/*  You may obtain a copy of the License at                                 */
-/*                                                                          */
-/*  http://www.apache.org/licenses/LICENSE-2.0                              */
-/*                                                                          */
-/*  Unless required by applicable law or agreed to in writing, software     */
-/*  distributed under the License is distributed on an "AS IS" BASIS,       */
-/*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.*/
-/*  See the License for the specific language governing permissions and     */
-/*  limitations under the License.                                          */
-/*--------------------------------------------------------------------------*/
-
-#pragma once
 
 #include <templet.hpp>
-#include <iostream>
-
 using namespace templet;
+
+#include <iostream>
 using namespace std;
 
-class num : public templet::message {
+class block : public templet::message {
 public:
-	num(templet::actor*a=0, templet::message_adaptor ma=0) :templet::message(a, ma) {}
-    int element_number;
+	block(templet::actor*a=0, templet::message_adaptor ma=0) :templet::message(a, ma) {}
+	int blockID;
 };
+
 /*$TET$*/
 
-#pragma templet !Start(out!num)
+#pragma templet !Start(out!block)
 
 struct Start :public templet::actor {
 	static void on_out_adapter(templet::actor*a, templet::message*m) {
-		((Start*)a)->on_out(*(num*)m);}
+		((Start*)a)->on_out(*(block*)m);}
 
 	Start(templet::engine&e) :Start() {
 		Start::engines(e);
@@ -44,7 +28,6 @@ struct Start :public templet::actor {
 		out(this, &on_out_adapter)
 	{
 /*$TET$Start$Start*/
-        out.send();
 /*$TET$*/
 	}
 
@@ -56,25 +39,26 @@ struct Start :public templet::actor {
 
 	void start() {
 /*$TET$Start$start*/
+        out.send();
 /*$TET$*/
 	}
 
-	inline void on_out(num&m) {
+	inline void on_out(block&m) {
 /*$TET$Start$out*/
 /*$TET$*/
 	}
 
-	num out;
+	block out;
 
 /*$TET$Start$$footer*/
 /*$TET$*/
 };
 
-#pragma templet Stop(in?num)
+#pragma templet Stop(in?block)
 
 struct Stop :public templet::actor {
 	static void on_in_adapter(templet::actor*a, templet::message*m) {
-		((Stop*)a)->on_in(*(num*)m);}
+		((Stop*)a)->on_in(*(block*)m);}
 
 	Stop(templet::engine&e) :Stop() {
 		Stop::engines(e);
@@ -83,7 +67,7 @@ struct Stop :public templet::actor {
 	Stop() :templet::actor(false)
 	{
 /*$TET$Stop$Stop*/
-        num_of_computed_elements = 0;
+        num_of_computed_blocks = 0;
 /*$TET$*/
 	}
 
@@ -93,30 +77,30 @@ struct Stop :public templet::actor {
 /*$TET$*/
 	}
 
-	inline void on_in(num&m) {
+	inline void on_in(block&m) {
 /*$TET$Stop$in*/
-        if(++num_of_computed_elements == N) stop();
+        if(++num_of_computed_blocks == N) stop();
 /*$TET$*/
 	}
 
-	void in(num&m) { m.bind(this, &on_in_adapter); }
+	void in(block&m) { m.bind(this, &on_in_adapter); }
 
 /*$TET$Stop$$footer*/
-    int num_of_computed_elements;
+    int num_of_computed_blocks;
 /*$TET$*/
 };
 
-#pragma templet Pair(in1?num,in2?num,out1!num,out2!num)
+#pragma templet Pair(in1?block,in2?block,out1!block,out2!block)
 
 struct Pair :public templet::actor {
 	static void on_in1_adapter(templet::actor*a, templet::message*m) {
-		((Pair*)a)->on_in1(*(num*)m);}
+		((Pair*)a)->on_in1(*(block*)m);}
 	static void on_in2_adapter(templet::actor*a, templet::message*m) {
-		((Pair*)a)->on_in2(*(num*)m);}
+		((Pair*)a)->on_in2(*(block*)m);}
 	static void on_out1_adapter(templet::actor*a, templet::message*m) {
-		((Pair*)a)->on_out1(*(num*)m);}
+		((Pair*)a)->on_out1(*(block*)m);}
 	static void on_out2_adapter(templet::actor*a, templet::message*m) {
-		((Pair*)a)->on_out2(*(num*)m);}
+		((Pair*)a)->on_out2(*(block*)m);}
 
 	Pair(templet::engine&e) :Pair() {
 		Pair::engines(e);
@@ -137,50 +121,50 @@ struct Pair :public templet::actor {
 /*$TET$*/
 	}
 
-	inline void on_in1(num&m) {
+	inline void on_in1(block&m) {
 /*$TET$Pair$in1*/
-        _in1 = &m;  swap();
+        _in1 = &m; swap();
 /*$TET$*/
 	}
 
-	inline void on_in2(num&m) {
+	inline void on_in2(block&m) {
 /*$TET$Pair$in2*/
-        _in2 = &m;  swap();
+        _in2 = &m; swap();
 /*$TET$*/
 	}
 
-	inline void on_out1(num&m) {
+	inline void on_out1(block&m) {
 /*$TET$Pair$out1*/
 /*$TET$*/
 	}
 
-	inline void on_out2(num&m) {
+	inline void on_out2(block&m) {
 /*$TET$Pair$out2*/
 /*$TET$*/
 	}
 
-	void in1(num&m) { m.bind(this, &on_in1_adapter); }
-	void in2(num&m) { m.bind(this, &on_in2_adapter); }
-	num out1;
-	num out2;
+	void in1(block&m) { m.bind(this, &on_in1_adapter); }
+	void in2(block&m) { m.bind(this, &on_in2_adapter); }
+	block out1;
+	block out2;
 
 /*$TET$Pair$$footer*/
     void swap(){
         if(access(_in1) && access(_in2)){
-            if(arr[_in1->element_number] > arr[_in2->element_number]){
-                int tmp = arr[_in2->element_number];
-                arr[_in2->element_number] = arr[_in1->element_number];
-                arr[_in1->element_number] = tmp;
+            if(arr[_in1->blockID] > arr[_in2->blockID]){
+                int tmp = arr[_in2->blockID];
+                arr[_in2->blockID] = arr[_in1->blockID];
+                arr[_in1->blockID] = tmp;
             }
-            out1.element_number = _in1->element_number;
-            out2.element_number = _in2->element_number;
+            out1.blockID = _in1->blockID;
+            out2.blockID = _in2->blockID;
             
-            out1.send();out2.send();
+            out1.send(); out2.send();
         }
     }
     
-    num* _in1;
-    num* _in2;
+    block *_in1;
+    block *_in2;
 /*$TET$*/
 };
 
