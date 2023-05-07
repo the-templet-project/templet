@@ -123,13 +123,13 @@ struct Pair :public templet::actor {
 
 	inline void on_in1(block&m) {
 /*$TET$Pair$in1*/
-        _in1 = &m; swap();
+        _in1 = &m; current_nearest();
 /*$TET$*/
 	}
 
 	inline void on_in2(block&m) {
 /*$TET$Pair$in2*/
-        _in2 = &m; swap();
+        _in2 = &m; current_nearest();
 /*$TET$*/
 	}
 
@@ -149,13 +149,21 @@ struct Pair :public templet::actor {
 	block out2;
 
 /*$TET$Pair$$footer*/
-    void swap(){
+    void current_nearest(){
         if(access(_in1) && access(_in2)){
-            if(arr[_in1->blockID] > arr[_in2->blockID]){
-                int tmp = arr[_in2->blockID];
-                arr[_in2->blockID] = arr[_in1->blockID];
-                arr[_in1->blockID] = tmp;
+            
+            double dist = abs(position[_in1->blockID]-position[_in2->blockID]);
+            
+            if(nearest_dist[_in1->blockID] > dist){
+                nearest_dist[_in1->blockID] = dist;
+                nearest_point[_in1->blockID]= _in2->blockID;
             }
+            
+            if(nearest_dist[_in2->blockID] > dist){
+                nearest_dist[_in2->blockID] = dist;
+                nearest_point[_in2->blockID]= _in1->blockID;
+            }
+            
             out1.blockID = _in1->blockID;
             out2.blockID = _in2->blockID;
             

@@ -57,7 +57,7 @@ struct Ping :public templet::actor {
 
 	inline void on_out(message&m) {
 /*$TET$Ping$out*/
-        cout << "Ping received message from Pong.." << endl;
+        cout << "Ping received message from Pong.." << endl <<endl;
         stop();
 /*$TET$*/
 	}
