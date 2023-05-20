@@ -115,7 +115,7 @@ struct pong :public templet::actor {
 	inline void on_t(templet::everest_task&t) {
 /*$TET$pong$t*/
 		json out = t.result();
-		_p->str =  out["output-string"];
+		_p->str =  out["output-string"].get<string>();
 		_p->send();
 /*$TET$*/
 	}

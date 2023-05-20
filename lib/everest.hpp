@@ -233,7 +233,7 @@ namespace templet {
 
 			if (_code == 200) {
 				json responseJSON = json::parse(_response);
-				_access_token = responseJSON["access_token"];
+				_access_token = responseJSON["access_token"].get<string>();
 				return true;
 			}
 			return false;
@@ -331,7 +331,7 @@ namespace templet {
 
 		if (_code == 200) {
 			json responseJSON = json::parse(_response);
-			uri = responseJSON["uri"];
+			uri = responseJSON["uri"].get<string>();
 		}
 		
 		curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, _common_headers);
@@ -457,13 +457,13 @@ namespace templet {
 		if (_code == 200 || _code == 201) {
 			json j = json::parse(_response);
 
-			ev._id = j["id"];
-			ev._state = j["state"];
+			ev._id = j["id"].get<string>();
+			ev._state = j["state"].get<string>();
 			ev._task = &t;
 	
 			_submitted.push_back(ev);
 
-			t._job_ID = j["id"];
+			t._job_ID = j["id"].get<string>();
 			t._idle = false;
 			t._done = false;
 
@@ -540,7 +540,7 @@ namespace templet {
 		if (_code == 200 || _code == 201) {
 			json j = json::parse(_response);
 
-			ev._state = j["state"];
+			ev._state = j["state"].get<string>();
 
 			if (ev._state == "DONE") {
 				ev._task->_output = j["result"];
