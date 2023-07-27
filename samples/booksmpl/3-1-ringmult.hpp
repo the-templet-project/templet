@@ -99,7 +99,7 @@ struct Link :public templet::actor {
 /*$TET$*/
 };
 
-#pragma templet !Stopper(in?message)
+#pragma templet Stopper(in?message)
 
 struct Stopper :public templet::actor {
 	static void on_in_adapter(templet::actor*a, templet::message*m) {
@@ -119,11 +119,6 @@ struct Stopper :public templet::actor {
 	void engines(templet::engine&e) {
 		templet::actor::engine(e);
 /*$TET$Stopper$engines*/
-/*$TET$*/
-	}
-
-	void start() {
-/*$TET$Stopper$start*/
 /*$TET$*/
 	}
 
