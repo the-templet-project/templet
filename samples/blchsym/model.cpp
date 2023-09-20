@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <vector>
+#include <list>
 #include <concepts>
 #include <functional>
 #include <omp.h>
@@ -53,11 +54,15 @@ class task{
 public:
     bool is_ready();
     bool is_active();
-    function<void()> func_on_ready=[](){};
+    void set_on_ready_func(function<void(task*,void*)>, void* on_ready_cnxt);
+
+private:
+    function<void(task*,void*)> func_on_ready=[](task*,void*){};
+    void* on_ready_cnxt;
     
 protected:
     virtual void on_exec() {}
-    virtual void on_ready(){ func_on_ready(); }
+    virtual void on_ready(){ func_on_ready(this,on_ready_cnxt); }
     virtual void on_save(ostream&) {}
     virtual void on_load(istream&) {}
     
@@ -134,14 +139,39 @@ template<typename T>
 	requires(derived_from<T,task>)
 class taskbag{
 
+friend void on_ready_handler(task*t,void*cntxt){
+    taskbag* _cntxt = static_cast<taskbag*>(cntxt);
+    T*       _task  = static_cast<T*>(t);
+    
+    _cntxt->on_put(*_task);
+    _cntxt->idle_task_arr.push_back(_task);
+    _cntxt->try_submit();
+}
+
 public:
-	taskbag(int num_workers) {}
-	void run(int NW) {}
+	taskbag(int num_workers) {
+	    task_arr.resize(num_workers);
+	}
+	
+	void run() { try_submit(); eng.wait_all(); }
+
 protected:
 	virtual bool on_get(T&){ return false; }
 	virtual void on_put(T&){}
+
 private:
+    void try_submit(){
+         T* task;
+         while(!idle_task_arr.empty() && 
+                on_get(*(task=idle_task_arr.back()))){
+             eng.submit(*task);
+             idle_task_arr.pop_back();
+         }  
+    }
+    
     engine eng;
+    vector<T> task_arr;
+    list<T*>  idle_task_arr;
 };
 
 //--------------------------------------------------
@@ -162,7 +192,7 @@ public:
             C[i][j] = 0.0;
         }
         cur_i = 0;
-        taskbag::run(NW);
+        taskbag::run();
     }
     
     void print_result(){
