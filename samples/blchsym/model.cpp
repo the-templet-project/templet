@@ -125,12 +125,15 @@ void init_and_run(){
     }
     
     eng.wait_all();
-    
+ 
+#pragma omp master    
+{        
     for(int i = 0; i < N; i++){
         for(int j = 0; j < N; j++) cout << C[i][j] << " ";
         cout << endl;
     }
     cout << endl;
+}
 }
 
 //--------------------------------------------------
@@ -151,6 +154,8 @@ friend void on_ready_handler(task*t,void*cntxt){
 public:
 	taskbag(int num_workers) {
 	    task_arr.resize(num_workers);
+	    for(int i=0; i<num_workers; i++)
+	        idle_task_arr.push_back(&task_arr[i]); 
 	}
 	
 	void run() { try_submit(); eng.wait_all(); }
@@ -217,15 +222,16 @@ private:
 
 int main()
 {
-    cout << "\n\nhello!!!\n\n";
-    ////////////////////////
-
+#pragma omp parallel
+{
     init_and_run();
-    ////////////////////////
+}   
+#pragma omp parallel    
+{
     mult_taskbag tb;
-    
     tb.prep_and_run();
+#pragma omp master    
     tb.print_result();
-    ////////////////////////
+}
     return EXIT_SUCCESS;
 }
