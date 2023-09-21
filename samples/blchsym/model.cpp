@@ -1,9 +1,14 @@
-#include <stdlib.h>
+#include <cstdlib>
 #include <iostream>
 #include <vector>
 #include <list>
 #include <concepts>
 #include <functional>
+#include <climits>
+#include <map>
+#include <cassert>
+#include <sstream>
+
 #include <omp.h>
 
 using namespace std;
@@ -17,28 +22,31 @@ public:
     
     void reset() {log.clear();}
 	
-	bool  add_event(int tag, string& data){ // returns num
+	int  add_event(int tag, string& data){ // returns num
 	    omp_set_lock(&lock);
 	    
 	    for(int i=0; i < log.size(); i++)
-	        if(log[i].first == tag) {omp_unset_lock(&lock);return false;}
+	        if(log[i].first == tag) {omp_unset_lock(&lock);return i;}
+	    
 	    log.push_back(pair(tag,data));
+	    int num = log.size()-1;
 	    
 	    omp_unset_lock(&lock);
-	    return true; 
+	    return num; 
 	}
 	
-	bool get_event(int num, string& data){
+	int get_event(int num, string& data){ // returns tag
 	    omp_set_lock(&lock);
 	    
 	    if(0<=num && num < log.size()){
+	        int tag = log[num].first;
 	        data = log[num].second;
 	        omp_unset_lock(&lock);
-	        return true;
+	        return tag;
 	    }
 	    
 	    omp_unset_lock(&lock);
-	    return false;
+	    return INT_MAX;
 	}
 	
 private:
@@ -50,11 +58,14 @@ private:
 //--------------------------------------------------------
 
 class task{
+friend class engine;
 	
 public:
     bool is_ready();
     bool is_active();
-    void set_on_ready_func(function<void(task*,void*)>, void* on_ready_cnxt);
+    void set_on_ready_func(function<void(task*,void*)>f,void*cnxt){
+         func_on_ready=f; on_ready_cnxt=cnxt; 
+    }
 
 private:
     function<void(task*,void*)> func_on_ready=[](task*,void*){};
@@ -67,16 +78,72 @@ protected:
     virtual void on_load(istream&) {}
     
 private:
-	bool ready;
-	bool active;
+	bool ready =false;
+	bool active=false;
 };
 
 class engine{
 
 public:
-    engine(){ an_event_log.reset(); }
-	void submit(task&) {}
-	void wait_all() {}
+    engine(){
+        an_event_log.reset(); 
+        current_num = 0;
+        current_tag = 0;
+        my_task_num = INT_MAX;
+    }
+    
+	void submit(task&t) {
+	    assert(t.active==false);
+	    active_task_arr[current_tag++]=&t;
+	    t.active = true;
+        t.ready = false;
+	}
+	
+	void wait_all() {
+	    int tag; string data;
+	    
+	    for(;;){
+    	    while((tag = an_event_log.get_event(current_num,data))!=INT_MAX){
+    	        
+    	        task* t = active_task_arr[tag];
+    	        active_task_arr.erase(tag);
+    	        
+    	        if(current_num!=my_task_num){
+    	            istringstream ins(data);
+    	            t->on_load(ins);
+    	        }
+    	        
+    	        t->active = false;
+    	        t->ready = true;
+    	        t->on_ready();
+    	    
+    	        current_num++;
+    	    }
+    	    
+    	    int num_of_active_task = active_task_arr.size();
+    	    if(num_of_active_task==0) return;
+    	    
+    	    int num_of_task_to_exec = rand() % num_of_active_task;
+    	    map<int,task*>::const_iterator task_to_exec=active_task_arr.begin();
+    	    for(int i=0; i!=num_of_task_to_exec; i++,task_to_exec++);
+    	    
+    	    task* t = task_to_exec->second;
+    	    tag = task_to_exec->first;
+    	    t->on_exec();
+    	    
+    	    data.clear();
+    	    ostringstream outs(data);
+    	    t->on_save(outs);
+    	    
+    	    my_task_num = an_event_log.add_event(tag,data);
+	    }
+	}
+
+private:
+	int current_num;
+	int current_tag;
+	int my_task_num;
+	map<int,task*> active_task_arr;
 };
 
 //--------------------------------------------------
@@ -222,6 +289,7 @@ private:
 
 int main()
 {
+    /*
 #pragma omp parallel
 {
     init_and_run();
@@ -232,6 +300,6 @@ int main()
     tb.prep_and_run();
 #pragma omp master    
     tb.print_result();
-}
+}*/
     return EXIT_SUCCESS;
 }
