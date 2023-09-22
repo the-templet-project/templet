@@ -2,7 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <list>
-#include <concepts>
+//#include <concepts>
 #include <functional>
 #include <climits>
 #include <map>
@@ -21,6 +21,14 @@ public:
     ~event_log(){ omp_destroy_lock(&lock); }
     
     void reset() {log.clear();}
+
+	void print() {
+		for (int i = 0; i<log.size(); i++) {
+			cout << "tag  = " << log[i].first << endl;
+			cout << "data = \"" << log[i].second << "\"" << endl;
+			cout << "======" << endl;
+		}
+	}
 	
 	int  add_event(int tag, string& data){ // returns num
 	    omp_set_lock(&lock);
@@ -28,8 +36,8 @@ public:
 	    for(int i=0; i < log.size(); i++)
 	        if(log[i].first == tag) {omp_unset_lock(&lock);return i;}
 	    
-	    log.push_back(pair(tag,data));
-	    int num = log.size()-1;
+	    log.push_back(pair<int, string>(tag,data));
+	    int num = static_cast<int>(log.size())-1;
 	    
 	    omp_unset_lock(&lock);
 	    return num; 
@@ -41,6 +49,7 @@ public:
 	    if(0<=num && num < log.size()){
 	        int tag = log[num].first;
 	        data = log[num].second;
+
 	        omp_unset_lock(&lock);
 	        return tag;
 	    }
@@ -61,8 +70,8 @@ class task{
 friend class engine;
 	
 public:
-    bool is_ready();
-    bool is_active();
+	bool is_ready() { return ready; }
+	bool is_active() { return active; }
     void set_on_ready_func(function<void(task*,void*)>f,void*cnxt){
          func_on_ready=f; on_ready_cnxt=cnxt; 
     }
@@ -85,8 +94,7 @@ private:
 class engine{
 
 public:
-    engine(){
-        an_event_log.reset(); 
+    engine(){ 
         current_num = 0;
         current_tag = 0;
         my_task_num = INT_MAX;
@@ -120,7 +128,7 @@ public:
     	        current_num++;
     	    }
     	    
-    	    int num_of_active_task = active_task_arr.size();
+    	    int num_of_active_task = static_cast<int>(active_task_arr.size());
     	    if(num_of_active_task==0) return;
     	    
     	    int num_of_task_to_exec = rand() % num_of_active_task;
@@ -131,9 +139,9 @@ public:
     	    tag = task_to_exec->first;
     	    t->on_exec();
     	    
-    	    data.clear();
-    	    ostringstream outs(data);
+    	    ostringstream outs;
     	    t->on_save(outs);
+			data = outs.str();
     	    
     	    my_task_num = an_event_log.add_event(tag,data);
 	    }
@@ -146,83 +154,88 @@ private:
 	map<int,task*> active_task_arr;
 };
 
-//--------------------------------------------------
-// explicit use of task engine
+//---------explicit----------//
 
-const int N = 10;
-double A[N][N], B[N][N], C[N][N];
+const int N = 5;
+int A[N][N], B[N][N];
 
 class mult_task: public task{
 
+protected:
     void on_exec() override{
        int i = cur_i;
 		for(int j=0; j<N; j++){
-		    C[i][i] = 0.0;
-		    for(int k=0; k<N; k++) C[i][j] += A[i][k]*B[k][j];
+		    c[j] = 0;
+		    for(int k=0; k<N; k++) c[j] += A[i][k]*B[k][j];
 		} 
     }
 
-    void on_save(ostream& out) override{
-        for(int j=0; j<N; j++) out << C[cur_i][j];
+    void on_save(ostream& out) override{ 
+        for(int j=0; j<N; j++) out << c[j] << " ";
     }
     
     void on_load(istream& in) override{
-        for(int j=0; j<N; j++) in >> C[cur_i][j];
+        for(int j=0; j<N; j++) in >> c[j];
     }
 
 public:
     int cur_i;
+	int c[N];
 };
 
-void init_and_run(){
-    engine eng;
-    
+void check_result(int[N][N]);
+
+void init_and_run()
+{   
+	int C[N][N];
+
+	engine eng;
     mult_task task_arr[N];
     
+	srand(0);
+
     for(int i = 0; i < N; i++)
         for(int j = 0; j < N; j++){
-            A[i][j] = rand()/10;
-            B[i][j] = rand()/10;
-            C[i][j] = 0.0;
+            A[i][j] = rand();
+            B[i][j] = rand();
+            C[i][j] = 0;
         }
     
     for(int i = 0; i < N; i++){
         task_arr[i].cur_i = i;
         eng.submit(task_arr[i]);
     }
-    
-    eng.wait_all();
- 
-#pragma omp master    
-{        
-    for(int i = 0; i < N; i++){
-        for(int j = 0; j < N; j++) cout << C[i][j] << " ";
-        cout << endl;
-    }
-    cout << endl;
-}
+
+	eng.wait_all();
+
+	for (int i = 0; i < N; i++)
+		for (int j = 0; j < N; j++)
+			C[i][j] = task_arr[i].c[j];
+
+	check_result(C);
 }
 
 //--------------------------------------------------
-
 template<typename T>
-	requires(derived_from<T,task>)
+//	requires(derived_from<T,task>)
 class taskbag{
 
-friend void on_ready_handler(task*t,void*cntxt){
-    taskbag* _cntxt = static_cast<taskbag*>(cntxt);
-    T*       _task  = static_cast<T*>(t);
-    
-    _cntxt->on_put(*_task);
-    _cntxt->idle_task_arr.push_back(_task);
-    _cntxt->try_submit();
-}
+static void on_ready_handler(task*t, void*cntxt) {
+		taskbag* _cntxt = static_cast<taskbag*>(cntxt);
+		T*       _task = static_cast<T*>(t);
+
+		_cntxt->on_put(*_task);
+		_cntxt->idle_task_arr.push_back(_task);
+		_cntxt->try_submit();
+	}
 
 public:
 	taskbag(int num_workers) {
 	    task_arr.resize(num_workers);
-	    for(int i=0; i<num_workers; i++)
-	        idle_task_arr.push_back(&task_arr[i]); 
+		for (int i = 0; i < num_workers; i++) {
+			task_arr[i].set_on_ready_func(on_ready_handler,this);
+			idle_task_arr.push_back(&task_arr[i]);
+		}
 	}
 	
 	void run() { try_submit(); eng.wait_all(); }
@@ -246,8 +259,7 @@ private:
     list<T*>  idle_task_arr;
 };
 
-//--------------------------------------------------
-// implicit use of the task engine through an algorithmic skeleton
+//----------implicit---------//
 
 const int NW = 2;
 
@@ -259,9 +271,9 @@ public:
     void prep_and_run(){
         for(int i = 0; i < N; i++)
         for(int j = 0; j < N; j++){
-            A[i][j] = rand()/10;
-            B[i][j] = rand()/10;
-            C[i][j] = 0.0;
+            A[i][j] = rand();
+            B[i][j] = rand();
+            C[i][j] = 0;
         }
         cur_i = 0;
         taskbag::run();
@@ -281,25 +293,73 @@ protected:
 		return false;
 	}
 
+	void on_put(mult_task&t) override {
+		for (int j = 0; j < N; j++)	C[t.cur_i][j] = t.c[j];
+	}
+
 private:
     int cur_i;
-}; 
+
+public:
+	int C[N][N];
+};
+
+//---------------------------------------------------
+
+void check_result(int C1[N][N])
+{
+	int C2[N][N];
+
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < N; j++) {
+			C2[i][j] = 0;
+			for (int k = 0; k < N; k++) C2[i][j] += A[i][k] * B[k][j];
+			//cout << C2[i][j] << " ";
+			if (C1[i][j] != C2[i][j]) { cout << "test failed!!! "; return; }
+		}
+		//cout << endl;
+	}
+	cout << "test passed!!! ";
+}
 
 //---------------------------------------------------
 
 int main()
 {
-    /*
+	cout << "=== test for the explicit use of the task engine ===" << endl << endl;
+
+	for(int i=0;i<10;i++)
+	{
+		an_event_log.reset();
+
 #pragma omp parallel
-{
-    init_and_run();
-}   
-#pragma omp parallel    
-{
-    mult_taskbag tb;
-    tb.prep_and_run();
-#pragma omp master    
-    tb.print_result();
-}*/
-    return EXIT_SUCCESS;
+		{
+			init_and_run();
+		}
+	}
+
+	cout << endl << endl << "=== test for the implicit use of the task engine ===" << endl << endl;
+
+	for (int i = 0; i < 10; i++)
+	{
+		an_event_log.reset();
+
+#pragma omp parallel   
+		{
+			mult_taskbag tb;
+			tb.prep_and_run();
+#pragma omp critical
+		{
+			//cout << endl << endl;
+			//tb.print_result();
+			//cout << endl << endl;
+			check_result(tb.C);
+		}
+		}
+
+		//cout << endl << endl;
+		//an_event_log.print();
+
+	}
+	return EXIT_SUCCESS;
 }

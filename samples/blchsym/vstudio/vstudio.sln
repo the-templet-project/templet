@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "callee", "callee\callee.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "caller", "caller\caller.vcxproj", "{09DD8E9F-DB75-40EF-967A-3B77FA833A96}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "model", "model\model.vcxproj", "{C34C6B42-E759-4ADD-879A-75A8778463C2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{09DD8E9F-DB75-40EF-967A-3B77FA833A96}.Release|x64.Build.0 = Release|x64
 		{09DD8E9F-DB75-40EF-967A-3B77FA833A96}.Release|x86.ActiveCfg = Release|Win32
 		{09DD8E9F-DB75-40EF-967A-3B77FA833A96}.Release|x86.Build.0 = Release|Win32
+		{C34C6B42-E759-4ADD-879A-75A8778463C2}.Debug|x64.ActiveCfg = Debug|x64
+		{C34C6B42-E759-4ADD-879A-75A8778463C2}.Debug|x64.Build.0 = Debug|x64
+		{C34C6B42-E759-4ADD-879A-75A8778463C2}.Debug|x86.ActiveCfg = Debug|Win32
+		{C34C6B42-E759-4ADD-879A-75A8778463C2}.Debug|x86.Build.0 = Debug|Win32
+		{C34C6B42-E759-4ADD-879A-75A8778463C2}.Release|x64.ActiveCfg = Release|x64
+		{C34C6B42-E759-4ADD-879A-75A8778463C2}.Release|x64.Build.0 = Release|x64
+		{C34C6B42-E759-4ADD-879A-75A8778463C2}.Release|x86.ActiveCfg = Release|Win32
+		{C34C6B42-E759-4ADD-879A-75A8778463C2}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
