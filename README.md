@@ -21,17 +21,22 @@ The software package consists of three components.
 The components are arranged as described below.
 * **~/bin/** – code generator executables, curl binaries for Windows, quick info on MS VC++ redistributable packages
 * **~/binder/** – Binder configuration files
+* **~/cgen/** – code generator sources
+* **~/cgen/acta** - integrated actor-task model processor
+* **~/cgen/cgen** - code generator for actor-task model
+* **~/cgen/skel** - skeleton processor
+* **~/docs/** - books and articles, preprints and documentation related to the project
+* **~/docs/how2program.pdf** - textbook (in Russian) on the programming method
+* **~/docs/VostokinGRID20203(-RUS).pdf** - proposal for a new engine architecture for the project 
 * **~/lib/** – Templet C++ library source files
 * **~/lib/opt/** – external packages including libcurl and JSON for Modern C++
 * **~/lib/speclang.txt** – technical overview of the lightweight actor specification language
 * **~/lib/templet.hpp** – core actor engine and base task engine
 * **~/lib/everest.hpp** – Everest task engine
 * **~/lib/basesim.hpp** – task engine for the paracomputer simulation;
-* **~/cgen/** – code generator sources
-* **~/cgen/acta** - integrated actor-task model processor
-* **~/cgen/cgen** - code generator for actor-task model
-* **~/cgen/skel** - skeleton processor
 * **~/samples/** – gallery of small examples
+* **~/samples/blchsym/** – proposal for a new engine architecture for the project, sample code
+* **~/samples/booksmpl/** – code examples from the textbook "how2program.pdf"
 * **~/samples/brickmov/** – model of transferring bricks from the original heap to the new one along the chain of workers
 * **~/samples/diamond/** – demonstration of the paracomputer simulation engine
 * **~/samples/evrstagnt/** - installing and verifying the Everest agent on the Binder virtual machine
@@ -43,7 +48,7 @@ The components are arranged as described below.
 
 ### Templet developers
 **********************
-This project is a part of learning and research activities of [Samara University](http://www.ssau.ru/english), Institute of IT, Mathematics and Electronics. For more details feel free to contact the author: Dr. Sergei Vostokin (sergey.vostokin@gmail.com).
+This project is a part of learning and research activities of [Samara University](http://www.ssau.ru/english), Institute of IT and Cybernatics. For more details feel free to contact the author: Dr. Sergei Vostokin (sergey.vostokin@gmail.com).
 
 #### Thank you for your interest in the Templet project!
 
