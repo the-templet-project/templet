@@ -95,7 +95,7 @@ public:
     engine(){ 
         current_ord = 0;
         current_tag = 0;
-        my_task_tag = INT_MAX;
+        my_task_ord = INT_MAX;
     }
     
 	void submit(task&t) {
@@ -113,7 +113,7 @@ public:
     	        task* t = active_task_arr[tag];
     	        active_task_arr.erase(tag);
     	        
-    	        if(tag != my_task_tag){
+    	        if(current_ord != my_task_ord){
     	            istringstream ins(data);
     	            t->on_load(ins);
     	        }
@@ -139,15 +139,14 @@ public:
     	    t->on_save(outs);
 			data = outs.str();
     	    
-			my_task_tag = tag;
-			an_event_log.add_event(tag,data);
+			my_task_ord = an_event_log.add_event(tag,data);
 	    }
 	}
 
 private:
 	int current_ord;
 	int current_tag;
-	int my_task_tag;
+	int my_task_ord;
 	map<int,task*> active_task_arr;
 };
 
