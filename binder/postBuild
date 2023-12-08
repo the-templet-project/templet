@@ -5,8 +5,8 @@ mamba install -y -c conda-forge xeus-cling
 #jupyter lab workspaces import binder/workspace.json
 
 git clone https://gitlab.com/everest/agent.git ~/everest_agent
-git checkout python3
-pip install tornado==4.5.2
+#git checkout python3
+#pip install tornado==4.5.2
 
 cd ~/everest_agent
 mkdir ./conf 
