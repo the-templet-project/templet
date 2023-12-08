@@ -1,9 +1,18 @@
 #!/bin/bash
 
 mamba install -y -c conda-forge xeus-cling
-
 #conda install -c conda-forge xeus-cling
 #jupyter lab workspaces import binder/workspace.json
+
+git clone https://gitlab.com/everest/agent.git ~/everest_agent
+git checkout python3
+pip install tornado==4.5.2
+
+cd ~/everest_agent
+mkdir ./conf 
+cp everest_agent/agent.conf.default conf/agent.conf
+#cp -f ~/bin/start4everest.sh bin/start.sh
+#chmod 755 bin/start.sh
 
 cd ~/cgen
 g++ skel.cpp -o skel
