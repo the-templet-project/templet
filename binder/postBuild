@@ -17,4 +17,4 @@ chmod 755 ~/bin/cgen
 chmod 755 ~/bin/acta
 
 chmod 755 ~/bin/everest.sh
-./everest.sh
+~/bin/everest.sh
