@@ -12,4 +12,13 @@ mv acta ../bin/acta
 chmod 755 ../bin/skel
 chmod 755 ../bin/cgen
 chmod 755 ../bin/acta
-chmod 755 ../bin/everest.sh
+
+cd ..
+git clone https://gitlab.com/everest/agent.git ./everest_agent
+
+mkdir ./everest_agent/conf 
+cp    ./everest_agent/everest_agent/agent.conf.default ./everest_agent/conf/agent.conf
+
+cp    ./bin/start4python2.sh ./everest_agent/bin/start.sh
+sed -i -e 's=/srv/conda/envs/everest/bin/python2=/opt/tljh/user/envs/everest/bin/python2=' ./everest_agent/bin/start.sh
+chmod 755 ./everest_agent/bin/start.sh
