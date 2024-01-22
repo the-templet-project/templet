@@ -27,7 +27,8 @@ The components are arranged as described below.
 * **~/cgen/skel** - skeleton processor
 * **~/docs/** - books and articles, preprints and documentation related to the project
 * **~/docs/how2program.pdf** - textbook (in Russian) on the programming method
-* **~/docs/VostokinGRID20203(-RUS).pdf** - proposal for a new engine architecture for the project 
+* **~/docs/VostokinGRID20203(-RUS).pdf** - proposal for a new engine architecture for the project
+* **~/jhub** - setup for working in The Littlest JupyterHub
 * **~/lib/** – Templet C++ library source files
 * **~/lib/opt/** – external packages including libcurl and JSON for Modern C++
 * **~/lib/speclang.txt** – technical overview of the lightweight actor specification language
@@ -39,7 +40,7 @@ The components are arranged as described below.
 * **~/samples/booksmpl/** – code examples from the textbook "how2program.pdf"
 * **~/samples/brickmov/** – model of transferring bricks from the original heap to the new one along the chain of workers
 * **~/samples/diamond/** – demonstration of the paracomputer simulation engine
-* **~/samples/evrstagnt/** - installing and verifying the Everest agent on the Binder virtual machine
+* **~/samples/evrstagnt/** - installing and verifying the Everest agent on the Binder virtual machine or on The Littlest JupyterHub server
 * **~/samples/heatomp/** - solving the heat equation using multicore systems with OpenMP 2.0 or higher
 * **~/samples/parsweep/** - parameter sweep application (calculation of the Lyapunov spectrum for the Lorentz equation with different values of rho, sigma, beta)
 * **~/samples/pingpong/** – demonstration of the Everest task engine
