@@ -25,9 +25,9 @@ int main()
 	NUM_TASKS = 1;
 	// set NUM_WORKERS in 'parsweep.hpp' if needed
 
-	rho = new double[NUM_TASKS]   {28.0};
-	sigma = new double[NUM_TASKS] {10.0};
-	beta = new double[NUM_TASKS]  {2.66666};
+	RHO = new double[NUM_TASKS]   {28.0};
+	SIGMA = new double[NUM_TASKS] {10.0};
+	BETA = new double[NUM_TASKS]  {2.66666};
 
 	templet::engine eng;
 	templet::everest_engine teng("everest-access-token");

@@ -34,9 +34,9 @@ public:
 /***** problem state *****/
 /**/	int NUM_TASKS;
 /**/
-/**/	double *rho;
-/**/	double *sigma;
-/**/	double *beta;
+/**/	double *RHO;
+/**/	double *SIGMA;
+/**/	double *BETA;
 /**/
 /**/	int current = 0;
 /**/    double the_best_rho, the_best_sigma, the_best_beta;
@@ -162,9 +162,9 @@ struct master :public templet::actor {
 			request* r = req_list.front();
 			req_list.pop_front();
 /***** form a new task *****/
-/**/		r->rho   = rho[current];
-/**/		r->sigma = sigma[current];
-/**/		r->beta  = beta[current];
+/**/		r->rho   = RHO[current];
+/**/		r->sigma = SIGMA[current];
+/**/		r->beta  = BETA[current];
 /**/		current++;
 /*************/
 			r->send();
