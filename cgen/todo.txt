@@ -79,20 +79,28 @@ void meta(meta_engine&e){
             an error occurs
  -c | -C -- clear (do not use) mark-up for output
   
- Mark-up format:
- ---------------
- /*$TT$  -- block start signature  <BSS>
- <ID>    -- ID of the marked block <IDB>
- */      -- block start ending     <BSE>
- /*$TT$*/-- block end signature    <BES>
- 
+ Mark-up format (for C/C++ language):
+ ------------------------------------
+ /*templet. -- block start signature  <BSS>
+ <ID>       -- ID of the marked block <IDB>
+ */         -- block start ending     <BSE>
+ /*templet*/-- block end signature    <BES>
+
  Marked-up file format in EBNF:
  ------------------------------
  <marked block> ::= <BSS> <IDB> <BSE> <new line> { <line> <new line> } <BES> <new line>
  <line> ::= character sequence not starting with /*$TT$
  <not marked block> ::= { <line> <new line> }
  <marked file> ::= {<not marked block> <marked block>} <not marked block>
-  
+
+ or
+
+ <BSS> <IDB> <BSE> in the form
+ #pragma templet <ID>
+
+ <BES> inthe form
+ #pragma templet /<ID>
+
  Options usage:
  --------------
  1) transformation with marked-up input
@@ -128,7 +136,19 @@ void meta(meta_engine&e){
  6) <tt-modify-pair>    -- transform *.cpp and *.tt.cpp to the consistent state
  7) <tt-pair-to-single> -- unite *.cpp and *.tt.cpp pair into the single marked-up *.cpp
  8) <tt-single-to-pair> -- split the single marked-up *.cpp into *.cpp and *.tt.cpp pair
- 
+
+ Minimum package of utilities in the state synchronization version:
+ ------------------------------------------------------------------
+ 1) tlang - markup processor for the Templet language
+ 2) tmake - source code maker
+ 3) tsync - state synchronization server
+ 4) tdata - data server
+ 5) tauth - key generator
+ 6) tcall - interface from the app to the state synchronization server
+ 7) tload - interface from the app to the data server
+ 8) tuser - interface from the external user to the app
+
+
  
  
  
