@@ -79,27 +79,14 @@ void meta(meta_engine&e){
             an error occurs
  -c | -C -- clear (do not use) mark-up for output
   
- Mark-up format (for C/C++ language):
- ------------------------------------
- /*templet. -- block start signature  <BSS>
- <ID>       -- ID of the marked block <IDB>
- */         -- block start ending     <BSE>
- /*templet*/-- block end signature    <BES>
-
- Marked-up file format in EBNF:
- ------------------------------
- <marked block> ::= <BSS> <IDB> <BSE> <new line> { <line> <new line> } <BES> <new line>
- <line> ::= character sequence not starting with /*$TT$
+ Marked-up file format in EBNF-like  form (for C/C++):
+ ----------------------------------------------------- 
+ <begin>(ID) ::= #pragma templet begin(ID)
+ <end>(ID) ::= #pragma templet end(ID)
+ <marked block> ::= <begin>(x) <new line> { <line> <new line> } <end>(x) <new line>
+ <line> ::= character sequence not starting with '#pragma templet'
  <not marked block> ::= { <line> <new line> }
  <marked file> ::= {<not marked block> <marked block>} <not marked block>
-
- or
-
- <BSS> <IDB> <BSE> in the form
- #pragma templet <ID>
-
- <BES> inthe form
- #pragma templet /<ID>
 
  Options usage:
  --------------
@@ -145,7 +132,7 @@ void meta(meta_engine&e){
  4) tdata - data server
  5) tauth - key generator
  6) tcall - interface from the app to the state synchronization server
- 7) tload - interface from the app to the data server
+ 7) tload - interface from the app/external user to the data server
  8) tuser - interface from the external user to the app
 
 
