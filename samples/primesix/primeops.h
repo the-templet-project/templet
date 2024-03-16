@@ -20,6 +20,6 @@
 #include <list>
 
 bool is_prime(long long num, std::list<long long>&table);
-void extend_prime_table(std::list<long long>&table, long long from, long long to);
+void extend_prime_table(std::list<long long>&table, long long to);
 void find_sextuplets_in_range(std::list<long long>&table,long long from,long long to,std::list<long long>&found);
-void sextuplets_search(std::list<long long>&table,long long max_number);
+void sextuplets_search(std::list<long long>&table,long long to);

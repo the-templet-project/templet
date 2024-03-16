@@ -18,14 +18,13 @@ bool is_prime(long long num, std::list<long long>&table)
 	return true;
 }
 
-void extend_prime_table(std::list<long long>&table, long long from, long long to)
+void extend_prime_table(std::list<long long>&table, long long to)
 {
-    assert(from%2 && from >=3 && from < to);
-    do{
+    long long from;
+    if(table.empty()) from = 3; else from = table.back()+2; 
+
+    for(;from<=to;from+=2)
        if(is_prime(from,table))table.push_back(from);
-       from += 2;
-    }
-    while(from <= to);
 }
 
 void find_sextuplets_in_range(std::list<long long>&table,long long from,long long to,std::list<long long>&found)
@@ -61,14 +60,14 @@ void find_sextuplets_in_range(std::list<long long>&table,long long from,long lon
     }    
 }
 
-void sextuplets_search(std::list<long long>&table,long long max_number)
+void sextuplets_search(std::list<long long>&table,long long to)
 {
     int  count = 0;
     long long n = 3;
     long cur_size = 0;
     long long last_5[5]={0};
     
-	while (n < max_number){
+	while (n <= to){
         if(is_prime(n, table)){
             table.push_back(n);
             if( 
