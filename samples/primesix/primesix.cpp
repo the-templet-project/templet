@@ -6,6 +6,8 @@
 #include <cassert>
 #include <iostream>
 #include <list>
+#include <vector>
+#include <algorithm>
 
 #include <templet.hpp>
 #include <basesim.hpp>
@@ -21,9 +23,9 @@ const int  NUMBER_OF_APP_INSTANCES = 10;
 class request : public templet::message {
 public:
 	request(templet::actor*a = 0, templet::message_adaptor ma = 0) :templet::message(a, ma) {}
-    int    tag;
-    list<long long> sextuplets;
-    size_t ord;
+    int    tag;                //in
+    list<long long> sextuplets;//in
+    size_t ord;                //out
 };
 
 /*event_log=array_of(tag,list_of(sextuplets))*/
@@ -85,13 +87,8 @@ struct tcall :public templet::actor {
 		t(this, &on_t_adapter)
 	{
 /*$TET$tcall$tcall*/
-        for(task_slots& slot:slots){
-            slot.is_free = false; slot.is_ready = false; slot.sextuplets.clear();
-            slot.from = slot.to = 0;
-        }
-        current_unchecked_num = 3;
-        range_for_slot = SEARCH_RANGE_LIMIT / NUMBER_OF_SEARCH_RANGE_CHANKS;
-        last_ready_tag = -1;
+        task_selector.init();
+        task_sorter.init();
 /*$TET$*/
 	}
 
@@ -122,16 +119,61 @@ struct tcall :public templet::actor {
 
 /*$TET$tcall$$footer*/
 
-long long current_unchecked_num;
-long long range_for_slot;
-int last_ready_tag;
+struct planned_task_selector{
+    void init(){
+        srand(0);
+        planned.resize(min(NUMBER_OF_TASK_SLOTS,NUMBER_OF_SEARCH_RANGE_CHANKS));
+        int i; for(i=0;i<planned.size();i++) planned[i]=i;
+        last_planned = i;       
+    }
+    bool select_task(int&task_tag){
+        if(planned.size()==0)return false;
+        task_tag = planned[rand()%planned.size()];
+        return true;
+    }
+    bool task_ready(int&task_tag){
+        for(auto it=planned.begin();it!=planned.end();it++)
+            if(*it==task_tag){
+                if(last_planned==NUMBER_OF_SEARCH_RANGE_CHANKS-1){planned.erase(it); return true;}
+                else{ *it=++last_planned; return true; }
+            }
+        return false;
+    }
+    vector<int> planned;
+    int last_planned;
+} task_selector;
 
-struct task_slots{
-    int  tag;
-    bool is_free, is_ready;
-    long long from, to;
-    list<long long> sextuplets;
-} slots[NUMBER_OF_TASK_SLOTS];
+struct ready_task_sorter{
+    void init(){
+        print_enabled = false;
+        last_printed_task=-1;last_printed_sextuplet=0;
+        ready.clear();
+    } 
+    static bool comp(const pair<int,list<long long>>& l, const pair<int,list<long long>>& r){
+        return l.first < r.first;
+    }
+    bool add_ready(int tag,list<long long>& sextuplets){
+        for(auto& p:ready) if(p.first==tag) return false;
+        
+        ready.push_back(pair(tag,sextuplets));
+        ready.sort(comp);
+        
+        for(auto it = ready.begin(); it != ready.end();){
+            if(it->first+1==last_printed_task){
+                // print
+                it = ready.erase(it);
+                last_printed_task++;
+            }
+            else break;
+        }
+        return true;
+    }
+    bool completed(){return last_printed_task==NUMBER_OF_SEARCH_RANGE_CHANKS-1;}
+    bool print_enabled;
+    int last_printed_task;
+    int last_printed_sextuplet;
+    list<pair<int,list<long long>>> ready;
+} task_sorter;
 
 /*$TET$*/
 };
@@ -154,6 +196,8 @@ void run_state_sync_app()
 		log.r(app[i].r);
 	}
 
+    app[0].task_sorter.print_enabled = true;
+    
 	eng.start();
 	teng.run();
 
