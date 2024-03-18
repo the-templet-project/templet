@@ -47,7 +47,7 @@ void find_sextuplets_in_range(std::list<long long>&table,long long from,long lon
                 n==last_5[0]+16                 
             ){ 
                 found.push_back(last_5[0]);
-                cout<<"sextuples #" << ++count << " ("<<last_5[0]<<")"<<std::endl;
+                cout<<"sextuplet #" << ++count << " ("<<last_5[0]<<")" << endl;
             }
             
             last_5[0]=last_5[1];
@@ -78,7 +78,7 @@ void sextuplets_search(std::list<long long>&table,long long to)
                 n==last_5[1]+12 &&
                 n==last_5[0]+16                 
             ){ 
-                cout<<"sextuples #" << ++count << " ("<<last_5[0]<<")"<<std::endl;                
+                cout<<"sextuplet #" << ++count << " ("<<last_5[0]<<")" << endl;                
             }
             
             last_5[0]=last_5[1];

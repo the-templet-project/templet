@@ -30,7 +30,7 @@ public:
 
 /*event_log=array_of(tag,list_of(sextuplets))*/
 vector<pair<int,list<long long>>> event_log;
-int NUM_OF_RUNNING_APP_INSTANCES = NUMBER_OF_APP_INSTANCES;
+int NUM_OF_RUNNING_APP_INSTANCES;
 
 /*$TET$*/
 
@@ -134,7 +134,7 @@ struct planned_task_selector{
     bool task_ready(int&task_tag){
         for(auto it=planned.begin();it!=planned.end();it++)
             if(*it==task_tag){
-                if(last_planned==NUMBER_OF_SEARCH_RANGE_CHANKS-1){planned.erase(it); return true;}
+                if(last_planned < NUMBER_OF_SEARCH_RANGE_CHANKS){planned.erase(it); return true;}
                 else{ *it=++last_planned; return true; }
             }
         return false;
@@ -156,11 +156,16 @@ struct ready_task_sorter{
         for(auto& p:ready) if(p.first==tag) return false;
         
         ready.push_back(pair(tag,sextuplets));
-        ready.sort(comp);
+        //ready.sort(comp);
+        ready.sort([](const auto& l, const auto& r){return l.first < r.first;});
         
         for(auto it = ready.begin(); it != ready.end();){
             if(it->first+1==last_printed_task){
                 // print
+                if(print_enabled){
+                    cout<<"task tag #" << last_printed_task+1 << endl;
+                    for(auto n:it->second) cout<<"sextuplet #" << ++last_printed_sextuplet << " ("<< n <<")" << endl;
+                }
                 it = ready.erase(it);
                 last_printed_task++;
             }
