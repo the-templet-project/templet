@@ -23,9 +23,10 @@ const int  NUMBER_OF_APP_INSTANCES = 10;
 class request : public templet::message {
 public:
 	request(templet::actor*a = 0, templet::message_adaptor ma = 0) :templet::message(a, ma) {}
+    bool   is_first;  
     int    tag;                //in
     list<long long> sextuplets;//in
-    size_t ord;                //out
+    int    ord;                //out
 };
 
 /*event_log=array_of(tag,list_of(sextuplets))*/
@@ -58,7 +59,8 @@ struct tsync :public templet::actor {
 
 	inline void on_r(request&m) {
 /*$TET$tsync$r*/
-        event_log.push_back(pair(m.tag,m.sextuplets));
+        if(m.is_first) m.is_first = false;  
+        else event_log.push_back(pair(m.tag,m.sextuplets));
         m.ord = event_log.size() - 1; 
         m.send();
 /*$TET$*/
@@ -89,6 +91,7 @@ struct tcall :public templet::actor {
 /*$TET$tcall$tcall*/
         task_selector.init();
         task_sorter.init();
+        task_ord_to_start_update_from = 0;
 /*$TET$*/
 	}
 
@@ -101,16 +104,35 @@ struct tcall :public templet::actor {
 
 	void start() {
 /*$TET$tcall$start*/
+        r.is_first = true;
+        r.send();
 /*$TET$*/
 	}
 
 	inline void on_r(request&m) {
 /*$TET$tcall$r*/
+        t.submit();
 /*$TET$*/
 	}
 
 	inline void on_t(templet::basesim_task&t) {
 /*$TET$tcall$t*/
+        for(int i=task_ord_to_start_update_from; i<=r.ord; i++){
+            if(task_selector.task_ready(event_log[i].first))
+                task_sorter.add_ready(event_log[i].first,event_log[i].second);
+        }
+        task_ord_to_start_update_from = r.ord+1;
+
+        int task_tag;
+        if(task_selector.select_task(task_tag)){
+            // process task
+            r.tag = task_tag; r.sextuplets.clear();
+            r.send();
+        } 
+        if(task_sorter.completed()){
+            NUM_OF_RUNNING_APP_INSTANCES--; cout << "&& ";
+            if(NUM_OF_RUNNING_APP_INSTANCES==0) stop();
+        }
 /*$TET$*/
 	}
 
@@ -118,13 +140,14 @@ struct tcall :public templet::actor {
 	templet::basesim_task t;
 
 /*$TET$tcall$$footer*/
+    int task_ord_to_start_update_from;
 
 struct planned_task_selector{
     void init(){
         srand(0);
         planned.resize(min(NUMBER_OF_TASK_SLOTS,NUMBER_OF_SEARCH_RANGE_CHANKS));
         int i; for(i=0;i<planned.size();i++) planned[i]=i;
-        last_planned = i;       
+        last_planned = i-1;       
     }
     bool select_task(int&task_tag){
         if(planned.size()==0)return false;
@@ -134,7 +157,7 @@ struct planned_task_selector{
     bool task_ready(int&task_tag){
         for(auto it=planned.begin();it!=planned.end();it++)
             if(*it==task_tag){
-                if(last_planned < NUMBER_OF_SEARCH_RANGE_CHANKS){planned.erase(it); return true;}
+                if(NUMBER_OF_SEARCH_RANGE_CHANKS-(last_planned+1)<=NUMBER_OF_TASK_SLOTS){planned.erase(it); return true;}
                 else{ *it=++last_planned; return true; }
             }
         return false;
@@ -149,25 +172,19 @@ struct ready_task_sorter{
         last_printed_task=-1;last_printed_sextuplet=0;
         ready.clear();
     } 
-    static bool comp(const pair<int,list<long long>>& l, const pair<int,list<long long>>& r){
-        return l.first < r.first;
-    }
     bool add_ready(int tag,list<long long>& sextuplets){
-        for(auto& p:ready) if(p.first==tag) return false;
-        
         ready.push_back(pair(tag,sextuplets));
-        //ready.sort(comp);
         ready.sort([](const auto& l, const auto& r){return l.first < r.first;});
         
         for(auto it = ready.begin(); it != ready.end();){
-            if(it->first+1==last_printed_task){
+            if(it->first==last_printed_task+1){
+                last_printed_task++;
                 // print
                 if(print_enabled){
-                    cout<<"task tag #" << last_printed_task+1 << endl;
+                    cout<<"task tag #" << last_printed_task << endl;
                     for(auto n:it->second) cout<<"sextuplet #" << ++last_printed_sextuplet << " ("<< n <<")" << endl;
                 }
                 it = ready.erase(it);
-                last_printed_task++;
             }
             else break;
         }
@@ -206,9 +223,7 @@ void run_state_sync_app()
 	eng.start();
 	teng.run();
 
-	if (!eng.stopped()) {
-		cout << "Logical error" << std::endl; return;
-	}
+	if (!eng.stopped()) {cout << "Logical error" << std::endl; return;}
 
 	cout << "Maximum number of tasks executed in parallel : " << teng.Pmax() << endl;
 	cout << "Time of sequential execution of all tasks    : " << teng.T1() << endl;
@@ -254,8 +269,8 @@ void run_prime_funcs_test()
 int main()
 {
     //run_sequential_test();
-    run_prime_funcs_test();
-    //run_state_sync_app();
+    //run_prime_funcs_test();
+    run_state_sync_app();
 
     return EXIT_SUCCESS;
 }
