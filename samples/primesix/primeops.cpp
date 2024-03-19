@@ -18,13 +18,10 @@ bool is_prime(long long num, std::list<long long>&table)
 	return true;
 }
 
-void extend_prime_table(std::list<long long>&table, long long to)
+long long extend_prime_table(std::list<long long>&table,long long from, long long to)
 {
-    long long from;
-    if(table.empty()) from = 3; else from = table.back()+2; 
-
-    for(;from<=to;from+=2)
-       if(is_prime(from,table))table.push_back(from);
+    for(;from<=to;from+=2) if(is_prime(from,table))table.push_back(from);
+    return from-2;
 }
 
 void find_sextuplets_in_range(std::list<long long>&table,long long from,long long to,std::list<long long>&found)
@@ -47,7 +44,7 @@ void find_sextuplets_in_range(std::list<long long>&table,long long from,long lon
                 n==last_5[0]+16                 
             ){ 
                 found.push_back(last_5[0]);
-                cout<<"sextuplet #" << ++count << " ("<<last_5[0]<<")" << endl;
+                //cout<<"sextuplet #" << ++count << " ("<<last_5[0]<<")" << endl;
             }
             
             last_5[0]=last_5[1];

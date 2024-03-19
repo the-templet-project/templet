@@ -15,15 +15,29 @@
 using namespace std;
 
 const long long SEARCH_RANGE_LIMIT       = 100000000;
-const int  NUMBER_OF_SEARCH_RANGE_CHANKS = 200;
+const int  NUMBER_OF_SEARCH_RANGE_CHANKS = 100;
 
 const int  NUMBER_OF_TASK_SLOTS    = 10;
 const int  NUMBER_OF_APP_INSTANCES = 10;
 
+void chank_tag_to_range(int tag,long long& from,long long& to){
+    const long long CHANK_SIZE = SEARCH_RANGE_LIMIT / NUMBER_OF_SEARCH_RANGE_CHANKS; 
+    from = tag * CHANK_SIZE;
+    to = (tag < NUMBER_OF_SEARCH_RANGE_CHANKS-1) ? from + CHANK_SIZE - 1 : SEARCH_RANGE_LIMIT;
+    if(from-15 > 2) from-=15;
+    if(from==0)     from=3;
+}
+
+long long chank_tag_to_max_verif_prime(int tag){
+    const long long CHANK_SIZE = SEARCH_RANGE_LIMIT / NUMBER_OF_SEARCH_RANGE_CHANKS; 
+    long long to = (tag < NUMBER_OF_SEARCH_RANGE_CHANKS-1) ? tag * CHANK_SIZE + CHANK_SIZE : SEARCH_RANGE_LIMIT;
+    return sqrt((double)to)+1; 
+}
+
 class request : public templet::message {
 public:
 	request(templet::actor*a = 0, templet::message_adaptor ma = 0) :templet::message(a, ma) {}
-    bool   input;  
+    bool   input;              //is tag/sextuplets pair valid?
     int    tag;                //in
     list<long long> sextuplets;//in
     int    ord;                //out
@@ -91,6 +105,8 @@ struct tcall :public templet::actor {
         task_selector.init();
         task_sorter.init();
         task_ord_to_start_update_from = 0;
+        prime_table.clear();
+        prime_limit = 3;
 /*$TET$*/
 	}
 
@@ -116,23 +132,37 @@ struct tcall :public templet::actor {
 
 	inline void on_t(templet::basesim_task&t) {
 /*$TET$tcall$t*/
+        auto start = std::chrono::high_resolution_clock::now();   
+        
         for(int i=task_ord_to_start_update_from; i<=r.ord; i++){
             if(task_selector.task_ready(event_log[i].first))
-                task_sorter.add_ready(event_log[i].first,event_log[i].second);
+                task_sorter.ready.push_back(pair(event_log[i].first,event_log[i].second));
         }
+        task_sorter.print_ready();
         task_ord_to_start_update_from = r.ord+1;
 
         int task_tag;
         if(task_selector.select_task(task_tag)){
             // process task
             r.tag = task_tag; r.sextuplets.clear();
-
+            
+            long long max_prime_needed = chank_tag_to_max_verif_prime(task_tag); 
+            if(prime_limit < max_prime_needed) prime_limit = extend_prime_table(prime_table,prime_limit,max_prime_needed);
+            
+            long long from, to;
+            chank_tag_to_range(task_tag,from,to);
+            find_sextuplets_in_range(prime_table,from,to,r.sextuplets);
+            
             r.input = true;
-            t.delay(1.0);
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> diff = end - start;
+            t.delay(diff.count());
         } 
         else{
             r.input = false;
-            t.delay(0.0); 
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> diff = end - start;
+            t.delay(diff.count()); 
         }
         
         if(task_sorter.completed()){
@@ -147,6 +177,8 @@ struct tcall :public templet::actor {
 
 /*$TET$tcall$$footer*/
     int task_ord_to_start_update_from;
+    std::list<long long> prime_table;
+    long long prime_limit;
 
 struct planned_task_selector{
     void init(){
@@ -174,31 +206,37 @@ struct planned_task_selector{
 
 struct ready_task_sorter{
     void init(){
-        print_enabled = false;
-        last_printed_task=-1;last_printed_sextuplet=0;
+        last_completed_task_tag=-1;
         ready.clear();
+        
+        print_enabled = false;
+        last_printed_sextuplet=0;
     } 
-    bool add_ready(int tag,list<long long>& sextuplets){
-        ready.push_back(pair(tag,sextuplets));
+    void print_ready(){
         ready.sort([](const auto& l, const auto& r){return l.first < r.first;});
         
         for(auto it = ready.begin(); it != ready.end();){
-            if(it->first==last_printed_task+1){
-                last_printed_task++;
-                // print
+            if(last_completed_task_tag+1==it->first){
+                last_completed_task_tag++;
+                
                 if(print_enabled){
-                    cout<<"task tag #" << last_printed_task << endl;
+                    long long from,to;
+                    chank_tag_to_range(last_completed_task_tag,from,to);
+                    cout<<"task tag #" << last_completed_task_tag << " in range(" << from << "," << to << ") prime_limit="
+                        << chank_tag_to_max_verif_prime(last_completed_task_tag) << endl;
+                    
                     for(auto n:it->second) cout<<"sextuplet #" << ++last_printed_sextuplet << " ("<< n <<")" << endl;
                 }
                 it = ready.erase(it);
             }
             else break;
         }
-        return true;
     }
-    bool completed(){return last_printed_task==NUMBER_OF_SEARCH_RANGE_CHANKS-1;}
+    bool completed(){return last_completed_task_tag==NUMBER_OF_SEARCH_RANGE_CHANKS-1;}
+    
+    int last_completed_task_tag;
+    
     bool print_enabled;
-    int last_printed_task;
     int last_printed_sextuplet;
     list<pair<int,list<long long>>> ready;
 } task_sorter;
@@ -260,9 +298,9 @@ void run_prime_funcs_test()
     
     auto start = std::chrono::high_resolution_clock::now();
     
-    long long max_num_in_table = (long long)sqrt(SEARCH_RANGE_LIMIT);
+    long long max_num_in_table = (long long)sqrt((double)SEARCH_RANGE_LIMIT)+1;
     cout << "max_num_in_table = " << max_num_in_table << endl; 
-    extend_prime_table(table, max_num_in_table);
+    extend_prime_table(table, 3, max_num_in_table);
     
     find_sextuplets_in_range(table,3,SEARCH_RANGE_LIMIT,found);
  
