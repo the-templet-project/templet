@@ -15,7 +15,7 @@
 using namespace std;
 
 const long long SEARCH_RANGE_LIMIT       = 100000000;
-const int  NUMBER_OF_SEARCH_RANGE_CHANKS = 100;
+const int  NUMBER_OF_SEARCH_RANGE_CHANKS = 200;
 
 const int  NUMBER_OF_TASK_SLOTS    = 10;
 const int  NUMBER_OF_APP_INSTANCES = 10;
@@ -23,7 +23,7 @@ const int  NUMBER_OF_APP_INSTANCES = 10;
 class request : public templet::message {
 public:
 	request(templet::actor*a = 0, templet::message_adaptor ma = 0) :templet::message(a, ma) {}
-    bool   is_first;  
+    bool   input;  
     int    tag;                //in
     list<long long> sextuplets;//in
     int    ord;                //out
@@ -59,8 +59,7 @@ struct tsync :public templet::actor {
 
 	inline void on_r(request&m) {
 /*$TET$tsync$r*/
-        if(m.is_first) m.is_first = false;  
-        else event_log.push_back(pair(m.tag,m.sextuplets));
+        if(m.input) event_log.push_back(pair(m.tag,m.sextuplets));
         m.ord = event_log.size() - 1; 
         m.send();
 /*$TET$*/
@@ -104,7 +103,7 @@ struct tcall :public templet::actor {
 
 	void start() {
 /*$TET$tcall$start*/
-        r.is_first = true;
+        r.input = false;
         r.send();
 /*$TET$*/
 	}
@@ -127,12 +126,19 @@ struct tcall :public templet::actor {
         if(task_selector.select_task(task_tag)){
             // process task
             r.tag = task_tag; r.sextuplets.clear();
-            r.send();
+
+            r.input = true;
+            t.delay(1.0);
         } 
-        if(task_sorter.completed()){
-            NUM_OF_RUNNING_APP_INSTANCES--; cout << "&& ";
-            if(NUM_OF_RUNNING_APP_INSTANCES==0) stop();
+        else{
+            r.input = false;
+            t.delay(0.0); 
         }
+        
+        if(task_sorter.completed()){
+            if(--NUM_OF_RUNNING_APP_INSTANCES==0) stop();
+        }
+        else r.send();
 /*$TET$*/
 	}
 
@@ -157,7 +163,7 @@ struct planned_task_selector{
     bool task_ready(int&task_tag){
         for(auto it=planned.begin();it!=planned.end();it++)
             if(*it==task_tag){
-                if(NUMBER_OF_SEARCH_RANGE_CHANKS-(last_planned+1)<=NUMBER_OF_TASK_SLOTS){planned.erase(it); return true;}
+                if(last_planned == NUMBER_OF_SEARCH_RANGE_CHANKS-1){planned.erase(it); return true;}
                 else{ *it=++last_planned; return true; }
             }
         return false;
