@@ -14,11 +14,13 @@
 
 using namespace std;
 
+// complexity of calculation
 const long long SEARCH_RANGE_LIMIT       = 100000000;
-const int  NUMBER_OF_SEARCH_RANGE_CHANKS = 100;
+const int  NUMBER_OF_SEARCH_RANGE_CHANKS = 1000;
 
-const int  NUMBER_OF_TASK_SLOTS    = 10;
-const int  NUMBER_OF_APP_INSTANCES = 10;
+// parallelism / recalculations 
+const int  NUMBER_OF_TASK_SLOTS    = 100; // mast be less then NUMBER_OF_SEARCH_RANGE_CHANKS
+const int  NUMBER_OF_APP_INSTANCES = 100;
 
 void chank_tag_to_range(int tag,long long& from,long long& to){
     const long long CHANK_SIZE = SEARCH_RANGE_LIMIT / NUMBER_OF_SEARCH_RANGE_CHANKS; 
@@ -246,7 +248,7 @@ struct ready_task_sorter{
 
 /*$TET$$footer*/
 
-void run_state_sync_app()
+double run_parallel()
 {
 	templet::engine eng;
 	templet::basesim_engine teng;
@@ -263,58 +265,46 @@ void run_state_sync_app()
 	}
 
     app[0].task_sorter.print_enabled = true;
+
+    cout << "==== parallel operation simulation ====" << endl;
     
 	eng.start();
 	teng.run();
 
-	if (!eng.stopped()) {cout << "Logical error" << std::endl; return;}
+	if (!eng.stopped()) {cout << "Logical error" << std::endl; return 0.0;}
 
+    cout << endl;
 	cout << "Maximum number of tasks executed in parallel : " << teng.Pmax() << endl;
-	cout << "Time of sequential execution of all tasks    : " << teng.T1() << endl;
-	cout << "Time of parallel   execution of all tasks    : " << teng.Tp() << endl;
-	cout << "Estimated speed-up                           : " << teng.T1() / teng.Tp() << std::endl;    
+	cout << "Time of sequential execution of all tasks    : " << teng.T1() << "s" << endl;
+	cout << "Time of parallel   execution of all tasks    : " << teng.Tp() << "s" << endl;
+	cout << "Estimated speedup                            : " << teng.T1() / teng.Tp() << std::endl;
+
+    return teng.Tp();
 }
 
-void run_sequential_test()
+double run_sequential()
 {
     list<long long> table;
 
-    cout << endl << "run_sequential_test()" << endl;
+    cout << endl << "==== sequential operation ====" << endl;
         
     auto start = std::chrono::high_resolution_clock::now();
 	sextuplets_search(table,SEARCH_RANGE_LIMIT);
 	auto end = std::chrono::high_resolution_clock::now();
     
 	std::chrono::duration<double> diff = end - start;	
-    cout << "exec.time = " << diff.count() << "s" << endl;
-}
+    cout << endl <<"Time of sequential execution : " << diff.count() << "s" << endl << endl;
 
-void run_prime_funcs_test()
-{
-    list<long long> table;
-    list<long long> found;
-
-    cout << endl << "run_prime_funcs_test()" << endl;
-    
-    auto start = std::chrono::high_resolution_clock::now();
-    
-    long long max_num_in_table = (long long)sqrt((double)SEARCH_RANGE_LIMIT)+1;
-    cout << "max_num_in_table = " << max_num_in_table << endl; 
-    extend_prime_table(table, 3, max_num_in_table);
-    
-    find_sextuplets_in_range(table,3,SEARCH_RANGE_LIMIT,found);
- 
-    auto end = std::chrono::high_resolution_clock::now();
-    
-    std::chrono::duration<double> diff = end - start;	
-    cout << "exec.time = " << diff.count() << "s" << endl;
+    return diff.count();
 }
 
 int main()
 {
-    //run_sequential_test();
-    //run_prime_funcs_test();
-    run_state_sync_app();
+    double T1, Tp;
+    T1 = run_sequential();
+    Tp = run_parallel();
+
+    cout << endl <<"Expected absolute speedup : " << T1/Tp << endl;
 
     return EXIT_SUCCESS;
 }
