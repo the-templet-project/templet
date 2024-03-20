@@ -16,10 +16,10 @@ using namespace std;
 
 // complexity of calculation
 const long long SEARCH_RANGE_LIMIT       = 100000000;
-const int  NUMBER_OF_SEARCH_RANGE_CHANKS = 1000;
+const int  NUMBER_OF_SEARCH_RANGE_CHANKS = 500;
 
 // parallelism / recalculations 
-const int  NUMBER_OF_TASK_SLOTS    = 100; // mast be less then NUMBER_OF_SEARCH_RANGE_CHANKS
+const int  NUMBER_OF_TASK_SLOTS    = 500; // <= NUMBER_OF_SEARCH_RANGE_CHANKS
 const int  NUMBER_OF_APP_INSTANCES = 100;
 
 void chank_tag_to_range(int tag,long long& from,long long& to){
@@ -301,11 +301,16 @@ double run_sequential()
 int main()
 {
     double T1, Tp;
+    
     T1 = run_sequential();
     Tp = run_parallel();
 
-    cout << endl <<"Expected absolute speedup : " << T1/Tp << endl;
-
+    cout << endl <<"Expected absolute speedup : " << T1/Tp << endl << endl;
+    cout << "SEARCH_RANGE_LIMIT            : " << SEARCH_RANGE_LIMIT <<endl;
+    cout << "NUMBER_OF_SEARCH_RANGE_CHANKS : " << NUMBER_OF_SEARCH_RANGE_CHANKS << endl;
+    cout << "NUMBER_OF_TASK_SLOTS          : " << NUMBER_OF_TASK_SLOTS << endl;
+    cout << "NUMBER_OF_APP_INSTANCES       : " << NUMBER_OF_APP_INSTANCES << endl;
+    
     return EXIT_SUCCESS;
 }
 /*$TET$*/
