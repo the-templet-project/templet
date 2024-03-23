@@ -14,25 +14,25 @@
 
 using namespace std;
 
-// complexity of calculation
-const long long SEARCH_RANGE_LIMIT       = 100000000;
-const int  NUMBER_OF_SEARCH_RANGE_CHANKS = 500;
+// main parameters
+const int  NUMBER_OF_TASK_SLOTS    = 500;
+const int  NUMBER_OF_APP_INSTANCES = 10;
+const double SERVER_DELAY_SEC      = 0.05;
 
-// parallelism / recalculations 
-const int  NUMBER_OF_TASK_SLOTS    = 500; // <= NUMBER_OF_SEARCH_RANGE_CHANKS
-const int  NUMBER_OF_APP_INSTANCES = 100;
+// complexity of calculation
+const long long SEARCH_RANGE_LIMIT = 100000000;
 
 void chank_tag_to_range(int tag,long long& from,long long& to){
-    const long long CHANK_SIZE = SEARCH_RANGE_LIMIT / NUMBER_OF_SEARCH_RANGE_CHANKS; 
+    const long long CHANK_SIZE = SEARCH_RANGE_LIMIT / NUMBER_OF_TASK_SLOTS; 
     from = tag * CHANK_SIZE;
-    to = (tag < NUMBER_OF_SEARCH_RANGE_CHANKS-1) ? from + CHANK_SIZE - 1 : SEARCH_RANGE_LIMIT;
+    to = (tag < NUMBER_OF_TASK_SLOTS-1) ? from + CHANK_SIZE - 1 : SEARCH_RANGE_LIMIT;
     if(from-15 > 2) from-=15;
     if(from==0)     from=3;
 }
 
 long long chank_tag_to_max_verif_prime(int tag){
-    const long long CHANK_SIZE = SEARCH_RANGE_LIMIT / NUMBER_OF_SEARCH_RANGE_CHANKS; 
-    long long to = (tag < NUMBER_OF_SEARCH_RANGE_CHANKS-1) ? tag * CHANK_SIZE + CHANK_SIZE : SEARCH_RANGE_LIMIT;
+    const long long CHANK_SIZE = SEARCH_RANGE_LIMIT / NUMBER_OF_TASK_SLOTS; 
+    long long to = (tag < NUMBER_OF_TASK_SLOTS-1) ? tag * CHANK_SIZE + CHANK_SIZE : SEARCH_RANGE_LIMIT;
     return sqrt((double)to)+1; 
 }
 
@@ -51,39 +51,57 @@ int NUM_OF_RUNNING_APP_INSTANCES;
 
 /*$TET$*/
 
-#pragma templet tsync(r?request)
+#pragma templet tsync(r?request,t:basesim)
 
 struct tsync :public templet::actor {
 	static void on_r_adapter(templet::actor*a, templet::message*m) {
 		((tsync*)a)->on_r(*(request*)m);}
+	static void on_t_adapter(templet::actor*a, templet::task*t) {
+		((tsync*)a)->on_t(*(templet::basesim_task*)t);}
 
-	tsync(templet::engine&e) :tsync() {
-		tsync::engines(e);
+	tsync(templet::engine&e,templet::basesim_engine&te_basesim) :tsync() {
+		tsync::engines(e,te_basesim);
 	}
 
-	tsync() :templet::actor(false)
+	tsync() :templet::actor(false),
+		t(this, &on_t_adapter)
 	{
 /*$TET$tsync$tsync*/
 /*$TET$*/
 	}
 
-	void engines(templet::engine&e) {
+	void engines(templet::engine&e,templet::basesim_engine&te_basesim) {
 		templet::actor::engine(e);
+		t.engine(te_basesim);
 /*$TET$tsync$engines*/
 /*$TET$*/
 	}
 
 	inline void on_r(request&m) {
 /*$TET$tsync$r*/
-        if(m.input) event_log.push_back(pair(m.tag,m.sextuplets));
-        m.ord = event_log.size() - 1; 
-        m.send();
+        _m = &m;
+        t.submit();
+/*$TET$*/
+	}
+
+	inline void on_t(templet::basesim_task&t) {
+/*$TET$tsync$t*/
+        t.delay(SERVER_DELAY_SEC);
+        
+        if(_m->input){
+            event_log.push_back(pair(_m->tag,_m->sextuplets));
+            cout << "log a task with tag = " <<_m->tag<< endl;
+        }
+        _m->ord = event_log.size() - 1; 
+        _m->send();
 /*$TET$*/
 	}
 
 	void r(request&m) { m.bind(this, &on_r_adapter); }
+	templet::basesim_task t;
 
 /*$TET$tsync$$footer*/
+    request* _m;
 /*$TET$*/
 };
 
@@ -185,7 +203,7 @@ struct tcall :public templet::actor {
 struct planned_task_selector{
     void init(){
         srand(0);
-        planned.resize(min(NUMBER_OF_TASK_SLOTS,NUMBER_OF_SEARCH_RANGE_CHANKS));
+        planned.resize(NUMBER_OF_TASK_SLOTS);
         int i; for(i=0;i<planned.size();i++) planned[i]=i;
         last_planned = i-1;       
     }
@@ -196,10 +214,7 @@ struct planned_task_selector{
     }
     bool task_ready(int&task_tag){
         for(auto it=planned.begin();it!=planned.end();it++)
-            if(*it==task_tag){
-                if(last_planned == NUMBER_OF_SEARCH_RANGE_CHANKS-1){planned.erase(it); return true;}
-                else{ *it=++last_planned; return true; }
-            }
+            if(*it==task_tag){planned.erase(it); return true;}
         return false;
     }
     vector<int> planned;
@@ -234,7 +249,7 @@ struct ready_task_sorter{
             else break;
         }
     }
-    bool completed(){return last_completed_task_tag==NUMBER_OF_SEARCH_RANGE_CHANKS-1;}
+    bool completed(){return last_completed_task_tag==NUMBER_OF_TASK_SLOTS-1;}
     
     int last_completed_task_tag;
     
@@ -256,7 +271,7 @@ double run_parallel()
     event_log.clear();
     NUM_OF_RUNNING_APP_INSTANCES = NUMBER_OF_APP_INSTANCES;
 
-	tsync log(eng);
+	tsync log(eng,teng);
 	tcall app[NUMBER_OF_APP_INSTANCES];
 
 	for (int i = 0; i < NUMBER_OF_APP_INSTANCES; i++) {
@@ -302,12 +317,11 @@ int main()
 {
     double T1, Tp;
     
-    T1 = run_sequential();
+    T1 = 148.0;//run_sequential();
     Tp = run_parallel();
 
     cout << endl <<"Expected absolute speedup : " << T1/Tp << endl << endl;
     cout << "SEARCH_RANGE_LIMIT            : " << SEARCH_RANGE_LIMIT <<endl;
-    cout << "NUMBER_OF_SEARCH_RANGE_CHANKS : " << NUMBER_OF_SEARCH_RANGE_CHANKS << endl;
     cout << "NUMBER_OF_TASK_SLOTS          : " << NUMBER_OF_TASK_SLOTS << endl;
     cout << "NUMBER_OF_APP_INSTANCES       : " << NUMBER_OF_APP_INSTANCES << endl;
     
