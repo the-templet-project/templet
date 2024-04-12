@@ -124,18 +124,19 @@ void meta(meta_engine&e){
  7) <tt-pair-to-single> -- unite *.cpp and *.tt.cpp pair into the single marked-up *.cpp
  8) <tt-single-to-pair> -- split the single marked-up *.cpp into *.cpp and *.tt.cpp pair
 
- Minimum package of utilities in the state synchronization version:
+ Planned package of utilities in the state synchronization version:
  ------------------------------------------------------------------
- 1) tlang - markup processor for the Templet language
- 2) tmake - source code maker
- 3) tsync - state synchronization server
- 4) tdata - data server
- 5) tauth - key generator
- 6) tcall - interface from the app to the state synchronization server
- 7) tload - interface from the app/external user to the data server
- 8) tuser - interface from the external user to the app
-
-
- 
+ 1) lang - markup processor for the Templet language
+ 2) make - source code maker
+ 3) sync - state synchronization call
+ 4) fput - file upload call
+ 5) fget - file dowload call
+ 6) fpin - call to pin a file
+ 7) fdel - file delete call
+ 8) call - call from an external user to the application
+10) sync-serv - state synchronization server
+11) file-serv - file server
+12) sync-proxy - state synchronization proxy server
+... 
  
  
