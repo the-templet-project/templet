@@ -126,17 +126,17 @@ void meta(meta_engine&e){
 
  Planned package of utilities in the state synchronization version:
  ------------------------------------------------------------------
- 1) lang - markup processor for the Templet language
- 2) make - source code maker
- 3) sync - state synchronization call
- 4) fput - file upload call
- 5) fget - file dowload call
- 6) fpin - call to pin a file
- 7) fdel - file delete call
- 8) call - call from an external user to the application
-10) sync-serv - state synchronization server
-11) file-serv - file server
-12) sync-proxy - state synchronization proxy server
+Client-side interface & utils
+ 1) templet-lang - markup processor for the Templet language
+ 2) templet-make - source code maker
+ 3) templet-sync - state synchronization call
+ 4) templet-fput - file upload call
+ 5) templet-fget - file dowload call
+ 6) templet-fpin - call to pin a file
+ 7) templet-fdel - file delete call
+ 8) templet-call - call from an external user to the application
+Server-side utils
+templet-{sync|file}-{serv|proxy|peer|auth} - 8 possible server-side utils
 ... 
  
  
