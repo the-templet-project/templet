@@ -135,8 +135,7 @@ Client-side interface & utils
  6) templet-fpin - call to pin a file
  7) templet-fdel - file delete call
  8) templet-call - call from an external user to the application
-Server-side utils
-templet-{sync|file}-{serv|proxy|peer|auth} - 8 possible server-side utils
+ 9) templet-auth - obtaining session data by logging into the service
 ... 
  
  
