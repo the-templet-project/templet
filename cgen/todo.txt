@@ -124,18 +124,17 @@ void meta(meta_engine&e){
  7) <tt-pair-to-single> -- unite *.cpp and *.tt.cpp pair into the single marked-up *.cpp
  8) <tt-single-to-pair> -- split the single marked-up *.cpp into *.cpp and *.tt.cpp pair
 
- Planned package of utilities in the state synchronization version:
- ------------------------------------------------------------------
-Client-side interface & utils
- 1) templet-lang - markup processor for the Templet language
- 2) templet-make - source code maker
- 3) templet-sync - state synchronization call
- 4) templet-fput - file upload call
- 5) templet-fget - file dowload call
- 6) templet-fpin - call to pin a file
- 7) templet-fdel - file delete call
- 8) templet-call - call from an external user to the application
- 9) templet-auth - obtaining session data by logging into the service
+ Client-side interface algorithms (or cli-utils)
+ -----------------------------------------------
+ 1) templet-lang - the Templet language markup processing 
+ 2) templet-make - application of the 'lang' to make a source code
+ 3) templet-sync - state synchronization call to the server
+ 4) templet-fput - file upload call to the server
+ 5) templet-fget - file dowload call to the server
+ 6) templet-fpin - pin a file call to the server
+ 7) templet-fdel - file delete call to the server
+ 8) templet-call - call from an external user to the application (via the server)
+ 9) templet-auth - obtaining session data by logging into the server
 ... 
  
  
