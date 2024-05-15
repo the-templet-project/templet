@@ -37,52 +37,51 @@ struct EVENT{
     }
     ORDINAL ord;
     TAG     tag;
-    EXTERN  ext;  // ext==true used for client queries 
+    EXTERN  ext;    // ext==true used for client queries 
     ANSWER  answer; // if answer==true when 'tag' is the ordinal of the event, that is query  
     NAME    name;
-    DATA    data; // if ext==true, data may include query GUID
+    DATA    data;   // if ext==true, data may include query GUID
 };
 
 /*-1-*/
-bool write_event(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){  
+void write_event(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){  
     ASSERT(has_write_event(tkn.permission));
     
     EVENT ev(events.size(),tag,/*extern*/false,/*answer*/false,tkn.name,data);      
     ord = events.size();
     events.push_back(ev);
-    return true;
 }
     
 /*-2-*/              
-bool read_events(TOKEN tkn,ORDINAL ord,list<EVENT>& evs){
-    ASSERT(has_read_events(tkn.permission));
+//bool read_events(TOKEN tkn,ORDINAL ord,list<EVENT>& evs){
+//    ASSERT(has_read_events(tkn.permission));
     
-    evs.clear(); 
-    for(EVENT ev:events) if(ev.ord>=ord) evs.push_back(ev);
-    return true;
+//    evs.clear(); 
+//    for(EVENT ev:events) if(ev.ord>=ord) evs.push_back(ev);
+//}
+
+bool read_event(TOKEN tkn,ORDINAL ord,EVENT& evs){
+    ASSERT(has_read_events(tkn.permission));    
+
+    for(EVENT ev:events) if(ev.ord==ord){ evs=ev; return true;}
+    return false;
 }
 
 /*-3-*/
-bool write_query(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
+void write_query(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
     ASSERT(has_client_actions(tkn.permission));
     
     EVENT ev(events.size(),tag,/*extern*/true,/*answer*/false,tkn.name,data);
     ord = events.size();
     events.push_back(ev);
-    
-    return true;
 }
 
 /*-4-*/
-bool reply_on_query(TOKEN tkn,ORDINAL ord,DATA data){
+void reply_on_query(TOKEN tkn,ORDINAL ord,DATA data){
     ASSERT(has_reply_on_query(tkn.permission));
 
-    if(ord>=events.size()) return false;
-    
     EVENT ev(events.size(),ord,/*extern*/false,/*answer*/true,tkn.name,data);
     events.push_back(ev);
- 
-    return true;
 }    
 
 /*-5-*/            
@@ -109,7 +108,8 @@ bool read_answer(TOKEN tkn,ORDINAL ord,DATA& data){
 bool upload(TOKEN tkn,DATA data,CID& cid){
     ASSERT(has_client_actions(tkn.permission));
     cid = cid_from_data(data);
-    user_local_bases[tkn.name][cid]=data;
+    try{user_local_bases[tkn.name][cid]=data;}
+    catch(...){return false;}
     return true;
 }
 
@@ -149,10 +149,9 @@ bool del_cid(TOKEN tkn,NAME cid){
 }
 
 /*-10-*/            
-bool clear(TOKEN tkn){
+void clear(TOKEN tkn){
     ASSERT(has_client_actions(tkn.permission));
     user_local_bases[tkn.name].clear();
-    return true;
 }
 
 private: // service state
