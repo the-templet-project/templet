@@ -44,52 +44,49 @@ struct EVENT{
 };
 
 /*-1-*/
-void write_event(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){  
+bool write_event(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){  
     ASSERT(has_write_event(tkn.permission));
-    
-    EVENT ev(events.size(),tag,/*extern*/false,/*answer*/false,tkn.name,data);      
-    ord = events.size();
-    events.push_back(ev);
+    try{
+        EVENT ev(events.size(),tag,/*extern*/false,/*answer*/false,tkn.name,data);      
+        ord = events.size(); events.push_back(ev);
+    }
+    catch(...){ return false;}
+    return true;
 }
     
 /*-2-*/              
-//bool read_events(TOKEN tkn,ORDINAL ord,list<EVENT>& evs){
-//    ASSERT(has_read_events(tkn.permission));
-    
-//    evs.clear(); 
-//    for(EVENT ev:events) if(ev.ord>=ord) evs.push_back(ev);
-//}
-
 bool read_event(TOKEN tkn,ORDINAL ord,EVENT& evs){
     ASSERT(has_read_events(tkn.permission));    
-
     for(EVENT ev:events) if(ev.ord==ord){ evs=ev; return true;}
     return false;
 }
 
 /*-3-*/
-void write_query(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
+bool write_query(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
     ASSERT(has_client_actions(tkn.permission));
-    
-    EVENT ev(events.size(),tag,/*extern*/true,/*answer*/false,tkn.name,data);
-    ord = events.size();
-    events.push_back(ev);
+    try{
+        EVENT ev(events.size(),tag,/*extern*/true,/*answer*/false,tkn.name,data);
+        ord = events.size();  events.push_back(ev);
+    }
+    catch(...){return false;}
+    return true;
 }
 
 /*-4-*/
-void reply_on_query(TOKEN tkn,ORDINAL ord,DATA data){
+bool reply_on_query(TOKEN tkn,ORDINAL ord,DATA data){
     ASSERT(has_reply_on_query(tkn.permission));
-
-    EVENT ev(events.size(),ord,/*extern*/false,/*answer*/true,tkn.name,data);
-    events.push_back(ev);
+    try{
+        EVENT ev(events.size(),ord,/*extern*/false,/*answer*/true,tkn.name,data);
+        events.push_back(ev);
+    }
+    catch(...){return false;}
+    return true;
 }    
 
 /*-5-*/            
 bool read_answer(TOKEN tkn,ORDINAL ord,DATA& data){
     ASSERT(has_client_actions(tkn.permission));
-   
     bool allowed = false;
-    
     for(EVENT ev:events){
         if(ev.ord==ord){ 
             if(ev.name==tkn.name) allowed = true;
@@ -116,9 +113,7 @@ bool upload(TOKEN tkn,DATA data,CID& cid){
 /*-7-*/            
 bool download(TOKEN tkn,NAME cid,DATA& data){
     ASSERT(has_client_actions(tkn.permission));
-    
     auto& base = user_local_bases[tkn.name];
-    
     if(base.find(cid)!=base.end()){
         data = base[cid];
         return true;
