@@ -6,48 +6,47 @@ using namespace std;
 
 struct TEMPLET_APP_INTERFACE{
 
-public: // service interface    
+public:
 
-typedef string   NAME;
-typedef string   CID;
-typedef string   PERMISSION; // permission info
-typedef string   DATA;       // abstract binary data
+typedef unsigned PERMISSIONS;
 typedef unsigned ORDINAL;
+typedef string   NAME;
 typedef unsigned TAG;
-typedef bool     EXTERN;
-typedef bool     ANSWER;
+typedef string   DATA;
 
-#define ASSERT(expr) if(!(expr))return false;
+enum TYPE     {INTERNAL, QUERY, ANSWER, FILE};
+enum FILE_TAG {UPLOAD, DOWNLOAD, DELETE};
 
-bool has_write_event(PERMISSION);
-bool has_read_events(PERMISSION);
-bool has_reply_on_query(PERMISSION);
-bool has_client_actions(PERMISSION);
-
-CID cid_from_data(DATA&);
+const unsigned WRITE_EVENT_PERMISSION    = 0x1;
+const unsigned READ_EVENT_PERMISSION     = 0x2;
+const unsigned WRITE_QUERY_PERMISSION    = 0x4;
+const unsigned REPLY_ON_QUERY_PERMISSION = 0x8;
+const unsigned READ_ANSWER_PERMISSION    = 0x10;
+const unsigned UPLOAD_FILE_PERMISSION    = 0x20;    
+const unsigned DOWNLOAD_FILE_PERMISSION  = 0x40;
+const unsigned DELETE_FILE_PERMISSION    = 0x80;
 
 struct TOKEN{
-    NAME name;             // who is the token owner?
-    PERMISSION permission; // what permissions does it have?
+    NAME name;            
+    PERMISSIONS permissions; 
 }; 
 
 struct EVENT{
-    EVENT(ORDINAL _ord,TAG _tag,EXTERN _ext, ANSWER _ans,NAME _name,DATA _data){
-        ord=_ord; tag=_tag; ext=_ext; answer=_ans; name=_name; data=_data;
+    EVENT(ORDINAL _ord, NAME _name, TYPE _type, TAG _tag, DATA _data){
+        ord=_ord; name=_name; type=_type; tag=_tag; data=_data;
     }
     ORDINAL ord;
-    TAG     tag;
-    EXTERN  ext;    // ext==true used for client queries 
-    ANSWER  answer; // if answer==true when 'tag' is the ordinal of the event, that is query  
     NAME    name;
-    DATA    data;   // if ext==true, data may include query GUID
+    TYPE    type;
+    TAG     tag;
+    DATA    data;
 };
 
 /*-1-*/
-bool write_event(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){  
-    ASSERT(has_write_event(tkn.permission));
+bool write_event(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
+    if(!(tkn.permissions & WRITE_EVENT_PERMISSION))return false; 
     try{
-        EVENT ev(events.size(),tag,/*extern*/false,/*answer*/false,tkn.name,data);      
+        EVENT ev(events.size(),tkn.name,TYPE::INTERNAL,tag,data);      
         ord = events.size(); events.push_back(ev);
     }
     catch(...){ return false;}
@@ -56,16 +55,19 @@ bool write_event(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
     
 /*-2-*/              
 bool read_event(TOKEN tkn,ORDINAL ord,EVENT& evs){
-    ASSERT(has_read_events(tkn.permission));    
-    for(EVENT ev:events) if(ev.ord==ord){ evs=ev; return true;}
+    if(!(tkn.permissions & READ_EVENT_PERMISSION))return false; 
+    try{
+        for(EVENT ev:events) if(ev.ord==ord){ evs=ev; return true;}
+    }
+    catch(...){ return false;}
     return false;
 }
 
 /*-3-*/
 bool write_query(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
-    ASSERT(has_client_actions(tkn.permission));
+    if(!(tkn.permissions & WRITE_QUERY_PERMISSION))return false;
     try{
-        EVENT ev(events.size(),tag,/*extern*/true,/*answer*/false,tkn.name,data);
+        EVENT ev(events.size(),tkn.name,TYPE::QUERY,tag,data);   
         ord = events.size();  events.push_back(ev);
     }
     catch(...){return false;}
@@ -73,10 +75,10 @@ bool write_query(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
 }
 
 /*-4-*/
-bool reply_on_query(TOKEN tkn,ORDINAL ord,DATA data){
-    ASSERT(has_reply_on_query(tkn.permission));
+bool reply_on_query(TOKEN tkn,ORDINAL query_ord,DATA data){
+    if(!(tkn.permissions & REPLY_ON_QUERY_PERMISSION))return false;
     try{
-        EVENT ev(events.size(),ord,/*extern*/false,/*answer*/true,tkn.name,data);
+        EVENT ev(events.size(),tkn.name,TYPE::ANSWER,query_ord,data);
         events.push_back(ev);
     }
     catch(...){return false;}
@@ -84,74 +86,65 @@ bool reply_on_query(TOKEN tkn,ORDINAL ord,DATA data){
 }    
 
 /*-5-*/            
-bool read_answer(TOKEN tkn,ORDINAL ord,DATA& data){
-    ASSERT(has_client_actions(tkn.permission));
-    bool allowed = false;
-    for(EVENT ev:events){
-        if(ev.ord==ord){ 
-            if(ev.name==tkn.name) allowed = true;
-            else return false;
+bool read_answer(TOKEN tkn,ORDINAL query_ord,DATA& data){
+    if(!(tkn.permissions & READ_ANSWER_PERMISSION))return false;
+    try{
+        bool allowed = false;
+        for(EVENT ev:events){
+            if(ev.type==TYPE::QUERY && ev.ord==query_ord){ 
+                if(ev.name==tkn.name) allowed = true;
+                else return false;
+            }
+            if(ev.type==TYPE::ANSWER && ev.tag==query_ord){
+                if(allowed){ data = ev.data; return true;}
+                else return false;
+            }
         }
-        if(ev.answer && ev.tag==ord && allowed){
-            data = ev.data;
-            return true;
-        }
-        if(ev.answer==ord && !allowed) return false;
     }
+    catch(...){return false;}
     return false;
 }
 
 /*-6-*/            
-bool upload(TOKEN tkn,DATA data,CID& cid){
-    ASSERT(has_client_actions(tkn.permission));
-    cid = cid_from_data(data);
-    try{user_local_bases[tkn.name][cid]=data;}
+bool upload_file(TOKEN tkn,NAME local_file_name,DATA data,NAME& global_file_name){
+    if(!(tkn.permissions & UPLOAD_FILE_PERMISSION))return false;
+    try{
+        NAME global_file_name = local_file_name + "." + tkn.name;
+        files[global_file_name]=data;
+        EVENT ev(events.size(),tkn.name,TYPE::FILE,FILE_TAG::UPLOAD,global_file_name);      
+        events.push_back(ev);
+    }
     catch(...){return false;}
     return true;
 }
 
 /*-7-*/            
-bool download(TOKEN tkn,NAME cid,DATA& data){
-    ASSERT(has_client_actions(tkn.permission));
-    auto& base = user_local_bases[tkn.name];
-    if(base.find(cid)!=base.end()){
-        data = base[cid];
-        return true;
+bool download_file(TOKEN tkn,NAME global_file_name,DATA& data){
+    if(!(tkn.permissions & DOWNLOAD_FILE_PERMISSION))return false;
+    try{
+        data=files[global_file_name];
+        EVENT ev(events.size(),tkn.name,TYPE::FILE,FILE_TAG::DOWNLOAD,global_file_name);      
+        events.push_back(ev);
     }
-    else{
-        for(auto& base:user_local_bases){
-            if(base.second.find(cid)!=base.second.end()){
-                data = base.second[cid];
-                user_local_bases[tkn.name][cid]=data;
-                return true;
-            }
-        }
-    }
-    return false;
+    catch(...){return false;}
+    return true;
 }
 
 /*-8-*/            
-bool pin_cid(TOKEN tkn,NAME cid){
-    ASSERT(has_client_actions(tkn.permission));
-    DATA data;
-    return download(tkn,cid,data);
+bool delete_file(TOKEN tkn,NAME global_file_name){
+    if(!(tkn.permissions & DELETE_FILE_PERMISSION))return false;
+    try{
+        if(!files.erase(global_file_name))return false;
+        EVENT ev(events.size(),tkn.name,TYPE::FILE,FILE_TAG::DELETE,global_file_name);      
+        events.push_back(ev);
+    }
+    catch(...){return false;}
+    return true;
 }
 
-/*-9-*/            
-bool del_cid(TOKEN tkn,NAME cid){
-    ASSERT(has_client_actions(tkn.permission));
-    return user_local_bases[tkn.name].erase(cid)!=0;
-}
-
-/*-10-*/            
-void clear(TOKEN tkn){
-    ASSERT(has_client_actions(tkn.permission));
-    user_local_bases[tkn.name].clear();
-}
-
-private: // service state
+private:
     
-list<EVENT>  events;
-map<NAME,map<CID,DATA>> user_local_bases;
+list<EVENT>    events;
+map<NAME,DATA> files;
 
 };
