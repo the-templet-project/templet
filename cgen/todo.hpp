@@ -14,17 +14,14 @@ typedef string   NAME;
 typedef unsigned TAG;
 typedef string   DATA;
 
-enum TYPE     {INTERNAL, QUERY, ANSWER, FILE};
-enum FILE_TAG {UPLOAD, DOWNLOAD, DELETE};
+enum TYPE     {INTERNAL, QUERY, ANSWER};
 
-const unsigned WRITE_EVENT_PERMISSION    = 0x1;
-const unsigned READ_EVENT_PERMISSION     = 0x2;
-const unsigned WRITE_QUERY_PERMISSION    = 0x4;
-const unsigned REPLY_ON_QUERY_PERMISSION = 0x8;
-const unsigned READ_ANSWER_PERMISSION    = 0x10;
-const unsigned UPLOAD_FILE_PERMISSION    = 0x20;    
-const unsigned DOWNLOAD_FILE_PERMISSION  = 0x40;
-const unsigned DELETE_FILE_PERMISSION    = 0x80;
+const unsigned WORKER_PERMISSION = 0x1;
+const unsigned CLIENT_PERMISSION = 0x2;
+const unsigned SERVER_PERMISSION = 0x4;
+
+const unsigned DELAY_COUNT =  30; // 30 seconds
+const unsigned FILE_LIMIT  =  100;
 
 struct TOKEN{
     NAME name;            
@@ -43,11 +40,11 @@ struct EVENT{
 };
 
 /*-1-*/
-bool write_event(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
-    if(!(tkn.permissions & WRITE_EVENT_PERMISSION))return false; 
+bool write_event(TOKEN tkn,TAG tag,DATA data){
+    if(!(tkn.permissions & WORKER_PERMISSION))return false; 
     try{
         EVENT ev(events.size(),tkn.name,TYPE::INTERNAL,tag,data);      
-        ord = events.size(); events.push_back(ev);
+        events.push_back(ev);
     }
     catch(...){ return false;}
     return true;
@@ -55,7 +52,7 @@ bool write_event(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
     
 /*-2-*/              
 bool read_event(TOKEN tkn,ORDINAL ord,EVENT& evs){
-    if(!(tkn.permissions & READ_EVENT_PERMISSION))return false; 
+    if(!(tkn.permissions & WORKER_PERMISSION))return false; 
     try{
         for(EVENT ev:events) if(ev.ord==ord){ evs=ev; return true;}
     }
@@ -64,19 +61,8 @@ bool read_event(TOKEN tkn,ORDINAL ord,EVENT& evs){
 }
 
 /*-3-*/
-bool write_query(TOKEN tkn,TAG tag,DATA data,ORDINAL& ord){
-    if(!(tkn.permissions & WRITE_QUERY_PERMISSION))return false;
-    try{
-        EVENT ev(events.size(),tkn.name,TYPE::QUERY,tag,data);   
-        ord = events.size();  events.push_back(ev);
-    }
-    catch(...){return false;}
-    return true;
-}
-
-/*-4-*/
 bool reply_on_query(TOKEN tkn,ORDINAL query_ord,DATA data){
-    if(!(tkn.permissions & REPLY_ON_QUERY_PERMISSION))return false;
+    if(!(tkn.permissions & SERVER_PERMISSION))return false;
     try{
         EVENT ev(events.size(),tkn.name,TYPE::ANSWER,query_ord,data);
         events.push_back(ev);
@@ -85,19 +71,16 @@ bool reply_on_query(TOKEN tkn,ORDINAL query_ord,DATA data){
     return true;
 }    
 
-/*-5-*/            
-bool read_answer(TOKEN tkn,ORDINAL query_ord,DATA& data){
-    if(!(tkn.permissions & READ_ANSWER_PERMISSION))return false;
+/*-4-*/
+bool write_query(TOKEN tkn,TAG tag,DATA in_data,DATA& out_data){
+    if(!(tkn.permissions & CLIENT_PERMISSION))return false;
     try{
-        bool allowed = false;
+        EVENT ev(events.size(),tkn.name,TYPE::QUERY,tag,in_data);
+        ORDINAL query_ord = events.size();  events.push_back(ev);
+        for(int i=0;i<DELAY_COUNT;i++)
         for(EVENT ev:events){
-            if(ev.type==TYPE::QUERY && ev.ord==query_ord){ 
-                if(ev.name==tkn.name) allowed = true;
-                else return false;
-            }
             if(ev.type==TYPE::ANSWER && ev.tag==query_ord){
-                if(allowed){ data = ev.data; return true;}
-                else return false;
+                out_data = ev.data; return true;
             }
         }
     }
@@ -105,38 +88,40 @@ bool read_answer(TOKEN tkn,ORDINAL query_ord,DATA& data){
     return false;
 }
 
-/*-6-*/            
+/*-5-*/            
 bool upload_file(TOKEN tkn,NAME local_file_name,DATA data,NAME& global_file_name){
-    if(!(tkn.permissions & UPLOAD_FILE_PERMISSION))return false;
+    if(!tkn.permissions) return false;
     try{
-        NAME global_file_name = local_file_name + "." + tkn.name;
+        try{limits.at(tkn.name);} catch(...){limits[tkn.name]=0;}            
+        if(limits[tkn.name]==FILE_LIMIT) return false;
+        
+        NAME global_file_name = tkn.name + "/" + local_file_name;
         files[global_file_name]=data;
-        EVENT ev(events.size(),tkn.name,TYPE::FILE,FILE_TAG::UPLOAD,global_file_name);      
-        events.push_back(ev);
+        limits[tkn.name]++;
+    }
+    catch(...){return false;}
+    return true;
+}
+
+/*-6-*/            
+bool download_file(TOKEN tkn,NAME global_file_name,DATA& data){
+    if(!tkn.permissions) return false;
+    try{
+        data=files[global_file_name];
     }
     catch(...){return false;}
     return true;
 }
 
 /*-7-*/            
-bool download_file(TOKEN tkn,NAME global_file_name,DATA& data){
-    if(!(tkn.permissions & DOWNLOAD_FILE_PERMISSION))return false;
-    try{
-        data=files[global_file_name];
-        EVENT ev(events.size(),tkn.name,TYPE::FILE,FILE_TAG::DOWNLOAD,global_file_name);      
-        events.push_back(ev);
-    }
-    catch(...){return false;}
-    return true;
-}
-
-/*-8-*/            
 bool delete_file(TOKEN tkn,NAME global_file_name){
-    if(!(tkn.permissions & DELETE_FILE_PERMISSION))return false;
+    if(!tkn.permissions) return false;
     try{
+        string::size_type npos = global_file_name.find_first_of('/');
+        string name = global_file_name.substr(0,npos);
+        if(name!=tkn.name) return false;
         if(!files.erase(global_file_name))return false;
-        EVENT ev(events.size(),tkn.name,TYPE::FILE,FILE_TAG::DELETE,global_file_name);      
-        events.push_back(ev);
+        limits[tkn.name]--;
     }
     catch(...){return false;}
     return true;
@@ -144,7 +129,8 @@ bool delete_file(TOKEN tkn,NAME global_file_name){
 
 private:
     
-list<EVENT>    events;
-map<NAME,DATA> files;
+list<EVENT>        events;
+map<NAME,DATA>     files;
+map<NAME,unsigned> limits;
 
 };
