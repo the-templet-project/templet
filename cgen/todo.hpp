@@ -16,9 +16,10 @@ typedef string   DATA;
 
 enum TYPE     {INTERNAL, QUERY, ANSWER};
 
-const unsigned WORKER_PERMISSION = 0x1;
-const unsigned CLIENT_PERMISSION = 0x2;
-const unsigned SERVER_PERMISSION = 0x4;
+const unsigned OBSERV_PERMISSION = 0x1;
+const unsigned WORKER_PERMISSION = 0x2;
+const unsigned CLIENT_PERMISSION = 0x4;
+const unsigned SERVER_PERMISSION = 0x8;
 
 const unsigned DELAY_COUNT =  30; // 30 seconds
 const unsigned FILE_LIMIT  =  100;
@@ -52,7 +53,7 @@ bool write_event(TOKEN tkn,TAG tag,DATA data){
     
 /*-2-*/              
 bool read_event(TOKEN tkn,ORDINAL ord,EVENT& evs){
-    if(!(tkn.permissions & WORKER_PERMISSION))return false; 
+    if(!(tkn.permissions & OBSERV_PERMISSION))return false; 
     try{
         for(EVENT ev:events) if(ev.ord==ord){ evs=ev; return true;}
     }
@@ -74,9 +75,10 @@ bool reply_on_query(TOKEN tkn,ORDINAL query_ord,DATA data){
 /*-4-*/
 bool write_query(TOKEN tkn,TAG tag,DATA in_data,DATA& out_data){
     if(!(tkn.permissions & CLIENT_PERMISSION))return false;
-    try{
-        EVENT ev(events.size(),tkn.name,TYPE::QUERY,tag,in_data);
-        ORDINAL query_ord = events.size();  events.push_back(ev);
+    try{ 
+        ORDINAL query_ord = events.size();
+        EVENT ev(query_ord,tkn.name,TYPE::QUERY,tag,in_data);
+        events.push_back(ev);
         for(int i=0;i<DELAY_COUNT;i++)
         for(EVENT ev:events){
             if(ev.type==TYPE::ANSWER && ev.tag==query_ord){
@@ -106,9 +108,7 @@ bool upload_file(TOKEN tkn,NAME local_file_name,DATA data,NAME& global_file_name
 /*-6-*/            
 bool download_file(TOKEN tkn,NAME global_file_name,DATA& data){
     if(!tkn.permissions) return false;
-    try{
-        data=files[global_file_name];
-    }
+    try{ data=files[global_file_name]; }
     catch(...){return false;}
     return true;
 }
