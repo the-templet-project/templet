@@ -6,57 +6,51 @@
 
 using namespace std;
 
-class bag_seq{
+/////////////////////////////////////////////////////////////////////
 
-protected:
-    class task{  
-        friend class bag_seq; 
-        virtual void on_run()=0;
-    }; 
-    
-    virtual task* create_task()=0; 
-    
-    virtual bool on_get(task&)=0;
-    virtual void on_put(task&)=0;
-
-public:
-    bag_seq(int num_wokers){ }
-    
-    void run(){
-        task* t=create_task();
-        while(on_get(*t)){
-            t->on_run();
-            on_put(*t);
-        }
-    }
-};
-
-class bag_par{
+class bag{
 
 protected:
     class task{
-    public:
-        virtual ~task()=0; 
-        virtual void on_run()=0;
+    friend class bag;
+        void on_run(){
+            /*-1-*/
+        }
+            /*-2-*/
     }; 
     
-    virtual task* create_task()=0;
-    
-    
-    virtual bool on_get(task&)=0;
-    virtual void on_put(task&)=0;
+public:
+    bag(int _num_workers){  
+        num_workers = _num_workers; 
+            /*-3-*/          
+    }
+    ~bag(){  
+            /*-4-*/          
+    }
+    bool on_has_task(){ 
+            /*-5-*/
+        return false;
+    }
+    void on_get(task&){
+            /*-6-*/
+    }
+    void on_put(task&){
+            /*-7-*/
+    }
 
 public:
-    bag_par(int _num_workers){ num_workers = _num_workers; }
+            /*-8-*/
 
+public:
     void run(){
         srand((unsigned)time(0));
         cur_num_workers = 0;
-        task* t=create_task();
 
         for(;;){
-            while(on_get(*t) && (cur_num_workers < num_workers)){
-                planned_task_arr.push_back(t);
+            while(on_has_task() && (cur_num_workers < num_workers)){
+                task* tsk = new task;
+                on_get(*tsk);
+                planned_task_arr.push_back(tsk);
                 cur_num_workers++;
             }
             
@@ -70,11 +64,65 @@ public:
             selected_task->on_run();
             on_put(*selected_task);
             delete selected_task;
-        }
+        }        
     }
 
 private:
     int cur_num_workers;
     int num_workers;
     vector<task*> planned_task_arr;
+};
+
+/////////////////////////////////////////////////////////////////////
+
+class seq_test_bag{
+
+protected:
+    class task{
+    friend class seq_test_bag;
+        void on_run(){
+            /*-1-*/
+        }
+            /*-2-*/
+    }; 
+    
+public:
+    seq_test_bag(){  
+            /*-3-*/          
+    }
+    ~seq_test_bag(){  
+            /*-4-*/          
+    }
+    bool on_has_task(){ 
+            /*-5-*/
+        return false;
+    }
+    void on_get(task&){
+            /*-6-*/
+    }
+    void on_put(task&){
+            /*-7-*/
+    }
+
+public:
+            /*-8-*/
+
+public:
+    void run(){
+        task tsk;
+        while(on_has_task()){
+            on_get(tsk);
+            tsk.on_run();
+            on_put(tsk);
+        }
+    }
+};
+
+/////////////////////////////////////////////////////////////////////
+
+class seq_test{
+public:
+    void run(){
+            /* seq code */
+    };
 };
