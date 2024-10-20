@@ -27,7 +27,7 @@ public:
     ~bag(){  
             /*-4-*/          
     }
-    bool on_has_task(){ 
+    bool on_can_get(){ 
             /*-5-*/
         return false;
     }
@@ -47,7 +47,7 @@ public:
         cur_num_workers = 0;
 
         for(;;){
-            while(on_has_task() && (cur_num_workers < num_workers)){
+            while(on_can_get() && (cur_num_workers < num_workers)){
                 task* tsk = new task;
                 on_get(*tsk);
                 planned_task_arr.push_back(tsk);
@@ -93,7 +93,7 @@ public:
     ~seq_test_bag(){  
             /*-4-*/          
     }
-    bool on_has_task(){ 
+    bool on_can_get(){ 
             /*-5-*/
         return false;
     }
@@ -110,7 +110,7 @@ public:
 public:
     void run(){
         task tsk;
-        while(on_has_task()){
+        while(on_can_get()){
             on_get(tsk);
             tsk.on_run();
             on_put(tsk);
