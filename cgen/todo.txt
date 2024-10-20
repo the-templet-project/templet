@@ -81,12 +81,12 @@ void meta(meta_engine&e){
   
  Marked-up file format in EBNF-like  form (for C/C++):
  ----------------------------------------------------- 
- <begin>(ID) ::= #pragma templet begin(ID)
- <end>(ID) ::= #pragma templet end(ID)
- <marked block> ::= <begin>(x) <new line> { <line> <new line> } <end>(x) <new line>
+ <begin>(ID) ::= #pragma templet var(ID)
+ <end>(ID)   ::= #pragma templet end(ID)
  <line> ::= character sequence not starting with '#pragma templet'
- <not marked block> ::= { <line> <new line> }
- <marked file> ::= {<not marked block> <marked block>} <not marked block>
+ <text-block>   ::= { <line> <new-line> }
+ <marked-text-block> ::= <begin>(x) <new-line> <text-block> <end>(x) <new-line>
+ <marked-file> ::= {<text-block> <marked block>} <text-block>
 
  Options usage:
  --------------
