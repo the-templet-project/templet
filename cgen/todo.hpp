@@ -1,6 +1,8 @@
 #include <string>
 #include <list>
 #include <map>
+#include <istream>
+#include <ostream>
 
 using namespace std;
 
@@ -103,3 +105,19 @@ private:
 list<EVENT>       events;
 map<ORDINAL,DATA> answers;
 };
+
+
+class AppModel{
+public:
+    void run(unsigned num_proc);
+    void run();
+public:
+    void notify(unsigned tag,istream&);
+    bool query(unsigned tag,istream&,ostream&);
+protected:
+    void reply(unsigned tag,istream&);
+
+    virtual void on_read(unsigned ord,unsigned tag,bool ext,istream&)=0;
+    virtual bool on_write(unsigned tag,ostream&)=0;
+};
+
