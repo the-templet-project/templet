@@ -108,16 +108,65 @@ map<ORDINAL,DATA> answers;
 
 
 class AppModel{
-public:
-    void run(unsigned num_proc);
-    void run();
-public:
-    void notify(unsigned tag,istream&);
-    bool query(unsigned tag,istream&,ostream&);
-protected:
-    void reply(unsigned tag,istream&);
 
-    virtual void on_read(unsigned ord,unsigned tag,bool ext,istream&)=0;
-    virtual bool on_write(unsigned tag,ostream&)=0;
+public:
+    AppModel(){current_event=0; next_add_event=0;}
+    
+    void run(){
+        for(;;){
+            for(;;){
+                try{ 
+                    EVENT ev = events.at(current_event);
+                    on_read(current_event,ev.tag,ev.ext,ev.size,ev.buf);
+                    current_event++;
+                }
+                catch(const std::out_of_range& ex){break;}
+            }    
+            unsigned tag; unsigned size; void *buf;
+            while(on_write(tag,size,buf)){
+                EVENT ev{tag,false,size,buf};
+                events[next_add_event++] = ev;
+            };
+        }
+    }
+
+public:
+    void notify(unsigned tag,unsigned size,void*buf){
+        EVENT ev{tag,true,size,buf};
+        events[next_add_event++] = ev;
+    }
+
+    bool query(unsigned tag,unsigned size_in,void*buf_in,unsigned& size_out,void*&buf_out){
+
+        EVENT ev{tag,true,size_in,buf_in};
+        events[next_add_event] = ev;
+        unsigned my_query_event = next_add_event++; 
+
+        for(int i=0;i<999999;i++){
+            try{
+                pair<unsigned,void*> answer = answers.at(my_query_event);
+                size_out = answer.first;
+                buf_out = answer.second;
+                return true;
+            }
+            catch(const std::out_of_range& ex){}
+        }
+        return false;
+    }
+
+protected:
+    void answer(unsigned ord,unsigned size,void*buf){
+        answers[ord]=pair(size,buf);
+    }
+
+    virtual void on_read(unsigned ord,unsigned tag,bool ext,unsigned& size,void*&buf)=0;
+    virtual bool on_write(unsigned& tag,unsigned& size,void*&buf)=0;
+
+private:
+    struct EVENT{ unsigned tag; bool ext; unsigned size; void*buf; };
+    map<unsigned,EVENT> events;
+    unsigned current_event;
+    unsigned next_add_event;
+    map<unsigned,pair<unsigned,void*>> answers;
 };
 
