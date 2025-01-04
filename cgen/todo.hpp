@@ -90,7 +90,7 @@ private:
 };
 
 class ComProcess{
-protected:
+public:
     ComProcess(unsigned pid, EventLog&_log):log(_log),PID(pid){}
 public:
     void query(unsigned tag,BLOB out,BLOB&in){
