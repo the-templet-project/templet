@@ -8,27 +8,7 @@ struct BLOB{unsigned size;void*buf;};
 
 class EventLog{
 public:
-    virtual bool try_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob)=0;
-    virtual void wait_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob)=0;
-    virtual unsigned write(unsigned tag,unsigned&pid,BLOB blob)=0;
-};
-
-class CirleBufEventLog: public EventLog{
-public:
-    bool try_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob) override{
-        return false;
-    }
-    void wait_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob) override{
-        
-    }
-    unsigned write(unsigned tag,unsigned&pid,BLOB blob) override{
-        return 0;
-    }
-};
-
-class SimpleEventLog: public EventLog{
-public:
-    bool try_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob) override{
+    bool try_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob){
         unique_lock lk(mut);
         map<unsigned,EVENT>::iterator it; 
         if((it=events.find(ord))!=events.end()){
@@ -37,13 +17,13 @@ public:
         }
         return false;
     }
-    void wait_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob) override{
+    void wait_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob){
         unique_lock lk(mut);
         map<unsigned,EVENT>::iterator it; 
         while((it=events.find(ord))==events.end()){cv.wait(lk);}
         tag = it->second.tag; pid = it->second.PID; blob = it->second.blob;  
     }
-    unsigned write(unsigned tag,unsigned&pid,BLOB blob) override{
+    unsigned write(unsigned tag,unsigned&pid,BLOB blob){
         unsigned ord;
         unique_lock lk(mut);
         EVENT ev{tag,pid,blob};
@@ -60,9 +40,9 @@ private:
     condition_variable cv;
 };
 
-class AppProcess{
+class ComputeWorker{
 protected:
-    AppProcess(unsigned pid, EventLog&_log):log(_log),PID(pid),current_event(0){}
+    ComputeWorker(unsigned pid, EventLog&_log):log(_log),PID(pid),current_event(0){}
 public:
     void run(){
         for(;;){
@@ -89,9 +69,9 @@ private:
     unsigned PID;
 };
 
-class ComProcess{
+class InterfaceWorker{
 public:
-    ComProcess(unsigned pid, EventLog&_log):log(_log),PID(pid){}
+    InterfaceWorker(unsigned pid, EventLog&_log):log(_log),PID(pid){}
 public:
     void query(unsigned tag,BLOB out,BLOB&in){
         unique_lock lk(mut);
@@ -113,4 +93,29 @@ private:
     mutex mut;
     condition_variable cv;
     map<unsigned,BLOB> answers;
+};
+
+class DatabaseWorker{
+protected:
+    DatabaseWorker(unsigned pid, EventLog&_log):log(_log),PID(pid){}
+public:
+    void run(unsigned tag){
+        ///
+    }
+protected:
+    void write(const char*){
+        ///
+    }
+    void write(const string&){
+        ///
+    }
+    void read(string&){
+        ///
+    }
+    unsigned myPID(){return PID;}
+protected:
+    virtual void on_run(unsigned tag,unsigned PID)=0;
+private:
+    EventLog& log;
+    unsigned PID;
 };
