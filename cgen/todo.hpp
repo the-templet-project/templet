@@ -103,18 +103,14 @@ public:
         ///
     }
 protected:
-    void write(const char*){
+    bool exeonce(){
+        return false;
+    }
+    void checked(const string&){
         ///
     }
-    void write(const string&){
-        ///
-    }
-    void read(string&){
-        ///
-    }
-    unsigned myPID(){return PID;}
 protected:
-    virtual void on_run(unsigned tag,unsigned PID)=0;
+    virtual void on_run(unsigned tag)=0;
 private:
     EventLog& log;
     unsigned PID;
