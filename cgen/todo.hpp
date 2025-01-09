@@ -1,6 +1,10 @@
 #include <map>
 #include <mutex>
+#include <vector>
+#include <cstdlib>
 #include <condition_variable>
+#include <cassert>
+#include <limits>
 
 using namespace std;
 
@@ -61,7 +65,7 @@ public:
         } 
     }
 protected:
-    virtual bool on_read(unsigned ord,unsigned tag,unsigned pid,BLOB&blob)=0;
+    virtual bool on_read(unsigned ord,unsigned tag,unsigned pid,BLOB blob)=0;
     virtual bool on_write(unsigned&tag,BLOB&blob)=0;
 private:
     EventLog& log;
@@ -95,6 +99,85 @@ private:
     map<unsigned,BLOB> answers;
 };
 
+class TaskEngine;
+
+class Task{
+friend class TaskEngine;
+public:
+    Task(TaskEngine&);
+public:
+    bool submit();
+    bool access(){ return !submitted; }
+protected:
+    virtual void on_run(){}
+    virtual void on_continue(){}
+protected:
+    virtual void on_save(BLOB&){}
+    virtual void on_load(BLOB){}
+private:
+    TaskEngine& taskeng;
+    bool submitted;
+    unsigned ID;
+};
+
+class TaskEngine: public ComputeWorker{
+friend class Task;
+public:
+    TaskEngine(unsigned pid,EventLog& log):ComputeWorker(pid,log),num_submitted(0){}
+private:
+    bool on_read(unsigned,unsigned tag,unsigned,BLOB blob) override{
+        if(tag==numeric_limits<unsigned>::max()) return false;
+        
+        assert(tag < tasks.size());
+        Task* task = tasks[tag];
+        
+        assert(task->submitted);
+        task->on_load(blob);
+        task->on_continue();
+        task->submitted = false;
+        num_submitted--;
+        
+        return true;
+    }
+    bool on_write(unsigned&tag,BLOB&blob) override{  
+        if(num_submitted==0){ 
+            tag = numeric_limits<unsigned>::max();
+            return true;
+        }
+        
+        unsigned size = planned.size();
+        unsigned selected = rand()%size;
+        Task* task = planned[selected];
+        
+        task->on_run();
+        task->on_save(blob);
+        tag = task->ID;
+        
+        planned.erase(planned.begin() + selected);
+        return true;
+    }
+private:
+    void add_task(Task*t){ tasks.push_back(t); t->ID = tasks.size()-1;}
+    void submit(Task*t){ planned.push_back(t); }
+private:
+    vector<Task*> tasks;
+    vector<Task*> planned;
+    unsigned num_submitted;
+};
+
+Task::Task(TaskEngine&te):taskeng(te),submitted(false)
+{
+    te.add_task(this);
+}
+
+bool Task::submit(){
+    if(submitted) return false;
+    submitted = true;
+    taskeng.num_submitted++;
+    taskeng.submit(this);
+    return true;
+}
+
 class DatabaseWorker{
 protected:
     DatabaseWorker(unsigned pid, EventLog&_log):log(_log),PID(pid){}
@@ -103,10 +186,10 @@ public:
         ///
     }
 protected:
-    bool exeonce(){
+    bool once(){
         return false;
     }
-    void checked(const string&){
+    void check(const string&){
         ///
     }
 protected:
