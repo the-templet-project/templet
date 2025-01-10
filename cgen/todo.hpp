@@ -27,14 +27,11 @@ public:
         while((it=events.find(ord))==events.end()){cv.wait(lk);}
         tag = it->second.tag; pid = it->second.PID; blob = it->second.blob;  
     }
-    unsigned write(unsigned tag,unsigned&pid,BLOB blob){
-        unsigned ord;
+    void write(unsigned tag,unsigned&pid,BLOB blob){
         unique_lock lk(mut);
         EVENT ev{tag,pid,blob};
-        ord = next_add_event;
         events[next_add_event++] = ev;
         cv.notify_all();
-        return ord;
     }
 private:
     struct EVENT{ unsigned tag; unsigned PID; BLOB blob; };
@@ -43,6 +40,8 @@ private:
     mutex mut;
     condition_variable cv;
 };
+
+/////////////////////////////////////////////////////////////////////
 
 class ComputeWorker{
 protected:
@@ -75,29 +74,34 @@ private:
 
 class InterfaceWorker{
 public:
-    InterfaceWorker(unsigned pid, EventLog&_log):log(_log),PID(pid){}
+    InterfaceWorker(unsigned pid, EventLog&_log):log(_log),PID(pid),tag(0){}
 public:
-    void query(unsigned tag,BLOB out,BLOB&in){
+    void query(BLOB in,BLOB&out){
         unique_lock lk(mut);
-        unsigned ord = log.write(tag,PID,out);
+        unsigned query_tag=tag++;
+        log.write(query_tag,PID,in);
         map<unsigned,BLOB>::iterator it;
-        while((it=answers.find(ord))==answers.end()){cv.wait(lk);}
-        in = it->second;
+        while((it=answers.find(query_tag))==answers.end()){cv.wait(lk);}
+        out = it->second;
+        answers.erase(it);
     }
     void notify(unsigned tag,BLOB blob){ log.write(tag,PID,blob); }
 public:
-    void answer(unsigned ord,BLOB blob){
+    void answer(unsigned tag,BLOB blob){
         unique_lock lk(mut);
-        answers[ord]=blob;
+        answers[tag]=blob;
         cv.notify_all();
     }
 private:
     EventLog& log;
     unsigned PID;
+    unsigned tag;
     mutex mut;
     condition_variable cv;
     map<unsigned,BLOB> answers;
 };
+
+/////////////////////////////////////////////////////////////////////
 
 class TaskEngine;
 
@@ -106,7 +110,7 @@ friend class TaskEngine;
 public:
     Task(TaskEngine&);
 public:
-    bool submit();
+    void submit();
     bool access(){ return !submitted; }
 protected:
     virtual void on_run(){}
@@ -123,46 +127,47 @@ private:
 class TaskEngine: public ComputeWorker{
 friend class Task;
 public:
-    TaskEngine(unsigned pid,EventLog& log):ComputeWorker(pid,log),num_submitted(0){}
+    TaskEngine(unsigned pid,EventLog& log):ComputeWorker(pid,log){}
 private:
     bool on_read(unsigned,unsigned tag,unsigned,BLOB blob) override{
+        
         if(tag==numeric_limits<unsigned>::max()) return false;
         
-        assert(tag < tasks.size());
-        Task* task = tasks[tag];
+        Task* task = tasks.at(tag);
+        to_be_selected_for_exec.erase(tag);
         
         assert(task->submitted);
         task->on_load(blob);
-        task->on_continue();
         task->submitted = false;
-        num_submitted--;
+        task->on_continue();
         
         return true;
     }
-    bool on_write(unsigned&tag,BLOB&blob) override{  
-        if(num_submitted==0){ 
-            tag = numeric_limits<unsigned>::max();
-            return true;
-        }
+    bool on_write(unsigned&tag,BLOB&blob) override{
         
-        unsigned size = planned.size();
+        unsigned size = to_be_selected_for_exec.size(); 
+        if(!size){ tag = numeric_limits<unsigned>::max(); return true; }
+        
         unsigned selected = rand()%size;
-        Task* task = planned[selected];
+
+        map<unsigned,Task*>::iterator it; int i;
+        for(it=to_be_selected_for_exec.begin(),i=0;i!=selected;i++,it++);
+        
+        Task* task = it->second;
+        to_be_selected_for_exec.erase(it);
         
         task->on_run();
         task->on_save(blob);
         tag = task->ID;
-        
-        planned.erase(planned.begin() + selected);
+       
         return true;
     }
 private:
-    void add_task(Task*t){ tasks.push_back(t); t->ID = tasks.size()-1;}
-    void submit(Task*t){ planned.push_back(t); }
+    void add_task(Task*t){ t->ID = tasks.size(); tasks.push_back(t); }
+    void submit(Task*t){ to_be_selected_for_exec[t->ID] = t; }
 private:
+    map<unsigned,Task*> to_be_selected_for_exec;
     vector<Task*> tasks;
-    vector<Task*> planned;
-    unsigned num_submitted;
 };
 
 Task::Task(TaskEngine&te):taskeng(te),submitted(false)
@@ -170,13 +175,41 @@ Task::Task(TaskEngine&te):taskeng(te),submitted(false)
     te.add_task(this);
 }
 
-bool Task::submit(){
-    if(submitted) return false;
+void Task::submit(){
+    assert(!submitted);
     submitted = true;
-    taskeng.num_submitted++;
     taskeng.submit(this);
-    return true;
 }
+
+/////////////////////////////////////////////////////////////////////
+
+template<typename T>
+class MasterWorkers{
+public:
+    MasterWorkers(unsigned num_workers){
+        /////////////////////////
+    }
+protected:
+    virtual bool on_get(T&)=0;
+    virtual void on_run(T&)=0;
+    virtual void on_put(T&)=0;
+protected:
+    virtual void on_save(const T&,BLOB&){}
+    virtual void on_load(T&,const BLOB&){}
+private:
+    struct WorkerTask:public Task{
+        WorkerTask(TaskEngine&eng,MasterWorkers&m):Task(eng),mw(m){}
+        T task; MasterWorkers& mw;
+        void on_run() override{ mw.on_run(*this); }
+        void on_continue() override{
+            ////////////////
+        }
+        void on_save(BLOB&blob) override{ mw.on_save(*this,blob); }
+        void on_load(BLOB blob) override{ mw.on_load(*this,blob); }
+    };
+};
+
+/////////////////////////////////////////////////////////////////////
 
 class DatabaseWorker{
 protected:
