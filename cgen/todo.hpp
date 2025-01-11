@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <cassert>
 #include <limits>
+#include <list>
 
 using namespace std;
 
@@ -186,9 +187,12 @@ void Task::submit(){
 template<typename T>
 class MasterWorkers{
 public:
-    MasterWorkers(unsigned num_workers){
-        /////////////////////////
+    MasterWorkers(unsigned num_workers,unsigned pid,EventLog& log):task_eng(pid,log){
+        for(int i=0;i<num_workers;i++)
+            ready.push_back(new Worker(task_eng,*this));
     }
+    ~MasterWorkers(){ for(auto i: ready) delete i; }
+    void run(){ submit_tasks(); task_eng.run(); }
 protected:
     virtual bool on_get(T&)=0;
     virtual void on_run(T&)=0;
@@ -197,16 +201,26 @@ protected:
     virtual void on_save(const T&,BLOB&){}
     virtual void on_load(T&,const BLOB&){}
 private:
-    struct WorkerTask:public Task{
-        WorkerTask(TaskEngine&eng,MasterWorkers&m):Task(eng),mw(m){}
+    struct Worker:public Task{
+        Worker(TaskEngine&eng,MasterWorkers&m):Task(eng),mw(m){}
         T task; MasterWorkers& mw;
         void on_run() override{ mw.on_run(*this); }
         void on_continue() override{
-            ////////////////
+            mw.on_put(task); mw.ready.push_back(*this); mw.submit_tasks();
         }
         void on_save(BLOB&blob) override{ mw.on_save(*this,blob); }
         void on_load(BLOB blob) override{ mw.on_load(*this,blob); }
     };
+private:
+    void submit_tasks(){
+        typename list<Worker*>::iterator it;
+        while( ((it=ready.begin())!=ready.end()) && on_get(it) ){ 
+            it.submit(); ready.erase(it); 
+        }
+    }
+private:
+    list<Worker*> ready;
+    TaskEngine task_eng;
 };
 
 /////////////////////////////////////////////////////////////////////
