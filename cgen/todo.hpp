@@ -6,10 +6,12 @@
 #include <cassert>
 #include <limits>
 #include <list>
+#include <string>
+#include <sstream>
 
 using namespace std;
 
-struct BLOB{unsigned size;void*buf;};
+typedef string BLOB;
 
 class EventLog{
 public:
@@ -28,7 +30,7 @@ public:
         while((it=events.find(ord))==events.end()){cv.wait(lk);}
         tag = it->second.tag; pid = it->second.PID; blob = it->second.blob;  
     }
-    void write(unsigned tag,unsigned&pid,BLOB blob){
+    void write(unsigned tag,unsigned pid,const BLOB&blob){
         unique_lock lk(mut);
         EVENT ev{tag,pid,blob};
         events[next_add_event++] = ev;
@@ -65,7 +67,7 @@ public:
         } 
     }
 protected:
-    virtual bool on_read(unsigned ord,unsigned tag,unsigned pid,BLOB blob)=0;
+    virtual bool on_read(unsigned ord,unsigned tag,unsigned pid,const BLOB&blob)=0;
     virtual bool on_write(unsigned&tag,BLOB&blob)=0;
 private:
     EventLog& log;
@@ -77,7 +79,7 @@ class InterfaceWorker{
 public:
     InterfaceWorker(unsigned pid, EventLog&_log):log(_log),PID(pid),tag(0){}
 public:
-    void query(BLOB in,BLOB&out){
+    void query(const BLOB&in,BLOB&out){
         unique_lock lk(mut);
         unsigned query_tag=tag++;
         log.write(query_tag,PID,in);
@@ -86,9 +88,9 @@ public:
         out = it->second;
         answers.erase(it);
     }
-    void notify(unsigned tag,BLOB blob){ log.write(tag,PID,blob); }
+    void notify(unsigned tag,const BLOB&blob){ log.write(tag,PID,blob); }
 public:
-    void answer(unsigned tag,BLOB blob){
+    void answer(unsigned tag,const BLOB&blob){
         unique_lock lk(mut);
         answers[tag]=blob;
         cv.notify_all();
@@ -117,8 +119,8 @@ protected:
     virtual void on_run(){}
     virtual void on_continue(){}
 protected:
-    virtual void on_save(BLOB&){}
-    virtual void on_load(BLOB){}
+    virtual void on_save(ostream&){}
+    virtual void on_load(istream&){}
 private:
     TaskEngine& taskeng;
     bool submitted;
@@ -130,7 +132,7 @@ friend class Task;
 public:
     TaskEngine(unsigned pid,EventLog& log):ComputeWorker(pid,log){}
 private:
-    bool on_read(unsigned,unsigned tag,unsigned,BLOB blob) override{
+    bool on_read(unsigned,unsigned tag,unsigned,const BLOB&blob) override{
         
         if(tag==numeric_limits<unsigned>::max()) return false;
         
@@ -138,7 +140,11 @@ private:
         to_be_selected_for_exec.erase(tag);
         
         assert(task->submitted);
-        task->on_load(blob);
+
+        istringstream in;
+        in.rdbuf()->str(blob);
+        task->on_load(in);
+        
         task->submitted = false;
         task->on_continue();
         
@@ -158,9 +164,13 @@ private:
         to_be_selected_for_exec.erase(it);
         
         task->on_run();
-        task->on_save(blob);
+
+        ostringstream out;
+        task->on_save(out);
+        blob = out.rdbuf()->str();
+        
         tag = task->ID;
-       
+        
         return true;
     }
 private:
@@ -198,8 +208,8 @@ protected:
     virtual void on_run(T&)=0;
     virtual void on_put(T&)=0;
 protected:
-    virtual void on_save(const T&,BLOB&){}
-    virtual void on_load(T&,const BLOB&){}
+    virtual void on_save(const T&,ostream&){}
+    virtual void on_load(T&,istream&){}
 private:
     struct Worker:public Task{
         Worker(TaskEngine&eng,MasterWorkers&m):Task(eng),mw(m){}
@@ -208,8 +218,8 @@ private:
         void on_continue() override{
             mw.on_put(task); mw.ready.push_back(*this); mw.submit_tasks();
         }
-        void on_save(BLOB&blob) override{ mw.on_save(*this,blob); }
-        void on_load(BLOB blob) override{ mw.on_load(*this,blob); }
+        void on_save(ostream&out) override{ mw.on_save(*this,out); }
+        void on_load(istream&in) override{ mw.on_load(*this,in); }
     };
 private:
     void submit_tasks(){
