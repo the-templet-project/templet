@@ -17,28 +17,26 @@ class EventLog{
 public:
     bool try_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob){
         unique_lock lk(mut);
-        map<unsigned,EVENT>::iterator it; 
-        if((it=events.find(ord))!=events.end()){
-            tag = it->second.tag; pid = it->second.PID; blob = it->second.blob;
+        if(ord<events.size()){
+            tag = events[ord].tag; pid = events[ord].PID; blob = events[ord].blob;  
             return true;
         }
         return false;
     }
     void wait_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob){
         unique_lock lk(mut);
-        map<unsigned,EVENT>::iterator it; 
-        while((it=events.find(ord))==events.end()){cv.wait(lk);}
-        tag = it->second.tag; pid = it->second.PID; blob = it->second.blob;  
+        while(!(ord<events.size())){cv.wait(lk);}
+        tag = events[ord].tag; pid = events[ord].PID; blob = events[ord].blob;  
     }
     void write(unsigned tag,unsigned pid,const BLOB&blob){
         unique_lock lk(mut);
         EVENT ev{tag,pid,blob};
-        events[next_add_event++] = ev;
+        events.push_back(ev);
         cv.notify_all();
     }
 private:
     struct EVENT{ unsigned tag; unsigned PID; BLOB blob; };
-    map<unsigned,EVENT> events;
+    vector<EVENT> events;
     unsigned next_add_event;
     mutex mut;
     condition_variable cv;
@@ -234,6 +232,18 @@ private:
 };
 
 /////////////////////////////////////////////////////////////////////
+class DatabaseWorker;
+
+class CheckPoint{
+public:
+    CheckPoint(DatabaseWorker&w):worker(w){} 
+    void check(){}
+protected:
+    void on_save(ostream&out){}
+    void on_load(istream&in) {}
+private:
+    DatabaseWorker& worker;
+};
 
 class DatabaseWorker{
 protected:
@@ -242,12 +252,8 @@ public:
     void run(unsigned tag){
         ///
     }
-protected:
     bool once(){
         return false;
-    }
-    void check(const string&){
-        ///
     }
 protected:
     virtual void on_run(unsigned tag)=0;
