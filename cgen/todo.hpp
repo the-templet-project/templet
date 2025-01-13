@@ -109,7 +109,7 @@ class TaskEngine;
 class Task{
 friend class TaskEngine;
 public:
-    Task(TaskEngine&);
+    Task(TaskEngine&te):taskeng(te),submitted(false){}
 public:
     void submit();
     bool access(){ return !submitted; }
@@ -122,23 +122,31 @@ protected:
 private:
     TaskEngine& taskeng;
     bool submitted;
-    unsigned ID;
 };
 
 class TaskEngine: public ComputeWorker{
 friend class Task;
 public:
-    TaskEngine(unsigned pid,EventLog& log):ComputeWorker(pid,log){}
+    TaskEngine(unsigned pid,EventLog& log):
+        ComputeWorker(pid,log),cur_submitted_task_tag(0){}
 private:
     bool on_read(unsigned,unsigned tag,unsigned,const BLOB&blob) override{
+        if(tag==numeric_limits<unsigned>::max())return false;
         
-        if(tag==numeric_limits<unsigned>::max()) return false;
+        Task* task;
+        if(to_be_selected_for_exec.find(tag)!=to_be_selected_for_exec.end()){      
+            task = to_be_selected_for_exec[tag];
+            assert(task->submitted);
+            to_be_selected_for_exec.erase(tag);
+        }    
+        else if(selected_for_exec.find(tag)!=selected_for_exec.end()){
+            task = selected_for_exec[tag];
+            assert(task->submitted);
+            selected_for_exec.erase(tag);
+        }
+        else
+            return true;
         
-        Task* task = tasks.at(tag);
-        to_be_selected_for_exec.erase(tag);
-        
-        assert(task->submitted);
-
         istringstream in;
         in.rdbuf()->str(blob);
         task->on_load(in);
@@ -159,6 +167,7 @@ private:
         for(it=to_be_selected_for_exec.begin(),i=0;i!=selected;i++,it++);
         
         Task* task = it->second;
+        tag = it->first;
         to_be_selected_for_exec.erase(it);
         
         task->on_run();
@@ -166,29 +175,20 @@ private:
         ostringstream out;
         task->on_save(out);
         blob = out.rdbuf()->str();
-        
-        tag = task->ID;
+
+        selected_for_exec[tag] = task;
         
         return true;
     }
 private:
-    void add_task(Task*t){ t->ID = tasks.size(); tasks.push_back(t); }
-    void submit(Task*t){ to_be_selected_for_exec[t->ID] = t; }
+    void submit(Task*t){ to_be_selected_for_exec[cur_submitted_task_tag++] = t; }
 private:
     map<unsigned,Task*> to_be_selected_for_exec;
-    vector<Task*> tasks;
+    map<unsigned,Task*> selected_for_exec;
+    unsigned cur_submitted_task_tag;
 };
 
-Task::Task(TaskEngine&te):taskeng(te),submitted(false)
-{
-    te.add_task(this);
-}
-
-void Task::submit(){
-    assert(!submitted);
-    submitted = true;
-    taskeng.submit(this);
-}
+void Task::submit(){ assert(!submitted); submitted = true; taskeng.submit(this); }
 
 /////////////////////////////////////////////////////////////////////
 
