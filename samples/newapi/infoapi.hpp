@@ -13,3 +13,30 @@
 /*  See the License for the specific language governing permissions and     */
 /*  limitations under the License.                                          */
 /*--------------------------------------------------------------------------*/
+#include "baseapi.hpp"
+
+class Record{
+protected:
+    virtual void on_save(ostream&out){}
+    virtual void on_load(istream&in) {}
+};
+
+class DatabaseWorker{
+protected:
+    DatabaseWorker(unsigned pid, EventLog&_log):log(_log),PID(pid){}
+public:
+    void run(int tag){
+        ///
+    }
+    bool io_code(){
+        return false;
+    }
+    void check_in(Record&){
+        //
+    }
+protected:
+    virtual void on_run(int tag)=0;
+private:
+    EventLog& log;
+    unsigned PID;
+};
