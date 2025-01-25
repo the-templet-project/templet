@@ -25,7 +25,13 @@ typedef string BLOB;
 
 class EventLog{
 public:
-    bool try_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob){
+     void write(unsigned tag,unsigned pid,const BLOB&blob){
+        unique_lock lk(mut);
+        EVENT ev{tag,pid,blob};
+        events.push_back(ev);
+        cv.notify_all();
+    }
+    bool read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob){
         unique_lock lk(mut);
         if(ord<events.size()){
             tag = events[ord].tag; pid = events[ord].PID; blob = events[ord].blob;  
@@ -33,16 +39,9 @@ public:
         }
         return false;
     }
-    void wait_read(unsigned ord,unsigned&tag,unsigned&pid,BLOB&blob){
+    void await_ord(unsigned ord){
         unique_lock lk(mut);
         while(!(ord<events.size())){cv.wait(lk);}
-        tag = events[ord].tag; pid = events[ord].PID; blob = events[ord].blob;  
-    }
-    void write(unsigned tag,unsigned pid,const BLOB&blob){
-        unique_lock lk(mut);
-        EVENT ev{tag,pid,blob};
-        events.push_back(ev);
-        cv.notify_all();
     }
 private:
     struct EVENT{ unsigned tag; unsigned PID; BLOB blob; };

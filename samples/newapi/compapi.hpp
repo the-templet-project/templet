@@ -22,22 +22,20 @@
 
 class ComputeWorker{
 protected:
-    ComputeWorker(unsigned pid, EventLog&_log):log(_log),PID(pid),current_event(0){}
+    ComputeWorker(unsigned pid, EventLog&_log):log(_log),PID(pid),next_to_read_event(0){}
 public:
     void run(){
         for(;;){
             unsigned tag; unsigned pid; BLOB blob;
-            
-            log.wait_read(current_event,tag,pid,blob);
-            on_read(current_event,tag,pid,blob);
-            current_event++;
-            
-            while(log.try_read(current_event,tag,pid,blob)){
-                if(!on_read(current_event,tag,pid,blob))return;
-                current_event++;
+                       
+            while(log.read(next_to_read_event,tag,pid,blob)){
+                if(!on_read(next_to_read_event,tag,pid,blob))return;
+                next_to_read_event++;
             }
-
+            
+            blob.clear();
             if(on_write(tag,blob))log.write(tag,PID,blob);
+            else log.await_ord(next_to_read_event);
         } 
     }
 protected:
@@ -45,7 +43,7 @@ protected:
     virtual bool on_write(unsigned&tag,BLOB&blob)=0;
 private:
     EventLog& log;
-    unsigned current_event;
+    unsigned next_to_read_event;
     unsigned PID;
 };
 
@@ -155,18 +153,18 @@ private:
     struct Worker:public Task{
         Worker(TaskEngine&eng,MasterWorkers&m):Task(eng),mw(m){}
         T task; MasterWorkers& mw;
-        void on_run() override{ mw.on_run(*this); }
+        void on_run() override{ mw.on_run(task); }
         void on_continue() override{
-            mw.on_put(task); mw.ready.push_back(*this); mw.submit_tasks();
+            mw.on_put(task); mw.ready.push_back(this); mw.submit_tasks();
         }
-        void on_save(ostream&out) override{ mw.on_save(*this,out); }
-        void on_load(istream&in) override{ mw.on_load(*this,in); }
+        void on_save(ostream&out) override{ mw.on_save(task,out); }
+        void on_load(istream&in) override{ mw.on_load(task,in); }
     };
 private:
     void submit_tasks(){
         typename list<Worker*>::iterator it;
-        while( ((it=ready.begin())!=ready.end()) && on_get(it) ){ 
-            it.submit(); ready.erase(it); 
+        while( ((it=ready.begin())!=ready.end()) && on_get((*it)->task) ){ 
+            (*it)->submit(); ready.erase(it); 
         }
     }
 private:
