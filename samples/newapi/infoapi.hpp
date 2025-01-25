@@ -26,12 +26,12 @@ protected:
     DatabaseWorker(unsigned pid, EventLog&_log):log(_log),PID(pid){}
 public:
     void run(int tag){
-        ///
+        //
     }
-    bool io_code(){
+    bool io(){
         return false;
     }
-    void check_in(Record&){
+    void sync(Record&){
         //
     }
 protected:
@@ -40,3 +40,7 @@ private:
     EventLog& log;
     unsigned PID;
 };
+
+#define IO_REGION_BEGIN if(io()){
+#define IO_REGION_END   }
+#define IO_SYNC(var)    sync(var)
