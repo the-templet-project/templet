@@ -28,7 +28,7 @@ public:
     void run(int tag){
         //
     }
-    bool io(){
+    bool set_io(bool){
         return false;
     }
     void sync(Record&){
@@ -41,6 +41,6 @@ private:
     unsigned PID;
 };
 
-#define IO_REGION_BEGIN if(io()){
-#define IO_REGION_END   }
-#define IO_SYNC(var)    sync(var)
+#define IO_SECTION_BEGIN if(set_io(true)){
+#define IO_SECTION_END   } set_io(false);
+#define IO_SYNC_POINT(var)    sync(var);
