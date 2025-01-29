@@ -15,32 +15,19 @@
 /*--------------------------------------------------------------------------*/
 #include "baseapi.hpp"
 
-class Record{
-protected:
-    virtual void on_save(ostream&out){}
-    virtual void on_load(istream&in) {}
-};
-
-class DatabaseWorker{
-protected:
-    DatabaseWorker(unsigned pid, EventLog&_log):log(_log),PID(pid){}
+class DataObject{
 public:
-    void run(int tag){
-        //
-    }
-    bool set_io(bool){
-        return false;
-    }
-    void sync(Record&){
-        //
-    }
-protected:
-    virtual void on_run(int tag)=0;
+    DataObject(unsigned pid, EventLog&_log):log(_log),PID(pid){}
+    void update(){}
 private:
     EventLog& log;
-    unsigned PID;
+    unsigned PID;    
 };
 
-#define IO_SECTION_BEGIN if(set_io(true)){
-#define IO_SECTION_END   } set_io(false);
-#define IO_SYNC_POINT(var)    sync(var);
+class Transaction{
+public:
+    Transaction(DataObject&){}
+    void run(){}
+protected:
+    virtual void on_run()=0;
+};
