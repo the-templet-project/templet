@@ -6,123 +6,44 @@
 
 using namespace std;
 
-/////////////////////////////////////////////////////////////////////
-
-class bag{
-
-protected:
-    class task{
-    friend class bag;
-        void on_run(){
-            /*-1-*/
-        }
-            /*-2-*/
-    }; 
-    
-public:
-    bag(int _num_workers){  
-        num_workers = _num_workers; 
-            /*-3-*/          
-    }
-    ~bag(){  
-            /*-4-*/          
-    }
-    bool on_can_get(){ 
-            /*-5-*/
-        return false;
-    }
-    void on_get(task&){
-            /*-6-*/
-    }
-    void on_put(task&){
-            /*-7-*/
-    }
-
-public:
-            /*-8-*/
-
-public:
-    void run(){
-        srand((unsigned)time(0));
-        cur_num_workers = 0;
-
-        for(;;){
-            while(on_can_get() && (cur_num_workers < num_workers)){
-                task* tsk = new task;
-                on_get(*tsk);
-                planned_task_arr.push_back(tsk);
-                cur_num_workers++;
-            }
-            
-            unsigned size; 
-            if((size = planned_task_arr.size())==0) break;
-            
-            unsigned selected = rand() % size;
-            task* selected_task = planned_task_arr[selected];
-            planned_task_arr.erase(planned_task_arr.begin()+selected);
-
-            selected_task->on_run();
-            on_put(*selected_task);
-            delete selected_task;
-        }        
-    }
-
-private:
-    int cur_num_workers;
-    int num_workers;
-    vector<task*> planned_task_arr;
+struct task{
+    /*-1-*/
 };
 
-/////////////////////////////////////////////////////////////////////
-
-class seq_test_bag{
-
-protected:
-    class task{
-    friend class seq_test_bag;
-        void on_run(){
-            /*-1-*/
-        }
-            /*-2-*/
-    }; 
-    
-public:
-    seq_test_bag(){  
-            /*-3-*/          
-    }
-    ~seq_test_bag(){  
-            /*-4-*/          
-    }
-    bool on_can_get(){ 
-            /*-5-*/
-        return false;
-    }
-    void on_get(task&){
-            /*-6-*/
-    }
-    void on_put(task&){
-            /*-7-*/
-    }
-
-public:
-            /*-8-*/
-
-public:
-    void run(){
-        task tsk;
-        while(on_can_get()){
-            on_get(tsk);
-            tsk.on_run();
-            on_put(tsk);
-        }
-    }
+struct task_pool{
+    /*-2-*/
 };
 
-/////////////////////////////////////////////////////////////////////
+bool on_get(task&,task_pool&)
+{
+    /*-3-*/
+    return false;
+}
 
-class seq_test{
-public:
-    void run(){
-            /* seq code */
-    };
-};
+void on_run(task&)
+{ 
+    /*-4-*/
+}
+
+void on_put(task&,task_pool&)
+{
+    /*-5-*/
+}
+
+void task_pool_run(task_pool& tpool){
+    task planned_task;
+    vector<task> planned_task_arr;
+   
+    while(on_get(planned_task,tpool)) planned_task_arr.push_back(planned_task);
+
+    unsigned size;
+    for(srand((unsigned)time(0));!planned_task_arr.empty();){
+
+        unsigned selected = rand() % planned_task_arr.size();
+        task selected_task = planned_task_arr[selected];
+        planned_task_arr.erase(planned_task_arr.begin()+selected);
+
+        on_run(selected_task);
+        on_put(selected_task,tpool);
+    }        
+}
