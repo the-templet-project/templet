@@ -134,6 +134,40 @@ private:
 void Task::submit(){ assert(!submitted); submitted = true; taskeng.submit(this); }
 
 template<typename T>
+class ParamSweep{
+public:
+    ParamSweep(unsigned pid,EventLog& log):task_eng(pid,log){}
+    ~ParamSweep(){ for(auto pt: ready) delete pt; }
+    void run(){
+        ParamTask* pt = new ParamTask(task_eng,*this);
+        while(on_get(pt->param)){ pt->submit(); pt = new ParamTask(task_eng,*this); }
+        delete pt;
+        task_eng.run(); 
+    }
+protected:
+    virtual bool on_get(T&)=0;
+    virtual void on_run(T&)=0;
+    virtual void on_put(T&)=0;
+protected:
+    virtual void on_save(const T&,ostream&){}
+    virtual void on_load(T&,istream&){}
+private:
+    struct ParamTask:public Task{
+        ParamTask(TaskEngine&eng,ParamSweep&_ps):Task(eng),ps(_ps){}
+        T param; ParamSweep& ps;
+        void on_run() override{ ps.on_run(param); }
+        void on_continue() override{
+            ps.on_put(param); ps.ready.push_back(this);
+        }
+        void on_save(ostream&out) override{ ps.on_save(param,out); }
+        void on_load(istream&in) override{ ps.on_load(param,in); }
+    };
+private:
+    list<ParamTask*> ready;
+    TaskEngine task_eng;
+};
+
+template<typename T>
 class MasterWorkers{
 public:
     MasterWorkers(unsigned num_workers,unsigned pid,EventLog& log):task_eng(pid,log){
