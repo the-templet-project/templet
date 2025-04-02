@@ -14,6 +14,7 @@
 /*  limitations under the License.                                          */
 /*--------------------------------------------------------------------------*/
 #include <vector>
+#include <list>
 #include <iostream>
 #include "baseapi.hpp"
 
@@ -76,3 +77,39 @@ void DataObject::update(){
         next_to_read_event++;
     }
 }
+
+template<typename T>
+class Bag: public DataObject{
+public:
+    Bag(unsigned pid, EventLog& log):DataObject(pid,log),
+        get_transaction(*this),put_transaction(*this){}
+public:
+    bool get(T&){return false;}
+    void put(T&){}
+    bool underway(){return false;}
+protected:
+    virtual bool on_get(T&)=0;
+    virtual void on_put(T&)=0;
+    virtual void on_save(const T&,ostream&){}
+    virtual void on_load(T&,istream&){}
+private:
+    struct GetTransaction: public Transaction{
+        GetTransaction(Bag& bag):Transaction(bag),data(bag){}
+        void on_run()override{
+        }
+        void on_save(ostream&out)override{ }
+        void on_load(istream&in)override{  }
+        Bag& data;
+    } get_transaction;
+
+    struct PutTransaction: public Transaction{
+        PutTransaction(Bag& bag):Transaction(bag),data(bag){}
+        void on_run()override{
+        }
+        void on_save(ostream&out)override{ }
+        void on_load(istream&in)override{  }
+        Bag& data;
+    } put_transaction;
+private:
+    map<unsigned,T> in_processing; 
+};
