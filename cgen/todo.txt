@@ -85,8 +85,9 @@ void meta(meta_engine&e){
  <text-block>  ::= { <line> <new-line> }
  <line> ::= character sequence not starting with '#pragma templet'
  <marked-block> ::= <begin>(x) <new-line> <text-block> <end>(x) <new-line>
- <begin>(ID) ::= '#pragma' 'templet' 'var' '('ID')'
- <end>(ID)   ::= '#pragma' 'templet' 'end' '('ID')'
+ <begin>(ID) ::= '#pragma' 'templet'     ID
+ <end>(ID)   ::= '#pragma' 'templet' '/' ID
+ ID ::= character sequence not starting with '/' and having no separator characters 
 
  Options usage:
  --------------
