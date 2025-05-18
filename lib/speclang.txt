@@ -175,13 +175,4 @@ Implemented task engines:
 -- everest (in everest.hpp)
 -- basesim (in basesim.hpp)
 -- omptask (in omptask.hpp)
-Projected task engines:
--- deepsim
--- checker
--- cpptask
--- mpitask
--- curltsk
--- boinctk
--- condort
-...
 		 
