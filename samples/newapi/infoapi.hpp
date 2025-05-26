@@ -86,7 +86,6 @@ public:
 public:
     bool get(T&){return false;}
     void put(T&){}
-    bool underway(){return false;}
 protected:
     virtual bool on_get(T&)=0;
     virtual void on_put(T&)=0;
