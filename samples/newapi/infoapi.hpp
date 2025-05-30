@@ -16,6 +16,7 @@
 #include <vector>
 #include <list>
 #include <iostream>
+#include <functional>
 #include "baseapi.hpp"
 
 class Transaction;
@@ -112,3 +113,18 @@ private:
 private:
     map<unsigned,T> in_processing; 
 };
+
+namespace bag{
+
+struct task{
+    virtual void on_save(ostream&)=0;
+    virtual void on_load(istream&)=0;
+};
+
+template <typename T>
+void worker(unsigned pid, EventLog& log, function<bool(T&)> on_get, function<void(T&)> on_run, function<void(T const&)> on_put){
+    
+}
+
+}
+
