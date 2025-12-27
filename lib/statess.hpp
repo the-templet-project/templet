@@ -29,12 +29,12 @@ namespace templet {
 		friend class shared_state;
 	public:
 		void write(unsigned& index, unsigned tag, const std::string& blob) {
-			std::unique_lock lock(mut);
-			log.push_back(std::pair(tag, blob));
+			std::unique_lock<std::mutex> lock(mut);
+			log.push_back(std::pair<unsigned, std::string>(tag, blob));
 			index = log.size() - 1;
 		}
 		bool read(unsigned index, unsigned& tag, std::string& blob) {
-			std::unique_lock lock(mut);
+			std::unique_lock<std::mutex> lock(mut);
 			if (index < log.size()) { tag = log[index].first; blob = log[index].second; return true; }
 			return false;
 		}
@@ -47,6 +47,8 @@ namespace templet {
 	public:
 		state(write_ahead_log&l) :log(l) {}
 		void update() {}
+		void update(const char id[],
+			std::function<void(void)>doupdate) {}
 		void update(const char id[],
 			std::function<void(std::ostream&)>saveparams,
 			std::function<void(std::istream&)>doupdate) {}
