@@ -23,7 +23,7 @@
     <ProjectGuid>{E1008D03-A97F-493D-A3E3-350783AFE7BD}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>statess</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

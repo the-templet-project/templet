@@ -47,9 +47,9 @@ namespace templet {
 	public:
 		state(write_ahead_log&l) :log(l) {}
 		void update() {}
-		void update(const char id[],
+		void update(const unsigned id,
 			std::function<void(void)>doupdate) {}
-		void update(const char id[],
+		void update(const unsigned id,
 			std::function<void(std::ostream&)>saveparams,
 			std::function<void(std::istream&)>doupdate) {}
 	protected:
@@ -71,12 +71,12 @@ namespace templet {
 		write_ahead_log& log;
 	};
 
-	class statess_engine {
+	class syncmem_engine {
 	};
 
-	class statess_task : task {
+	class syncmem_task : task {
 	public:
-		statess_task(actor*a, task_adaptor ta) {}
+		syncmem_task(actor*a, task_adaptor ta) {}
 	};
 
 }

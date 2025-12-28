@@ -176,5 +176,5 @@ Implemented task engines:
 -- basesim (in basesim.hpp)
 -- omptask (in omptask.hpp)
 To be implemented:
--- statess (in statess.hpp)
+-- syncmem (in statess.hpp)
 		 

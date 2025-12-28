@@ -37,15 +37,14 @@ private:
 	void update_state() { update(); }
 
 	void set_ready_to_compute() {
-		update("set_ready_to_compute", [this]() {
+		update(_set_ready_to_compute, [this]() {
 			not_scanned.clear();
 			for (unsigned i = 0; i < array.size(); i++)not_scanned.insert(i);
 			ready_to_compute = true; }
 		);
 	}
 	void share_element(unsigned index, T&element) {
-		update("share_element",
-			[&](std::ostream&out){
+		update(_share_element, [&](std::ostream&out){
 				out << index; on_save(element, out, false);
 			},
 			[this](std::istream&in) {
@@ -54,7 +53,8 @@ private:
 
 				if (array.size() <= index) array.resize(index + 1);
 				array[index] = element; 
-		});
+			}
+		);
 	}
 	bool get_not_scanned(unsigned& index, int  random) {
 		update();
@@ -64,8 +64,7 @@ private:
 		return true;
 	}
 	void put_scanned(unsigned index, T&element) {
-		update("put_scanned", 
-			[&](std::ostream&out) {
+		update(_put_scanned,	[&](std::ostream&out) {
 				out << index; on_save(element, out, true);
 			},
 			[this](std::istream&in) {
@@ -75,9 +74,15 @@ private:
 				if (not_scanned.find(index) != not_scanned.end()) {//if(not_scanned.contains(index))
 					array[index] = element; not_scanned.erase(index);
 				}
-		});
+			}
+		);
 	}
 private:
+	enum { 
+		_set_ready_to_compute,
+		_share_element,
+		_put_scanned	
+	};
 	void register_updates() override {
 		unsigned index = 0; T element;
 		scanner::set_ready_to_compute();
