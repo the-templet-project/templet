@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------*/
-/*  Copyright 2025 Sergei Vostokin                                          */
+/*  Copyright 2025-2026 Sergei Vostokin                                     */
 /*                                                                          */
 /*  Licensed under the Apache License, Version 2.0 (the "License");         */
 /*  you may not use this file except in compliance with the License.        */
@@ -26,14 +26,13 @@
 namespace templet {
 
 	class write_ahead_log {
-		friend class shared_state;
 	public:
-		void write(unsigned& index, unsigned tag, const std::string& blob) {
+		virtual void write(unsigned& index, unsigned tag, const std::string& blob) {
 			std::unique_lock<std::mutex> lock(mut);
 			log.push_back(std::pair<unsigned, std::string>(tag, blob));
 			index = log.size() - 1;
 		}
-		bool read(unsigned index, unsigned& tag, std::string& blob) {
+		virtual bool read(unsigned index, unsigned& tag, std::string& blob) {
 			std::unique_lock<std::mutex> lock(mut);
 			if (index < log.size()) { tag = log[index].first; blob = log[index].second; return true; }
 			return false;
@@ -46,27 +45,70 @@ namespace templet {
 	class state {
 	public:
 		state(write_ahead_log&l) :log(l) {}
+		void init() {}
 		void update() {}
 		void update(const unsigned id,
-			std::function<void(void)>doupdate) {}
+			std::function<void(void)>update) {}
 		void update(const unsigned id,
-			std::function<void(std::ostream&)>saveparams,
-			std::function<void(std::istream&)>doupdate) {}
+			std::function<void(std::ostream&)>save,
+			std::function<void(std::istream&)>update) {}
 	protected:
-		virtual void register_updates() = 0;
+		virtual void on_init() = 0;
 	private:
 		write_ahead_log& log;
 	};
 
-	class tasks {
+	namespace meta {
+		class state {
+		public:
+			void name(const char name[]) { _name = name; }
+			void prefix(const char prefix[]) { _prefix = prefix; }
+			
+			enum action {_output,_update,_update_output,_save_update,_save_update_output};
+			
+			struct update {
+				friend class state;
+			private:
+				update(const char name[], action act) :_name(name), _action(act) {}
+			public:
+				update& par(const char def[], const char use[], const char init[] = "") {
+					_par_list.push_back(param(def, use, init));
+					return *this;
+				}
+			private:
+				struct param { 
+					param(const char def[], const char use[], const char init[] = ""):_def(def),_use(use),_init(init){}
+					std::string _def; std::string _use; std::string _init; 
+				};
+				std::list<param> _par_list;
+				std::string _name; action _action;
+			};
+			
+			update& def(const char name[], action act) { _updates.push_back(update(name,act)); return _updates.back(); }
+		public:
+			void print(std::ostream&out,bool markup=false){
+				if (_prefix != "") out << _prefix << std::endl;
+				out << "class " << _name << " : public templet::state {" << std::endl;
+				out << "// TODO: " << _name <<"(... templet::write_ahead_log&l ...) : state(l) {...}" << std::endl;
+				out << "// TODO: add methods and fields" << std::endl;
+				out << "};"  << std::endl;
+			}
+		private:
+			std::string _name;
+			std::string _prefix;
+			std::list<update> _updates;
+		};
+	}
+
+	class task_engine {
 	public:
-		tasks(write_ahead_log&l) :log(l) {}
-		void operator()(std::function<void(std::ostream&)>exec,
+		task_engine(write_ahead_log&l) :log(l) {}
+		void async(std::function<void(std::ostream&)>exec,
 			std::function<void(std::istream&)>goon) {}
-		void operator()(bool condition,
+		void async(bool condition,
 			std::function<void(std::ostream&)>exec,
 			std::function<void(std::istream&)>goon) {}
-		void barrier() {}
+		void await() {}
 	private:
 		write_ahead_log& log;
 	};

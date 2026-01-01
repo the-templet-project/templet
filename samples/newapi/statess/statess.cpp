@@ -7,10 +7,27 @@
 #include <thread>
 #include <atomic>
 
+class meta_scanner : public templet::meta::state {
+public:
+	meta_scanner() {
+		prefix("template <typename T>"); name("scanner");
+		def("set_ready_to_compute",action::_update);
+		def("share_element", action::_save_update)
+			.par("unsigned index", "0")
+			.par("T&element", "element", "T element");
+		def("get_not_scanned", action::_output)
+			.par("unsigned& index", "index", "unsigned index")
+			.par("int  random", "0");
+		def("put_scanned", action::_save_update)
+			.par("unsigned index", "0")
+			.par("T&element", "element", "T element");
+	}
+};
+
 template <typename T>
 class scanner: public templet::state {
 public:
-	scanner(bool master, templet::write_ahead_log&l) : state(l), is_master(master), ready_to_compute(false) {}
+	scanner(bool master, templet::write_ahead_log&l) : state(l), is_master(master), ready_to_compute(false) { init(); }
 public:
 	void scan() {
 		srand((unsigned)time(0));
@@ -21,7 +38,7 @@ public:
 			set_ready_to_compute();
 		}
 
-		while (!ready_to_compute) update_state();
+		while (!ready_to_compute) update();
 
 		while (get_not_scanned(index, rand())) {
 			on_scan(array[index]);
@@ -34,8 +51,6 @@ protected:
 	virtual void on_save(const T&element, std::ostream&, bool scanned) = 0;
 	virtual void on_load(T&element, std::istream&, bool scanned) = 0;
 private:
-	void update_state() { update(); }
-
 	void set_ready_to_compute() {
 		update(_set_ready_to_compute, [this]() {
 			not_scanned.clear();
@@ -83,11 +98,10 @@ private:
 		_share_element,
 		_put_scanned	
 	};
-	void register_updates() override {
-		unsigned index = 0; T element;
-		scanner::set_ready_to_compute();
-		scanner::share_element(index, element);
-		scanner::put_scanned(index, element);
+	void on_init() override {
+		{scanner::set_ready_to_compute();}
+		{T element; scanner::share_element(0, element); }
+		{T element; scanner::put_scanned(0, element); }
 	}
 private:
 	std::set<unsigned> not_scanned;
@@ -115,6 +129,11 @@ private:
 
 int main()
 {
+	meta_scanner meta_scanner_object;
+	meta_scanner_object.print(std::cout);
+
+	return 0;
+
 	std::atomic_int PID = 0;
 	int NUM_THREADS = 10;
 	int ARRAY_SIZE = 10;
