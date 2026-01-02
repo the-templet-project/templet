@@ -69,29 +69,124 @@ namespace templet {
 			struct update {
 				friend class state;
 			private:
-				update(const char name[], action act) :_name(name), _action(act) {}
+				update(const char name[], action act) :_name(name), _action(act), _return("void") {}
+				update(const char ret[], const char name[], action act) :_return(ret), _name(name), _action(act) {}
 			public:
 				update& par(const char def[], const char use[], const char init[] = "") {
 					_par_list.push_back(param(def, use, init));
 					return *this;
 				}
 			private:
+				void print_init(std::ostream& out, std::string& class_name) {
+					for (param& p : _par_list) {
+						if(p._init != "") out << p._init << "; ";
+					}
+
+					out << class_name << "::" << _name << "(";
+					bool first = true;
+					for (param& p:_par_list) {
+						if (first)first = false; else out << ", ";
+						out << p._use;
+					}
+					out << ");";
+				}
+				void print_param(std::ostream& out) {
+					bool first = true;
+					for (param& p : _par_list) {
+						if (first)first = false; else out << ", ";
+						out << p._def;
+					}
+				}
 				struct param { 
 					param(const char def[], const char use[], const char init[] = ""):_def(def),_use(use),_init(init){}
 					std::string _def; std::string _use; std::string _init; 
 				};
 				std::list<param> _par_list;
-				std::string _name; action _action;
+				std::string _name; std::string _return; action _action;
 			};
 			
-			update& def(const char name[], action act) { _updates.push_back(update(name,act)); return _updates.back(); }
+			update& def(const char name[], action act) 
+				{ _updates.push_back(update(name,act)); return _updates.back(); }
+			update& def(const char ret[], const char name[], action act) 
+				{ _updates.push_back(update(ret, name, act)); return _updates.back(); }
 		public:
-			void print(std::ostream&out,bool markup=false){
+			void print(std::ostream&out){
+				out << "/*$TET$$header*/" << std::endl;
+				out << "#include <syncmem.hpp>" << std::endl;
+				out << "/*$TET$*/" << std::endl << std::endl;
+
 				if (_prefix != "") out << _prefix << std::endl;
 				out << "class " << _name << " : public templet::state {" << std::endl;
-				out << "// TODO: " << _name <<"(... templet::write_ahead_log&l ...) : state(l) {...}" << std::endl;
-				out << "// TODO: add methods and fields" << std::endl;
+				print_todo("header$", out, std::string(_name)+"(...templet::write_ahead_log&l...) : state(l) {...init();...}");
+
+				for (update& upd : _updates) {
+					out << "\t"<< upd._return << " " << upd._name << "(";
+					upd.print_param(out);
+					out << ") {" << std::endl;
+
+					if (upd._action == _save_update || upd._action == _save_update_output) {
+						out << "\t\tupdate(_" << upd._name << ", [&](std::ostream&out) {" << std::endl;
+						print_todo(std::string(upd._name) + "$save", out, "put variable saving code here");
+						out << "\t\t}," << std::endl;
+						out << "\t\t[this](std::istream&in) {" << std::endl;
+						print_todo(std::string(upd._name) + "$update", out, "put update code here");
+						out << "\t\t});" << std::endl;
+					}
+					else if (upd._action == _update || upd._action == _update_output) {
+						out << "\t\tupdate(_" << upd._name << ", [this]() {" << std::endl;
+						print_todo(std::string(upd._name) + "$update", out, "put update code here");
+						out << "\t\t});" << std::endl;
+					}
+					else if (upd._action == _output) {
+						out << "\t\tupdate();" << std::endl;
+					}
+
+					if (upd._action == _output || upd._action == _update_output || upd._action == _save_update_output) {
+						print_todo(std::string(upd._name) + "$output", out, "put output code here");
+					}
+
+					out << "\t}" << std::endl;
+				}
+
+				out << "private:" << std::endl;
+				out << "\tenum {" << std::endl;
+
+				bool first = true;
+				for (update& upd:_updates) {
+					if (upd._action == _update || 
+						upd._action == _update_output ||
+						upd._action == _save_update ||
+						upd._action == _save_update_output) {
+						if (first) first = false; else out << "," << std::endl;
+						out << "\t\t_" << upd._name; 
+					}
+				}
+				out << std::endl << "\t};" << std::endl;
+				
+				out << "\tvoid on_init() override {" << std::endl;
+				for (update& upd : _updates) {
+					if (upd._action == _update ||
+						upd._action == _update_output ||
+						upd._action == _save_update ||
+						upd._action == _save_update_output) {
+						out << "\t\t{ "; upd.print_init(out, _name); out << " }" << std::endl;
+					}
+				}
+				out << "\t}" << std::endl;
+
+				print_todo("footer$", out, "add methods and fields here");
+
 				out << "};"  << std::endl;
+
+				out << std::endl;
+				out << "/*$TET$$footer*/" << std::endl;
+				out << "/*$TET$*/" << std::endl << std::endl;
+			}
+		private:
+			void print_todo(const std::string&id, std::ostream&out, const std::string&todo) {
+				out << "/*$TET$"<< _name << "$" << id <<  "*/" << std::endl;
+				out << "// TODO: " << todo << std::endl;
+				out << "/*$TET$*/" << std::endl;
 			}
 		private:
 			std::string _name;

@@ -11,13 +11,17 @@ class meta_scanner : public templet::meta::state {
 public:
 	meta_scanner() {
 		prefix("template <typename T>"); name("scanner");
+		
 		def("set_ready_to_compute",action::_update);
+		
 		def("share_element", action::_save_update)
 			.par("unsigned index", "0")
 			.par("T&element", "element", "T element");
-		def("get_not_scanned", action::_output)
+		
+		def("bool", "get_not_scanned", action::_output)
 			.par("unsigned& index", "index", "unsigned index")
-			.par("int  random", "0");
+			.par("int random", "0");
+		
 		def("put_scanned", action::_save_update)
 			.par("unsigned index", "0")
 			.par("T&element", "element", "T element");
@@ -79,7 +83,7 @@ private:
 		return true;
 	}
 	void put_scanned(unsigned index, T&element) {
-		update(_put_scanned,	[&](std::ostream&out) {
+		update(_put_scanned, [&](std::ostream&out) {
 				out << index; on_save(element, out, true);
 			},
 			[this](std::istream&in) {
