@@ -75,7 +75,7 @@ private:
 	void share_element(unsigned index, T&element) {
 		update(_share_element, [&](std::ostream&out) {
 /*$TET$scanner$share_element$save*/
-			out << index; on_save(element, out, false);
+			out << index << " "; on_save(element, out, false);
 /*$TET$*/
 		},
 		[this](std::istream&in) {
@@ -100,7 +100,7 @@ private:
 	void put_scanned(unsigned index, T&element) {
 		update(_put_scanned, [&](std::ostream&out) {
 /*$TET$scanner$put_scanned$save*/
-			out << index; on_save(element, out, true);
+			out << index << " "; on_save(element, out, true);
 /*$TET$*/
 		},
 		[this](std::istream&in) {
