@@ -2,12 +2,37 @@
 #include "pch.h"
 #include <iostream>
 
+#define TEMPLET_STATE_TEST_IMPL
 #include <syncmem.hpp>
 
 #include <set>
 #include <thread>
 #include <atomic>
 /*$TET$*/
+
+struct meta_scanner : public templet::meta::state {
+	meta_scanner() {
+/*$TET$$meta*/
+	prefix("template <typename T>"); name("scanner");
+
+	def("set_ready_to_compute", action::_update);
+
+	def("share_element", action::_save_update)
+		.par("unsigned index", "0")
+		.par("T&element", "element", "T element");
+
+	def("bool", "get_not_scanned", action::_output)
+		.par("unsigned& index", "index", "unsigned index")
+		.par("int random", "0");
+
+	def("put_scanned", action::_save_update)
+		.par("unsigned index", "0")
+		.par("T&element", "element", "T element");
+
+	skel("C:\\Users\\Сергей\\Documents\\GitHub\\templet\\bin\\skel.exe");
+/*$TET$*/
+	file(__FILE__);
+}};
 
 template <typename T>
 class scanner : public templet::state {
@@ -130,7 +155,7 @@ private:
 int main()
 {
 	std::atomic_int PID = 0;
-	int NUM_THREADS = 10;
+	int NUM_THREADS = 1;
 	int ARRAY_SIZE = 10;
 
 	templet::write_ahead_log wal;
@@ -145,7 +170,7 @@ int main()
 		for (int i = 0; i < 10; i++) scanner_object.array[i].N = i;
 	}
 
-	//scanner_object.scan();
+	scanner_object.scan();
 
 	if (pid == 0) {// .. or any other pid < NUM_THREADS 
 		for (int i = 0; i < ARRAY_SIZE; i++)

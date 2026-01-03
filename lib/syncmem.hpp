@@ -20,6 +20,9 @@
 #include <mutex>
 #include <iostream>
 #include <functional>
+#include <sstream>
+#include <fstream>
+#include <cstdlib>
 
 #include "templet.hpp"
 
@@ -42,6 +45,26 @@ namespace templet {
 		std::mutex mut;
 	};
 
+#ifdef  TEMPLET_STATE_TEST_IMPL
+	class state {
+	public:
+		state(write_ahead_log&) {}
+		void init() {}
+		void update() {}
+		void update(const unsigned id,
+			std::function<void(void)>_update) {
+			_update();
+		}
+		void update(const unsigned id,
+			std::function<void(std::ostream&)>_save,
+			std::function<void(std::istream&)>_update) {
+			std::stringstream ios;
+			_save(ios); _update(ios);
+		}
+	protected:
+		virtual void on_init() = 0;
+	};
+#else //TEMPLET_STATE_WORK_IMPL
 	class state {
 	public:
 		state(write_ahead_log&l) :log(l) {}
@@ -57,10 +80,11 @@ namespace templet {
 	private:
 		write_ahead_log& log;
 	};
+#endif
 
 	namespace meta {
 		class state {
-		public:
+		protected:
 			void name(const char name[]) { _name = name; }
 			void prefix(const char prefix[]) { _prefix = prefix; }
 			
@@ -109,11 +133,84 @@ namespace templet {
 				{ _updates.push_back(update(name,act)); return _updates.back(); }
 			update& def(const char ret[], const char name[], action act) 
 				{ _updates.push_back(update(ret, name, act)); return _updates.back(); }
-		public:
+
+			void skel(const char skel_file[]) { _skel_file = skel_file; }
+
+			void file(const char module_file[]) {
+				std::string command;
+
+				if (system(NULL) == 0) {
+					std::cout << "ERROR: command processor is not detected";
+					exit(EXIT_FAILURE);
+				};
+
+				command = std::string(_skel_file)+" -i " + module_file;
+
+				if (system(command.c_str()) == EXIT_FAILURE) {
+					std::cout << "ERROR: skel processor or input file is not detected";
+					exit(EXIT_FAILURE);
+				};
+
+				{
+					std::ofstream gen_file(std::string(module_file) + ".cgn");
+					if (!gen_file) {
+						std::cout << "ERROR: open '"<< module_file << ".cgn" <<"' file for writing";
+						exit(EXIT_FAILURE);
+					}
+					state::print(gen_file);
+				}
+
+#if defined(_WIN32) || defined(_WIN64) 
+				command = std::string("copy ") + module_file + " " + module_file + ".bak";
+#else
+				command = std::string("cp ") + module_file + " " + module_file + ".bak";
+#endif
+
+				if (system(command.c_str()) == EXIT_FAILURE) {
+					std::cout << "ERROR: failed to backup " << module_file << " to '" << module_file << ".bak'";
+					exit(EXIT_FAILURE);
+				}
+
+				command = _skel_file + " -i " + module_file + " -s " + module_file + ".cgn";
+
+				int ret;
+				if (ret = system(command.c_str()) == EXIT_FAILURE) {
+#if defined(_WIN32) || defined(_WIN64)
+					command = std::string("copy ") + module_file + ".bak" + " " + module_file;
+#else	
+					command = std::string("cp ") + module_file + ".bak" + " " + module_file;
+#endif
+					system(command.c_str());
+				}
+
+#if defined(_WIN32) || defined(_WIN64)
+				command = std::string("del ") + module_file + ".cgn";
+#else
+				command = std::string("rm ") + module_file + ".cgn";
+#endif
+				system(command.c_str());
+
+				if (ret == EXIT_SUCCESS) std::cout << "Ok";
+
+				exit(ret);
+			}
+
+		private:
 			void print(std::ostream&out){
 				out << "/*$TET$$header*/" << std::endl;
 				out << "#include <syncmem.hpp>" << std::endl;
 				out << "/*$TET$*/" << std::endl << std::endl;
+
+				out << "struct meta_" << _name << " : public templet::meta::state {" << std::endl;
+				out << "\tmeta_" << _name << "() {" << std::endl;
+
+				out << "/*$TET$$meta*/" << std::endl;
+				out << "// TODO: put state class defs here" << std::endl;
+				out << "/*$TET$*/" << std::endl;
+
+				out << "\tfile(__FILE__);" << std::endl;
+				out << "}};" << std::endl;
+				out << std::endl;
 
 				if (_prefix != "") out << _prefix << std::endl;
 				out << "class " << _name << " : public templet::state {" << std::endl;
@@ -191,6 +288,7 @@ namespace templet {
 		private:
 			std::string _name;
 			std::string _prefix;
+			std::string _skel_file;
 			std::list<update> _updates;
 		};
 	}
