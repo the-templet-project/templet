@@ -8,11 +8,10 @@
 #include <set>
 #include <thread>
 #include <atomic>
-/*$TET$*/
 
 struct meta_scanner : public templet::meta::state {
 	meta_scanner() {
-/*$TET$$meta*/
+
 	prefix("template <typename T>"); name("scanner");
 
 	def("set_ready_to_compute", action::_update);
@@ -29,10 +28,10 @@ struct meta_scanner : public templet::meta::state {
 		.par("unsigned index", "0")
 		.par("T&element", "element", "T element");
 
-	skel("C:\\Users\\Сергей\\Documents\\GitHub\\templet\\bin\\skel.exe");
-/*$TET$*/
 	file(__FILE__);
-}};
+}}; // }} x; 
+    // create an instance of this class to activate the metaprocessor
+/*$TET$*/
 
 template <typename T>
 class scanner : public templet::state {

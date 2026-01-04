@@ -134,17 +134,23 @@ namespace templet {
 			update& def(const char ret[], const char name[], action act) 
 				{ _updates.push_back(update(ret, name, act)); return _updates.back(); }
 
-			void skel(const char skel_file[]) { _skel_file = skel_file; }
-
 			void file(const char module_file[]) {
-				std::string command;
-
 				if (system(NULL) == 0) {
 					std::cout << "ERROR: command processor is not detected";
 					exit(EXIT_FAILURE);
 				};
 
-				command = std::string(_skel_file)+" -i " + module_file;
+				std::string skel_file(__FILE__);
+				char delim = skel_file.at(skel_file.size() - (strlen("syncmem.hpp")+1));
+				auto pos = skel_file.find(std::string("lib") + delim + "syncmem.hpp");
+				skel_file.replace(pos, skel_file.size(),std::string("bin")+delim+"skel");
+
+#if defined(_WIN32) || defined(_WIN64) 
+				skel_file.append(".exe");
+#endif
+
+				std::string command;
+				command = std::string(skel_file)+" -i " + module_file;
 
 				if (system(command.c_str()) == EXIT_FAILURE) {
 					std::cout << "ERROR: skel processor or input file is not detected";
@@ -171,7 +177,7 @@ namespace templet {
 					exit(EXIT_FAILURE);
 				}
 
-				command = _skel_file + " -i " + module_file + " -s " + module_file + ".cgn";
+				command = skel_file + " -i " + module_file + " -s " + module_file + ".cgn";
 
 				int ret;
 				if (ret = system(command.c_str()) == EXIT_FAILURE) {
@@ -200,17 +206,6 @@ namespace templet {
 				out << "/*$TET$$header*/" << std::endl;
 				out << "#include <syncmem.hpp>" << std::endl;
 				out << "/*$TET$*/" << std::endl << std::endl;
-
-				out << "struct meta_" << _name << " : public templet::meta::state {" << std::endl;
-				out << "\tmeta_" << _name << "() {" << std::endl;
-
-				out << "/*$TET$$meta*/" << std::endl;
-				out << "// TODO: put state class defs here" << std::endl;
-				out << "/*$TET$*/" << std::endl;
-
-				out << "\tfile(__FILE__);" << std::endl;
-				out << "}};" << std::endl;
-				out << std::endl;
 
 				if (_prefix != "") out << _prefix << std::endl;
 				out << "class " << _name << " : public templet::state {" << std::endl;
@@ -288,7 +283,6 @@ namespace templet {
 		private:
 			std::string _name;
 			std::string _prefix;
-			std::string _skel_file;
 			std::list<update> _updates;
 		};
 	}
