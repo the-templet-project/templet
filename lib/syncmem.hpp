@@ -23,6 +23,7 @@
 #include <sstream>
 #include <fstream>
 #include <cstdlib>
+#include <map>
 
 #include "templet.hpp"
 
@@ -67,18 +68,61 @@ namespace templet {
 #else //TEMPLET_STATE_WORK_IMPL
 	class state {
 	public:
-		state(write_ahead_log&l) :log(l) {}
-		void init() {}
-		void update() {}
+		state(write_ahead_log&l) :wal(l), wal_index(0), is_init(false) {}
+		void init() { is_init = true; on_init(); is_init = false; }
+
+		void update() {
+			unsigned tag; std::string blob;
+			for (; wal.read(wal_index, tag, blob); wal_index++) {
+				changer& changer = changers[tag];
+				if (changer.use_input) { std::istringstream in(blob); changer.on_update_input(in); }
+				else changer.on_update();
+			}
+		}
 		void update(const unsigned id,
-			std::function<void(void)>update) {}
+			std::function<void(void)>update) {
+			if (is_init) 
+				changers[id]= changer(update);
+			else {
+				std::string empty; unsigned index;
+				wal.write(index, id, empty);
+				state::update(index);
+			}
+		}
 		void update(const unsigned id,
 			std::function<void(std::ostream&)>save,
-			std::function<void(std::istream&)>update) {}
+			std::function<void(std::istream&)>update) {
+			if (is_init)
+				changers[id] = changer(update);
+			else {
+				std::ostringstream out; unsigned index;
+				save(out); wal.write(index, id, out.str());
+				state::update(index);
+			}
+		}
 	protected:
 		virtual void on_init() = 0;
 	private:
-		write_ahead_log& log;
+		void update(unsigned index) {
+			unsigned tag; std::string blob;
+			for (; wal_index <= index && wal.read(wal_index, tag, blob); wal_index++) {
+				changer& changer = changers[tag];
+				if (changer.use_input) { std::istringstream in(blob); changer.on_update_input(in); }
+				else changer.on_update();
+			}
+		}
+		struct changer {
+			changer(std::function<void(std::istream&)>update) :on_update_input(update), use_input(true){}
+			changer(std::function<void(void)>update) :on_update(update), use_input(false) {}
+			changer() : use_input(false), on_update_input([](std::istream&){}), on_update([](){}){}
+			bool use_input;
+			std::function<void(std::istream&)>on_update_input;
+			std::function<void(void)>on_update;
+		};
+		write_ahead_log& wal;
+		unsigned wal_index;
+		std::map<unsigned,changer> changers;
+		bool is_init;
 	};
 #endif
 

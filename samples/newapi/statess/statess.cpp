@@ -2,7 +2,7 @@
 #include "pch.h"
 #include <iostream>
 
-#define TEMPLET_STATE_TEST_IMPL
+//#define TEMPLET_STATE_TEST_IMPL
 #include <syncmem.hpp>
 
 #include <set>
@@ -154,7 +154,7 @@ private:
 int main()
 {
 	std::atomic_int PID = 0;
-	int NUM_THREADS = 1;
+	int NUM_THREADS = 10;
 	int ARRAY_SIZE = 10;
 
 	templet::write_ahead_log wal;
