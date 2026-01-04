@@ -331,18 +331,27 @@ namespace templet {
 		};
 	}
 
+#ifdef  TEMPLET_TASK_TEST_IMPL
 	class task_engine {
 	public:
-		task_engine(write_ahead_log&l) :log(l) {}
+		task_engine(write_ahead_log&) {}
 		void async(std::function<void(std::ostream&)>exec,
-			std::function<void(std::istream&)>goon) {}
+			std::function<void(std::istream&)>goon) {
+			std::stringstream sstr;
+			exec(sstr); goon(sstr);
+		}
 		void async(bool condition,
 			std::function<void(std::ostream&)>exec,
-			std::function<void(std::istream&)>goon) {}
+			std::function<void(std::istream&)>goon) {
+			if (condition) {
+				std::stringstream sstr;
+				exec(sstr); goon(sstr);
+			}
+		}
 		void await() {}
-	private:
-		write_ahead_log& log;
 	};
+#else
+#endif
 
 	class syncmem_engine {
 	};
