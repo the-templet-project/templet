@@ -24,6 +24,12 @@
 #include <fstream>
 #include <cstdlib>
 #include <map>
+#include <set>
+#include <cassert>
+#include <thread>
+#include <chrono>
+
+using namespace std::chrono_literals;
 
 #include "templet.hpp"
 
@@ -334,23 +340,126 @@ namespace templet {
 #ifdef  TEMPLET_TASK_TEST_IMPL
 	class task_engine {
 	public:
-		task_engine(write_ahead_log&) {}
+		task_engine(write_ahead_log&) : in_exec(0), in_goon(0), in_await(0) {}
 		void async(std::function<void(std::ostream&)>exec,
 			std::function<void(std::istream&)>goon) {
-			std::stringstream sstr;
-			exec(sstr); goon(sstr);
+			assert(!in_await || (in_goon && !in_exec));
+			task_pool.push_back(task(exec, goon));
 		}
 		void async(bool condition,
 			std::function<void(std::ostream&)>exec,
 			std::function<void(std::istream&)>goon) {
-			if (condition) {
-				std::stringstream sstr;
-				exec(sstr); goon(sstr);
-			}
+			assert(!in_await || (in_goon && !in_exec));
+			task_pool.push_back(task(exec, goon));
 		}
-		void await() {}
+		void await() {
+			assert(!in_await);
+			in_await++;
+			for (task& t : task_pool) {
+				std::stringstream sstr;
+				in_exec++; t.exec(sstr); in_exec--;
+				in_goon++; t.goon(sstr); in_goon--;
+			}
+			task_pool.clear();
+			in_await--;
+		}
+	private:
+		struct task {
+			task(std::function<void(std::ostream&)>e, 
+				std::function<void(std::istream&)>g):exec(e), goon(g){}
+			std::function<void(std::ostream&)> exec;
+			std::function<void(std::istream&)> goon;
+		};
+		std::list<task> task_pool;
+	private:
+		int in_exec;
+		int in_goon;
+		int in_await;
 	};
 #else
+	class task_engine {
+	public:
+		task_engine(write_ahead_log&l): 
+			wal(l), wal_index(0), task_index(0), in_exec(0), in_goon(0), in_await(0) {
+			srand((unsigned)time(NULL));
+		}
+		void async(std::function<void(std::ostream&)>exec,
+			std::function<void(std::istream&)>goon) {
+			assert(!in_await || (in_goon && !in_exec));
+			task_pool[task_index] = task(false,false,exec,goon);
+			ready_tasks.insert(task_index);
+			task_index++;
+		}
+		void async(bool condition,
+			std::function<void(std::ostream&)>exec,
+			std::function<void(std::istream&)>goon) {
+			assert(!in_await || (in_goon && !in_exec));
+			task_pool[task_index] = task(true, condition, exec, goon);
+			if(condition)ready_tasks.insert(task_index);
+			task_index++;
+		}
+		void await() {
+			assert(!in_await);
+			in_await++;
+
+			bool timeout_needed = false;
+			for (;;) {
+				unsigned tag; std::string blob;
+
+				if (timeout_needed) {
+					std::this_thread::sleep_for(100ms);
+					timeout_needed = false;
+				}
+
+				for (; wal.read(wal_index, tag, blob); wal_index++) {
+					if (task_pool.find(tag) != task_pool.end()) {
+						task& t = task_pool[tag];
+						std::istringstream in(blob);
+						t.goon(in);
+						ready_tasks.erase(tag);
+						task_pool.erase(tag);
+					}
+				}
+
+				if (task_pool.size() == 0) break;
+
+				if (ready_tasks.size() != 0) {
+					int selected = rand() % ready_tasks.size();
+					auto it = ready_tasks.begin(); for (int i = 0; i != selected; i++, it++) {} tag = *it;
+
+					std::ostringstream out;
+					task_pool[tag].exec(out);
+					unsigned indx; wal.write(indx, tag, out.str());
+					ready_tasks.erase(tag);
+				}
+				else timeout_needed = true;
+			}
+			in_await--;
+		}
+	private:
+		struct task {
+			task(bool localization, bool local, 
+				std::function<void(std::ostream&)>ex,
+				std::function<void(std::istream&)>go): 
+				is_localization(localization), is_local(local), exec(ex), goon(go){}
+			task() : is_localization(false), is_local(false), 
+				exec([](std::ostream&) {}), goon([](std::istream&) {}) {}
+			bool is_local;
+			bool is_localization;
+			std::function<void(std::ostream&)> exec;
+			std::function<void(std::istream&)> goon;
+		};
+		std::map<unsigned, task> task_pool;
+		std::set<unsigned> ready_tasks;
+		unsigned task_index;
+	private:
+		int in_exec;
+		int in_goon;
+		int in_await;
+	private:
+		write_ahead_log& wal;
+		unsigned wal_index;
+	};
 #endif
 
 	class syncmem_engine {

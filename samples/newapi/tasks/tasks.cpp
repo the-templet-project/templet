@@ -2,10 +2,10 @@
 #include <thread>
 #include <atomic>
 
-#define TEMPLET_TASK_TEST_IMPL
+//#define TEMPLET_TASK_TEST_IMPL
 #include <syncmem.hpp>
 
-const int NUM_THREADS = 1;
+const int NUM_THREADS = 10;
 const int ARRAY_SIZE = 10;
 
 int main()
@@ -24,10 +24,10 @@ int main()
 
 	for (int i = 0; i < ARRAY_SIZE; i++) {
 		eng.async(pid == 0,
-			[&](std::ostream&out) {
-			N[i] = i; out << N[i];
+			[i](std::ostream&out) {
+			out << i;
 		},
-			[&](std::istream&in) {
+			[i,&N](std::istream&in) {
 			in >> N[i];
 		}
 		);
@@ -36,10 +36,10 @@ int main()
 
 	for (int i = 0; i < ARRAY_SIZE; i++) {
 		eng.async(
-			[&](std::ostream&out) {
-			NxN[i] = N[i] * N[i]; out << NxN[i];
+			[&N,i](std::ostream&out) {
+			out << N[i] * N[i];
 		},
-			[&](std::istream&in) {
+			[&NxN,i](std::istream&in) {
 			in >> NxN[i];
 		}
 		);
