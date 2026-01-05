@@ -175,6 +175,5 @@ Implemented task engines:
 -- everest (in everest.hpp)
 -- basesim (in basesim.hpp)
 -- omptask (in omptask.hpp)
-To be implemented:
--- syncmem (in statess.hpp)
+-- syncmem (in syncmem.hpp)
 		 

@@ -88,7 +88,7 @@ namespace templet {
 		void update(const unsigned id,
 			std::function<void(void)>update) {
 			if (is_init) 
-				changers[id]= changer(update);
+				changers[id] = changer(update);
 			else {
 				std::string empty; unsigned index;
 				wal.write(index, id, empty);
@@ -462,12 +462,68 @@ namespace templet {
 	};
 #endif
 
+	class syncmem_task;
+
 	class syncmem_engine {
+		friend class syncmem_task;
+	public:
+		syncmem_engine(write_ahead_log&l):tsk_eng(l){}
+		void run(){ tsk_eng.await(); }
+	private:
+		void submit(syncmem_task&t);
+	private:
+		task_engine tsk_eng;
 	};
 
 	class syncmem_task : task {
+		friend	class syncmem_engine;
 	public:
-		syncmem_task(actor*a, task_adaptor ta) {}
+		syncmem_task(actor*a, task_adaptor ta) : _actor(a), _tsk_adaptor(ta), _eng(0), _is_idle(true) {}
+		void engine(syncmem_engine&e) { assert(_eng == 0); _eng = &e; }
+		void submit(std::function<void(std::ostream&)>exec) 
+		{
+			_exec = exec; _localized = false; _local = false;
+			_actor->suspend(); _eng->submit(*this);
+		}
+		void submit(bool cond,std::function<void(std::ostream&)>exec) 
+		{
+			_exec = exec; _localized = true; _local = cond;
+			_actor->suspend(); _eng->submit(*this);
+		}
+		std::istream& operator()() { return (*_result); }
+
+	private:
+		actor*       _actor;
+		task_adaptor _tsk_adaptor;
+
+		syncmem_engine* _eng;
+		bool _is_idle;
+
+		bool _localized;
+		bool _local;
+		std::function<void(std::ostream&)> _exec;
+		std::istream* _result;
 	};
 
+	void syncmem_engine::submit(syncmem_task&t) {
+		assert(t._is_idle);
+		if (t._localized) {
+			tsk_eng.async(t._local,t._exec,
+				[&t](std::istream&in) {
+				t._result = &in;
+				(*t._tsk_adaptor)(t._actor, &t);
+				t._is_idle = true;
+				t._actor->resume();
+			});
+		}
+		else {
+			tsk_eng.async(t._exec,
+				[&t](std::istream&in) {
+				t._result = &in;
+				(*t._tsk_adaptor)(t._actor, &t);
+				t._is_idle = true;
+				t._actor->resume();
+			});
+		}
+	}
 }
