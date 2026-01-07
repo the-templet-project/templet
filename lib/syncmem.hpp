@@ -526,4 +526,16 @@ namespace templet {
 			});
 		}
 	}
+
+	class chatbot {
+	protected:
+		chatbot(write_ahead_log&l) {}
+	public:
+		void run(unsigned topic, std::string&user) {}
+	protected:
+		virtual void on_run(unsigned topic, std::string&user) = 0;
+		void outer(std::function<void()>) {}
+		void putln(const std::string&) {}
+		void getln(std::string&) {}
+	};
 }
