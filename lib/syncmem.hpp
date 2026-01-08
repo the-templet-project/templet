@@ -533,9 +533,10 @@ namespace templet {
 		chatbot(write_ahead_log&l): in_run(false),in_outer(false) {}
 	public:
 		void run(const std::string&user, unsigned topic = 0) {
+			std::unique_lock<std::mutex> lock(mut);
 			assert(!in_run);
 			in_run=true; on_run(user, topic); in_run=false;
-		}//always continue the last opened user session
+		}//always closes open user sessions
 		void await() { assert(!in_outer); }
 	protected:
 		virtual void on_run(const std::string&user,unsigned topic) = 0;
@@ -546,11 +547,10 @@ namespace templet {
 		void outer(std::ostream&out,std::function<void(std::ostream&)>f) {
 			assert(in_run && !in_outer); in_outer = true; f(out); in_outer = false;
 		}
-		void write(const std::string&str) { assert(in_run && !in_outer); std::cout << str; }
-		void getln(std::string&str) { assert(in_run && !in_outer); std::getline(std::cin,str); }
 	private:
 		bool in_run;
 		bool in_outer;
+		std::mutex mut;
 	};
 #else
 #endif

@@ -10,28 +10,26 @@ class ticketchatbot : public templet::chatbot {
 		switch (topic) {
 		case GET_TICKET:
 		{
-			std::ostringstream out;
-
 			if (selected_tickets.find(user) != selected_tickets.end()) {
 				int ticket_number = selected_tickets[user];
-				out.clear();
-				out << "User's" << user << " ticket number is " << ticket_number << "." << std::endl;
-				write(out.str());
+				outer([&]() {
+					std::cout << "User's" << user << " ticket number is " << ticket_number << "." << std::endl;
+				});
 				return;
 			}
 
 			if (vacant_tickets.size() == 0) {
-				write(std::string("No vacant tickets.\n"));
+				outer([&]() { std::cout << "No vacant tickets." << std::endl; });
 				return;
 			}
 
 			std::stringstream ios;
-			outer(ios, [](std::ostream&out) {
+			outer(ios, [](std::ostream&out) {	
+				srand((unsigned)time(NULL));
 				out << rand();
 			});
 
-			int random=0;
-			ios >> random;
+			int random; ios >> random;
 
 			int selected = random % vacant_tickets.size();
 			auto it = vacant_tickets.begin();
@@ -42,19 +40,21 @@ class ticketchatbot : public templet::chatbot {
 			vacant_tickets.erase(ticket_number);
 			selected_tickets[user] = ticket_number;
 
-			out.clear();
-			out << "User's" << user << " ticket number is " << ticket_number << "." <<std::endl;
-			write(out.str());
+			outer([&]() {
+				std::cout << "User's " << user << " ticket number is " << ticket_number << "." << std::endl;
+			});
 			return;
 		}
 		case PRINT_TICKETS:
 		{
-			write(std::string("List of selected tickets.\n"));
+			outer([]() {
+				std::cout << std::endl << "List of selected tickets." << std::endl;
+			});
 			for (auto& t : selected_tickets) {
-				std::ostringstream out;
-				out << "         Name:" << t.first << std::endl
-					<< "Ticket number:" << t.second << std::endl << std::endl;
-				write(out.str());
+				outer([&]() {	
+				std::cout << "         Name:" << t.first << std::endl
+						  << "Ticket number:" << t.second << std::endl << std::endl;
+				});
 			}
 			return;
 		}
@@ -62,7 +62,9 @@ class ticketchatbot : public templet::chatbot {
 	}
 public:
 	enum { GET_TICKET, PRINT_TICKETS };
-	ticketchatbot(templet::write_ahead_log&l) :templet::chatbot(l) { srand((unsigned)time(NULL)); }
+	ticketchatbot(templet::write_ahead_log&l) :templet::chatbot(l) { 
+		for (int i = 1; i <= 5; i++) vacant_tickets.insert(i);
+	}
 private:
 	std::set<int>         vacant_tickets;
 	std::map<std::string, int> selected_tickets;
@@ -78,13 +80,17 @@ int main()
 	templet::write_ahead_log wal;
 	std::vector<std::thread> threads(NUM_THREADS);
 
+	ticketchatbot tbot(wal);
+
 	for (auto& t : threads)t = std::thread([&] { int pid = PID++;
 	//////////////// inside a 'process' ////////////////
 	std::ostringstream user; user << "user" << pid;
-	ticketchatbot tbot(wal);
+	//ticketchatbot tbot(wal);
 	tbot.run(user.str(), ticketchatbot::GET_TICKET);
-	tbot.run(user.str(), ticketchatbot::PRINT_TICKETS);
 	////////////////////////////////////////////////////
 	}); for (auto& t : threads) t.join();
+	
+	tbot.run(std::string("user"), ticketchatbot::PRINT_TICKETS);
+	
 	std::cout << "Success!" << std::endl;
 }
