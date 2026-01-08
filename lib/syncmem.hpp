@@ -527,15 +527,31 @@ namespace templet {
 		}
 	}
 
+#ifdef  TEMPLET_CHATBOT_TEST_IMPL
 	class chatbot {
 	protected:
-		chatbot(write_ahead_log&l) {}
+		chatbot(write_ahead_log&l): in_run(false),in_outer(false) {}
 	public:
-		void run(unsigned topic, std::string&user) {}
+		void run(const std::string&user, unsigned topic = 0) {
+			assert(!in_run);
+			in_run=true; on_run(user, topic); in_run=false;
+		}//always continue the last opened user session
+		void await() { assert(!in_outer); }
 	protected:
-		virtual void on_run(unsigned topic, std::string&user) = 0;
-		void outer(std::function<void()>) {}
-		void putln(const std::string&) {}
-		void getln(std::string&) {}
+		virtual void on_run(const std::string&user,unsigned topic) = 0;
+	protected:
+		void outer(std::function<void()>f) { 
+			assert(in_run && !in_outer); in_outer = true; f(); in_outer = false; 
+		}
+		void outer(std::ostream&out,std::function<void(std::ostream&)>f) {
+			assert(in_run && !in_outer); in_outer = true; f(out); in_outer = false;
+		}
+		void write(const std::string&str) { assert(in_run && !in_outer); std::cout << str; }
+		void getln(std::string&str) { assert(in_run && !in_outer); std::getline(std::cin,str); }
+	private:
+		bool in_run;
+		bool in_outer;
 	};
+#else
+#endif
 }
