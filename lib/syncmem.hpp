@@ -530,28 +530,60 @@ namespace templet {
 #ifdef  TEMPLET_CHATBOT_TEST_IMPL
 	class chatbot {
 	protected:
-		chatbot(write_ahead_log&l): in_run(false),in_outer(false) {}
+		chatbot(write_ahead_log&l): _run(false),_outer(false) {}
 	public:
-		void run(const std::string&user, unsigned topic = 0) {
+		void chat(const std::string&with_user, unsigned on_topic = 0) {
 			std::unique_lock<std::mutex> lock(mut);
-			assert(!in_run);
-			in_run=true; on_run(user, topic); in_run=false;
+			assert(!_run);
+			_run=true; on_chat(with_user, on_topic); _run=false;
 		}//always closes open user sessions
-		void await() { assert(!in_outer); }
+		void update() { assert(!_outer); }
 	protected:
-		virtual void on_run(const std::string&user,unsigned topic) = 0;
+		virtual void on_chat(const std::string&with_user, unsigned on_topic) = 0;
 	protected:
-		void outer(std::function<void()>f) { 
-			assert(in_run && !in_outer); in_outer = true; f(); in_outer = false; 
+		void say(std::function<void()>f) { 
+			assert(_run && !_outer); _outer = true; f(); _outer = false; 
 		}
-		void outer(std::ostream&out,std::function<void(std::ostream&)>f) {
-			assert(in_run && !in_outer); in_outer = true; f(out); in_outer = false;
+		void ask(std::ostream&out,std::function<void(std::ostream&)>f) {
+			assert(_run && !_outer); _outer = true; f(out); _outer = false;
 		}
 	private:
-		bool in_run;
-		bool in_outer;
+		bool _run;
+		bool _outer;
 		std::mutex mut;
 	};
 #else
+	class chatbot {
+		std::mutex mut;
+
+	protected:
+		chatbot(write_ahead_log&l)  {}
+	public:
+		void chat(const std::string&with_user, unsigned on_topic = 0) {
+			std::unique_lock<std::mutex> lock(mut);
+			on_chat(with_user, on_topic);
+		}//always closes open user sessions
+		void update() {  }
+	protected:
+		virtual void on_chat(const std::string&with_user, unsigned on_topic) = 0;
+	protected:
+		void say(std::function<void()>f) {
+			f();
+		}
+		void ask(std::ostream&out, std::function<void(std::ostream&)>f) {
+			f(out);
+		}
+	private:
+		struct session{
+			session(chatbot&cb, bool remote) : cbot(cb), is_remote(remote) {}
+			void open(bool remote /*???*/) { is_remote = remote; }
+			void goon(const std::string& blob) {  }
+			void close() {}
+			chatbot& cbot;
+			bool is_remote;
+			bool suspended;
+		};
+		bool suspended;
+	};
 #endif
 }

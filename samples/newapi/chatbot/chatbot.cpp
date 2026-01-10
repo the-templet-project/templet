@@ -2,29 +2,29 @@
 #include <thread>
 #include <atomic>
 
-#define  TEMPLET_CHATBOT_TEST_IMPL
+//#define  TEMPLET_CHATBOT_TEST_IMPL
 #include <syncmem.hpp>
 
 class ticketchatbot : public templet::chatbot {
-	void on_run(const std::string&user, unsigned topic) override {
+	void on_chat(const std::string&user, unsigned topic) override {
 		switch (topic) {
 		case GET_TICKET:
 		{
 			if (selected_tickets.find(user) != selected_tickets.end()) {
 				int ticket_number = selected_tickets[user];
-				outer([&]() {
-					std::cout << "User's" << user << " ticket number is " << ticket_number << "." << std::endl;
+				say([&]() {
+					std::cout << "User '" << user << "' ticket number is " << ticket_number << "." << std::endl;
 				});
 				return;
 			}
 
 			if (vacant_tickets.size() == 0) {
-				outer([&]() { std::cout << "No vacant tickets." << std::endl; });
+				say([&]() { std::cout << "No vacant tickets for user '"<< user << "'." << std::endl; });
 				return;
 			}
 
 			std::stringstream ios;
-			outer(ios, [](std::ostream&out) {	
+			ask(ios, [](std::ostream&out) {	
 				srand((unsigned)time(NULL));
 				out << rand();
 			});
@@ -40,32 +40,33 @@ class ticketchatbot : public templet::chatbot {
 			vacant_tickets.erase(ticket_number);
 			selected_tickets[user] = ticket_number;
 
-			outer([&]() {
-				std::cout << "User's " << user << " ticket number is " << ticket_number << "." << std::endl;
+			say([&]() {
+				std::cout << "User '" << user << "' ticket number is " << ticket_number << "." << std::endl;
 			});
 			return;
 		}
-		case PRINT_TICKETS:
+		case PRINT_TICKET:
 		{
-			outer([]() {
-				std::cout << std::endl << "List of selected tickets." << std::endl;
-			});
-			for (auto& t : selected_tickets) {
-				outer([&]() {	
-				std::cout << "         Name:" << t.first << std::endl
-						  << "Ticket number:" << t.second << std::endl << std::endl;
+			if (selected_tickets.find(user) != selected_tickets.end()) {
+				say([&]() {
+				std::cout << "         Name:" << user << std::endl
+				          << "Ticket number:" << selected_tickets[user] << std::endl;
 				});
 			}
+			else
+				say([&]() {
+					std::cout << std::endl << "The user '" << user << "' has not selected a ticket." << std::endl;
+			});
 			return;
 		}
 		}
 	}
 public:
-	enum { GET_TICKET, PRINT_TICKETS };
+	enum { GET_TICKET, PRINT_TICKET };
 	ticketchatbot(templet::write_ahead_log&l) :templet::chatbot(l) { 
 		for (int i = 1; i <= 5; i++) vacant_tickets.insert(i);
 	}
-private:
+public:
 	std::set<int>         vacant_tickets;
 	std::map<std::string, int> selected_tickets;
 };
@@ -86,11 +87,17 @@ int main()
 	//////////////// inside a 'process' ////////////////
 	std::ostringstream user; user << "user" << pid;
 	//ticketchatbot tbot(wal);
-	tbot.run(user.str(), ticketchatbot::GET_TICKET);
+	tbot.chat(user.str(), ticketchatbot::GET_TICKET);
 	////////////////////////////////////////////////////
 	}); for (auto& t : threads) t.join();
-	
-	tbot.run(std::string("user"), ticketchatbot::PRINT_TICKETS);
-	
-	std::cout << "Success!" << std::endl;
+
+	//ticketchatbot tbot(wal);
+	tbot.update();
+
+	std::cout << std::endl << "List of selected tickets." << std::endl;
+
+	for (auto& t : tbot.selected_tickets)
+		std::cout << "         Name:" << t.first << std::endl
+		<< "Ticket number:" << t.second << std::endl;
+
 }
