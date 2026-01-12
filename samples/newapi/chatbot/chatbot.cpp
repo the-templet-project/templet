@@ -43,20 +43,22 @@ class ticketchatbot : public templet::chatbot {
 			say([&]() {
 				std::cout << "User '" << user << "' ticket number is " << ticket_number << "." << std::endl;
 			});
+
 			return;
 		}
 		case PRINT_TICKET:
 		{
 			if (selected_tickets.find(user) != selected_tickets.end()) {
 				say([&]() {
-				std::cout << "         Name:" << user << std::endl
-				          << "Ticket number:" << selected_tickets[user] << std::endl;
+					std::cout << "         Name:" << user << std::endl
+					          << "Ticket number:" << selected_tickets[user] << std::endl;
 				});
 			}
 			else
 				say([&]() {
 					std::cout << std::endl << "The user '" << user << "' has not selected a ticket." << std::endl;
 			});
+			
 			return;
 		}
 		}
@@ -87,7 +89,10 @@ int main()
 	//////////////// inside a 'process' ////////////////
 	std::ostringstream user; user << "user" << pid;
 	//ticketchatbot tbot(wal);
-	tbot.chat(user.str(), ticketchatbot::GET_TICKET);
+	if (!tbot.chat(user.str(), ticketchatbot::GET_TICKET)) {
+		std::cout << "The session of '" << user.str() << "' user was interrupted." << std::endl;
+		if(!tbot.chat(user.str())) std::cout << "No session to continue." << std::endl;
+	}
 	////////////////////////////////////////////////////
 	}); for (auto& t : threads) t.join();
 

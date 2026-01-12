@@ -532,11 +532,14 @@ namespace templet {
 	protected:
 		chatbot(write_ahead_log&l): _run(false),_outer(false) {}
 	public:
-		void chat(const std::string&with_user, unsigned on_topic = 0) {
+		bool chat(const std::string&with_user, unsigned on_topic) {
 			std::unique_lock<std::mutex> lock(mut);
-			assert(!_run);
-			_run=true; on_chat(with_user, on_topic); _run=false;
-		}//always closes open user sessions
+			_run = true; on_chat(with_user, on_topic); _run = false;
+			return true;
+		}//chat on the topic if chat has not already started
+		bool chat(const std::string&with_user) {
+			return false;
+		}//continue the chat on the previous topic if it was started
 		void update() { assert(!_outer); }
 	protected:
 		virtual void on_chat(const std::string&with_user, unsigned on_topic) = 0;
@@ -554,16 +557,17 @@ namespace templet {
 	};
 #else
 	class chatbot {
-		std::mutex mut;
-
 	protected:
 		chatbot(write_ahead_log&l)  {}
 	public:
-		void chat(const std::string&with_user, unsigned on_topic = 0) {
-			std::unique_lock<std::mutex> lock(mut);
-			on_chat(with_user, on_topic);
-		}//always closes open user sessions
-		void update() {  }
+		bool chat(const std::string&with_user, unsigned on_topic) {
+			return false;
+		}//chat on the topic if chat has not already started
+		bool chat(const std::string&with_user) {
+			return false;
+		}//continue the chat on the previous topic if it was started
+		void update() {  
+		}
 	protected:
 		virtual void on_chat(const std::string&with_user, unsigned on_topic) = 0;
 	protected:
@@ -575,15 +579,14 @@ namespace templet {
 		}
 	private:
 		struct session{
-			session(chatbot&cb, bool remote) : cbot(cb), is_remote(remote) {}
-			void open(bool remote /*???*/) { is_remote = remote; }
-			void goon(const std::string& blob) {  }
+			session(chatbot&cb) : cbot(cb) {}
+			void open(unsigned action_id) {}
+			void goon(unsigned action_id) {}
 			void close() {}
 			chatbot& cbot;
-			bool is_remote;
-			bool suspended;
 		};
-		bool suspended;
+		std::map<std::string,session> sessions;
+		std::map<unsigned,session*> actions;
 	};
 #endif
 }
