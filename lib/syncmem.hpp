@@ -558,15 +558,59 @@ namespace templet {
 #else
 	class chatbot {
 	protected:
-		chatbot(write_ahead_log&l)  {}
+		chatbot(write_ahead_log&l): wal(l), wal_index(0) {}
 	public:
+		//chat on the topic if chat has not already started
 		bool chat(const std::string&with_user, unsigned on_topic) {
-			return false;
-		}//chat on the topic if chat has not already started
+			_local_user.clear(); update(); if (sessions.find(with_user) != sessions.end()) return false;
+
+			unsigned index; std::ostringstream stream; stream << with_user << " " << on_topic;
+			wal.write(index, 0, stream.str());
+
+			_local_user = with_user; update(); _local_user.clear();
+			return true;
+		}
+		//continue the chat on the previous topic if it was started
 		bool chat(const std::string&with_user) {
-			return false;
-		}//continue the chat on the previous topic if it was started
-		void update() {  
+			_local_user.clear(); update(); if (sessions.find(with_user) == sessions.end()) return false;
+			_local_user = with_user; update(); _local_user.clear();
+			return true;
+		}
+		
+		void update() {
+			unsigned tag; std::string blob;
+			for (; wal.read(wal_index, tag, blob); wal_index++) {
+				if (tag == 1) {// open session
+					std::stringstream stream(blob);
+					std::string user; stream >> user;
+					unsigned topic;   stream >> topic;
+
+					if (sessions.find(user) != sessions.end()) break;
+					sessions[user] = new session(this,user);
+
+					sessions[user]->open(wal_index + 2);
+					actions[wal_index + 2] = sessions[user];
+				}
+				else if (tag == 0) {// close session
+					std::stringstream stream(blob);
+					std::string user; stream >> user;
+
+					if(sessions.find(user) == sessions.end()) break;
+					session* ses = sessions[user];
+					ses->close();
+					actions.erase(ses->_after);
+					sessions.erase(user);
+					delete ses;
+
+					if (user == _local_user) return;
+				}
+				else {// next session input 
+					session* ses = actions[tag];
+					ses->next(wal_index + 2, blob);
+					actions.erase(tag);
+					actions[wal_index + 2] = ses;
+				}
+			}
 		}
 	protected:
 		virtual void on_chat(const std::string&with_user, unsigned on_topic) = 0;
@@ -579,14 +623,41 @@ namespace templet {
 		}
 	private:
 		struct session{
-			session(chatbot&cb) : cbot(cb) {}
-			void open(unsigned action_id) {}
-			void goon(unsigned action_id) {}
-			void close() {}
-			chatbot& cbot;
+			session(chatbot*cb,std::string&user) : _cbot(cb), _after(0), _local(false), _user(user) {}
+
+			void open(unsigned after_action) {
+				_after = after_action; _local = (_user == _cbot->_local_user);
+				//
+			}
+			void next(unsigned after_action, std::string blob) {
+				_after = after_action;
+				//
+			}
+			void close() {
+				//
+			}
+			unsigned _after;
+			bool _local;
+			std::string _user;
+			chatbot* _cbot;
+
+			std::mutex _mut;
+			std::condition_variable _cv;
+			bool _suspended;
+
+			std::thread thr;
 		};
-		std::map<std::string,session> sessions;
+	private:
+		std::mutex _mut;
+		std::condition_variable _cv;
+		bool _suspended;
+	private:
+		std::map<std::string,session*> sessions;
 		std::map<unsigned,session*> actions;
+	private:
+		write_ahead_log& wal;
+		unsigned wal_index;
+		std::string _local_user;
 	};
 #endif
 }

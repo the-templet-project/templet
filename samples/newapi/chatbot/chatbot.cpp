@@ -48,17 +48,11 @@ class ticketchatbot : public templet::chatbot {
 		}
 		case PRINT_TICKET:
 		{
-			if (selected_tickets.find(user) != selected_tickets.end()) {
-				say([&]() {
-					std::cout << "         Name:" << user << std::endl
-					          << "Ticket number:" << selected_tickets[user] << std::endl;
-				});
-			}
+			if (selected_tickets.find(user) != selected_tickets.end()) 
+				say([&]() {	std::cout << "User '" << user << "' ticket number is " << selected_tickets[user] << "." << std::endl; });
 			else
-				say([&]() {
-					std::cout << std::endl << "The user '" << user << "' has not selected a ticket." << std::endl;
-			});
-			
+				say([&]() {	std::cout << std::endl << "The user '" << user << "' has not selected a ticket." << std::endl;	});
+
 			return;
 		}
 		}
@@ -102,7 +96,6 @@ int main()
 	std::cout << std::endl << "List of selected tickets." << std::endl;
 
 	for (auto& t : tbot.selected_tickets)
-		std::cout << "         Name:" << t.first << std::endl
-		<< "Ticket number:" << t.second << std::endl;
+		std::cout << "name:'" << t.first << "' ticket number:" << t.second << std::endl;
 
 }
