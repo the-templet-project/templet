@@ -67,7 +67,7 @@ public:
 	std::map<std::string, int> selected_tickets;
 };
 
-const int NUM_THREADS = 10;
+const int NUM_THREADS = 5;
 const int ARRAY_SIZE = 10;
 
 int main()
@@ -77,12 +77,12 @@ int main()
 	templet::write_ahead_log wal;
 	std::vector<std::thread> threads(NUM_THREADS);
 
-	ticketchatbot tbot(wal);
+	//ticketchatbot tbot(wal);
 
 	for (auto& t : threads)t = std::thread([&] { int pid = PID++;
 	//////////////// inside a 'process' ////////////////
 	std::ostringstream user; user << "user" << pid;
-	//ticketchatbot tbot(wal);
+	ticketchatbot tbot(wal);
 	if (!tbot.chat(user.str(), ticketchatbot::GET_TICKET)) {
 		std::cout << "The session of '" << user.str() << "' user was interrupted." << std::endl;
 		if(!tbot.chat(user.str())) std::cout << "No session to continue." << std::endl;
@@ -90,7 +90,7 @@ int main()
 	////////////////////////////////////////////////////
 	}); for (auto& t : threads) t.join();
 
-	//ticketchatbot tbot(wal);
+	ticketchatbot tbot(wal);
 	tbot.update();
 
 	std::cout << std::endl << "List of selected tickets." << std::endl;

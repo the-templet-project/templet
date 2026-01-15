@@ -562,18 +562,37 @@ namespace templet {
 	public:
 		//chat on the topic if chat has not already started
 		bool chat(const std::string&with_user, unsigned on_topic) {
-			_local_user.clear(); update(); if (sessions.find(with_user) != sessions.end()) return false;
+			
+			_local_user.clear(); 
+			update(); 
+			if (sessions.find(with_user) != sessions.end()) return false;
 
 			unsigned index; std::ostringstream stream; stream << with_user << " " << on_topic;
-			wal.write(index, 0, stream.str());
+			wal.write(index, 1, stream.str());
 
-			_local_user = with_user; update(); _local_user.clear();
+			_local_user = with_user; 
+			update(); 
+			_local_user.clear();
+
 			return true;
 		}
 		//continue the chat on the previous topic if it was started
 		bool chat(const std::string&with_user) {
-			_local_user.clear(); update(); if (sessions.find(with_user) == sessions.end()) return false;
-			_local_user = with_user; update(); _local_user.clear();
+			
+			_local_user.clear(); 
+			update(); 
+			if (sessions.find(with_user) == sessions.end()) return false;
+
+			session* ses = sessions[with_user];
+			std::ostringstream stream; unsigned index;
+			ses->_prev_ask(stream);
+			wal.write(index, ses->_after, stream.str());
+
+			_local_user = with_user;
+			ses->_local = true;
+			update(); 
+			_local_user.clear();
+
 			return true;
 		}
 		
@@ -586,7 +605,7 @@ namespace templet {
 					unsigned topic;   stream >> topic;
 
 					if (sessions.find(user) != sessions.end()) break;
-					sessions[user] = new session(this,user);
+					sessions[user] = new session(this,user,topic);
 
 					sessions[user]->open(wal_index + 2);
 					actions[wal_index + 2] = sessions[user];
@@ -616,41 +635,100 @@ namespace templet {
 		virtual void on_chat(const std::string&with_user, unsigned on_topic) = 0;
 	protected:
 		void say(std::function<void()>f) {
-			f();
+			if (_cur_session->_local) f();
 		}
 		void ask(std::ostream&out, std::function<void(std::ostream&)>f) {
-			f(out);
+			_cur_session->_prev_ask = f;
+
+			if (_cur_session->_local) {
+				std::ostringstream stream; unsigned index;
+				f(stream);
+				wal.write(index, _cur_session->_after, stream.str());
+			}
+			{
+				std::lock_guard<std::mutex> lock(_cur_session->_mut);
+				_cur_session->_suspended = true;
+			}
+			{
+				std::lock_guard<std::mutex> lock(_mut);
+				_suspended = false; _cv.notify_one();
+			}
+			{
+				std::unique_lock<std::mutex> lock(_cur_session->_mut);
+				while (_cur_session->_suspended)_cur_session->_cv.wait(lock);
+			}
+
+			out << _cur_session->_blob; 
 		}
 	private:
 		struct session{
-			session(chatbot*cb,std::string&user) : _cbot(cb), _after(0), _local(false), _user(user) {}
+			session(chatbot*cb,std::string&user,unsigned topic) : 
+				_cbot(cb), _user(user), _topic(topic) {}
 
 			void open(unsigned after_action) {
 				_after = after_action; _local = (_user == _cbot->_local_user);
-				//
+				{
+					std::lock_guard<std::mutex> lock(_cbot->_mut); 
+					_cbot->_cur_session = this; _cbot->_suspended = true; 
+				}
+				{
+					std::lock_guard<std::mutex> lock(_mut);	_suspended = false;
+				}
+				_thr = new std::thread([this](){
+					_cbot->on_chat(_user, _topic);
+					unsigned index; std::string str;
+					_cbot->wal.write(index, 0, str);
+
+					{
+						std::lock_guard<std::mutex> lock(_cbot->_mut);
+						_cbot->_suspended = false; _cbot->_cv.notify_one();
+					}
+				});
+				{
+					std::unique_lock<std::mutex> lock(_cbot->_mut);
+					while(_cbot->_suspended)_cbot->_cv.wait(lock);
+				}
+
 			}
 			void next(unsigned after_action, std::string blob) {
-				_after = after_action;
-				//
+				_after = after_action; _blob = blob;
+				{
+					std::lock_guard<std::mutex> lock(_cbot->_mut);
+					_cbot->_cur_session = this; _cbot->_suspended = true;
+				}
+				{
+					std::lock_guard<std::mutex> lock(_mut);
+					_suspended = false; _cv.notify_one();
+				}
+				{
+					std::unique_lock<std::mutex> lock(_cbot->_mut);
+					while (_cbot->_suspended)_cbot->_cv.wait(lock);
+				}
 			}
-			void close() {
-				//
+			void close() {	
+				_thr->join(); 
+				delete _thr;	
 			}
+
+			std::function<void(std::ostream&)>_prev_ask;
 			unsigned _after;
+			std::string _blob;
 			bool _local;
 			std::string _user;
+			unsigned _topic;
 			chatbot* _cbot;
 
 			std::mutex _mut;
 			std::condition_variable _cv;
 			bool _suspended;
 
-			std::thread thr;
+			std::thread* _thr;
 		};
 	private:
 		std::mutex _mut;
 		std::condition_variable _cv;
 		bool _suspended;
+		session* _cur_session;
 	private:
 		std::map<std::string,session*> sessions;
 		std::map<unsigned,session*> actions;
