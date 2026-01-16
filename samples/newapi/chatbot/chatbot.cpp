@@ -67,7 +67,7 @@ public:
 	std::map<std::string, int> selected_tickets;
 };
 
-const int NUM_THREADS = 5;
+const int NUM_THREADS = 2;
 const int ARRAY_SIZE = 10;
 
 int main()

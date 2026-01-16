@@ -556,6 +556,96 @@ namespace templet {
 		std::mutex mut;
 	};
 #else
+	class scheduler {
+	public:
+		scheduler() : _worker(nullptr) {}
+	public:
+		class worker {
+			friend class scheduler;
+		private: 
+			bool _suspended;
+			bool _leaved;
+			std::mutex _mut;
+			std::condition_variable _cv;
+		};
+	public:
+		worker* new_worker() {
+			_worker = new worker;
+			_worker->_suspended = false;
+			_worker->_leaved = false;
+			return _worker;
+		}
+		void master_enter(worker*w) {
+			{
+				std::unique_lock<std::mutex> lock(_worker->_mut);
+				while (!_worker->_suspended) _cv.wait(lock);
+			}
+		}
+		void master_next(worker*w) {
+			{
+				std::lock_guard<std::mutex> lock(_worker->_mut);
+				if (_worker->_leaved) return;
+			}
+			{
+				std::lock_guard<std::mutex> lock(_mut);
+				_suspended = true;
+				_worker = w;
+			}
+			{
+				std::lock_guard<std::mutex> lock(_worker->_mut);
+				_worker->_suspended = false; _worker->_cv.notify_one();
+			}
+			{
+				std::unique_lock<std::mutex> lock(_mut);
+				while (_suspended) _cv.wait(lock);
+			}
+		}
+		void master_leave(worker*w) {
+			{
+				std::unique_lock<std::mutex> lock(w->_mut);
+				while (!w->_leaved)w->_cv.wait(lock); 
+			}
+			delete w;
+		}
+	public:
+		void worker_enter() {
+			{
+				std::lock_guard<std::mutex> lock(_worker->_mut);
+				_worker->_suspended = true; _worker->_cv.notify_all();
+			}
+			{
+				std::unique_lock<std::mutex> lock(_worker->_mut);
+				while (_worker->_suspended)_worker->_cv.wait(lock);
+			}
+		}
+		void worker_next() {
+			{
+				std::lock_guard<std::mutex> lock(_mut);
+				_suspended = false; _cv.notify_one();
+			}
+			{
+				std::unique_lock<std::mutex> lock(_worker->_mut);
+				_worker->_suspended = true;
+				while (_worker->_suspended)_worker->_cv.wait(lock);
+			}
+		}
+		void worker_leave() {
+			{
+				std::lock_guard<std::mutex> lock(_mut);
+				_suspended = false; _cv.notify_one();
+			}
+			{
+				std::lock_guard<std::mutex> lock(_worker->_mut);
+				_worker->_leaved = true; _worker->_cv.notify_one();
+			}
+		}
+	private:
+		worker* _worker;
+		bool _suspended;
+		std::mutex _mut;
+		std::condition_variable _cv;
+	};
+
 	class chatbot {
 	protected:
 		chatbot(write_ahead_log&l): wal(l), wal_index(0) {}
@@ -586,7 +676,7 @@ namespace templet {
 			session* ses = sessions[with_user];
 			std::ostringstream stream; unsigned index;
 			ses->_prev_ask(stream);
-			wal.write(index, ses->_after, stream.str());
+			wal.write(index, ses->_action, stream.str());
 
 			_local_user = with_user;
 			ses->_local = true;
@@ -617,7 +707,7 @@ namespace templet {
 					if(sessions.find(user) == sessions.end()) break;
 					session* ses = sessions[user];
 					ses->close();
-					actions.erase(ses->_after);
+					actions.erase(ses->_action);
 					sessions.erase(user);
 					delete ses;
 
@@ -643,20 +733,10 @@ namespace templet {
 			if (_cur_session->_local) {
 				std::ostringstream stream; unsigned index;
 				f(stream);
-				wal.write(index, _cur_session->_after, stream.str());
+				wal.write(index, _cur_session->_action, stream.str());
 			}
-			{
-				std::lock_guard<std::mutex> lock(_cur_session->_mut);
-				_cur_session->_suspended = true;
-			}
-			{
-				std::lock_guard<std::mutex> lock(_mut);
-				_suspended = false; _cv.notify_one();
-			}
-			{
-				std::unique_lock<std::mutex> lock(_cur_session->_mut);
-				while (_cur_session->_suspended)_cur_session->_cv.wait(lock);
-			}
+
+			_scheduler.worker_next();
 
 			out << _cur_session->_blob; 
 		}
@@ -665,77 +745,54 @@ namespace templet {
 			session(chatbot*cb,std::string&user,unsigned topic) : 
 				_cbot(cb), _user(user), _topic(topic) {}
 
-			void open(unsigned after_action) {
-				_after = after_action; _local = (_user == _cbot->_local_user);
-				{
-					std::lock_guard<std::mutex> lock(_cbot->_mut); 
-					_cbot->_cur_session = this; _cbot->_suspended = true; 
-				}
-				{
-					std::lock_guard<std::mutex> lock(_mut);	_suspended = false;
-				}
+			void open(unsigned action) {
+				_action = action; _local = (_user == _cbot->_local_user);
+				_cbot->_cur_session = this;
+
+				_worker = _cbot->_scheduler.new_worker();
+
 				_thr = new std::thread([this](){
+					_cbot->_scheduler.worker_enter();
 					_cbot->on_chat(_user, _topic);
-					unsigned index; std::string str;
-					_cbot->wal.write(index, 0, str);
+					_cbot->_scheduler.worker_leave();
 
-					{
-						std::lock_guard<std::mutex> lock(_cbot->_mut);
-						_cbot->_suspended = false; _cbot->_cv.notify_one();
-					}
+					unsigned index;
+					if(_local)_cbot->wal.write(index, 0, _user);
 				});
-				{
-					std::unique_lock<std::mutex> lock(_cbot->_mut);
-					while(_cbot->_suspended)_cbot->_cv.wait(lock);
-				}
 
+				_cbot->_scheduler.master_enter(_worker);
+				_cbot->_scheduler.master_next(_worker);
 			}
-			void next(unsigned after_action, std::string blob) {
-				_after = after_action; _blob = blob;
-				{
-					std::lock_guard<std::mutex> lock(_cbot->_mut);
-					_cbot->_cur_session = this; _cbot->_suspended = true;
-				}
-				{
-					std::lock_guard<std::mutex> lock(_mut);
-					_suspended = false; _cv.notify_one();
-				}
-				{
-					std::unique_lock<std::mutex> lock(_cbot->_mut);
-					while (_cbot->_suspended)_cbot->_cv.wait(lock);
-				}
+			void next(unsigned action, std::string blob) {
+				_action = action; _blob = blob;
+				_cbot->_scheduler.master_next(_worker);
 			}
 			void close() {	
 				_thr->join(); 
-				delete _thr;	
+				delete _thr;
+				_cbot->_scheduler.master_leave(_worker);
 			}
 
 			std::function<void(std::ostream&)>_prev_ask;
-			unsigned _after;
+			unsigned _action;
 			std::string _blob;
 			bool _local;
 			std::string _user;
 			unsigned _topic;
 			chatbot* _cbot;
-
-			std::mutex _mut;
-			std::condition_variable _cv;
-			bool _suspended;
-
 			std::thread* _thr;
+			scheduler::worker* _worker;
 		};
 	private:
-		std::mutex _mut;
-		std::condition_variable _cv;
-		bool _suspended;
-		session* _cur_session;
+		std::string _local_user;
+		session*    _cur_session;
+		scheduler   _scheduler;
 	private:
 		std::map<std::string,session*> sessions;
-		std::map<unsigned,session*> actions;
+		std::map<unsigned,session*>    actions;
 	private:
 		write_ahead_log& wal;
 		unsigned wal_index;
-		std::string _local_user;
 	};
 #endif
 }
