@@ -530,19 +530,14 @@ namespace templet {
 #ifdef  TEMPLET_CHATBOT_TEST_IMPL
 	class chatbot {
 	protected:
-		chatbot(write_ahead_log&l): _run(false),_outer(false) {}
+		chatbot(write_ahead_log&l): _run(false), _outer(false) {}
 	public:
-		bool chat(const std::string&with_user, unsigned on_topic) {
-			std::unique_lock<std::mutex> lock(mut);
-			_run = true; on_chat(with_user, on_topic); _run = false;
-			return true;
-		}//chat on the topic if chat has not already started
-		bool chat(const std::string&with_user) {
-			return false;
-		}//continue the chat on the previous topic if it was started
+		void chat(const std::string&with_user) {
+			_run = true; on_chat(with_user); _run = false;
+		}
 		void update() { assert(!_outer); }
 	protected:
-		virtual void on_chat(const std::string&with_user, unsigned on_topic) = 0;
+		virtual void on_chat(const std::string&with_user) = 0;
 	protected:
 		void say(std::function<void()>f) { 
 			assert(_run && !_outer); _outer = true; f(); _outer = false; 
@@ -553,7 +548,6 @@ namespace templet {
 	private:
 		bool _run;
 		bool _outer;
-		std::mutex mut;
 	};
 #else
 	class scheduler {
@@ -571,28 +565,22 @@ namespace templet {
 	public:
 		worker* new_worker() {
 			_worker = new worker;
-			_worker->_suspended = false;
+			_worker->_suspended = true;
 			_worker->_leaved = false;
 			return _worker;
 		}
-		void master_enter(worker*w) {
-			{
-				std::unique_lock<std::mutex> lock(_worker->_mut);
-				while (!_worker->_suspended) _cv.wait(lock);
-			}
-		}
 		void master_next(worker*w) {
 			{
-				std::lock_guard<std::mutex> lock(_worker->_mut);
+				std::unique_lock<std::mutex> lock(_worker->_mut);
 				if (_worker->_leaved) return;
 			}
 			{
-				std::lock_guard<std::mutex> lock(_mut);
+				std::unique_lock<std::mutex> lock(_mut);
 				_suspended = true;
 				_worker = w;
 			}
 			{
-				std::lock_guard<std::mutex> lock(_worker->_mut);
+				std::unique_lock<std::mutex> lock(_worker->_mut);
 				_worker->_suspended = false; _worker->_cv.notify_one();
 			}
 			{
@@ -600,7 +588,7 @@ namespace templet {
 				while (_suspended) _cv.wait(lock);
 			}
 		}
-		void master_leave(worker*w) {
+		void del_worker(worker*w) {
 			{
 				std::unique_lock<std::mutex> lock(w->_mut);
 				while (!w->_leaved)w->_cv.wait(lock); 
@@ -610,17 +598,13 @@ namespace templet {
 	public:
 		void worker_enter() {
 			{
-				std::lock_guard<std::mutex> lock(_worker->_mut);
-				_worker->_suspended = true; _worker->_cv.notify_all();
-			}
-			{
 				std::unique_lock<std::mutex> lock(_worker->_mut);
 				while (_worker->_suspended)_worker->_cv.wait(lock);
 			}
 		}
 		void worker_next() {
 			{
-				std::lock_guard<std::mutex> lock(_mut);
+				std::unique_lock<std::mutex> lock(_mut);
 				_suspended = false; _cv.notify_one();
 			}
 			{
@@ -631,11 +615,11 @@ namespace templet {
 		}
 		void worker_leave() {
 			{
-				std::lock_guard<std::mutex> lock(_mut);
+				std::unique_lock<std::mutex> lock(_mut);
 				_suspended = false; _cv.notify_one();
 			}
 			{
-				std::lock_guard<std::mutex> lock(_worker->_mut);
+				std::unique_lock<std::mutex> lock(_worker->_mut);
 				_worker->_leaved = true; _worker->_cv.notify_one();
 			}
 		}
@@ -650,55 +634,35 @@ namespace templet {
 	protected:
 		chatbot(write_ahead_log&l): wal(l), wal_index(0) {}
 	public:
-		//chat on the topic if chat has not already started
-		bool chat(const std::string&with_user, unsigned on_topic) {
-			
-			_local_user.clear(); 
-			update(); 
-			if (sessions.find(with_user) != sessions.end()) return false;
+		void chat(const std::string&with_user) {
+			update();
 
-			unsigned index; std::ostringstream stream; stream << with_user << " " << on_topic;
-			wal.write(index, 1, stream.str());
+			if (sessions.find(with_user) != sessions.end()) {
+				session* ses = sessions[with_user];
+				std::ostringstream stream; unsigned index;
+				ses->_prev_ask(stream);
+				wal.write(index, ses->_action, stream.str());
+				ses->_local = true;
+			}
+			else {
+				unsigned index;
+				wal.write(index, 1, with_user);
+			}
 
 			_local_user = with_user; 
-			update(); 
+			while(_local_user== with_user) update();
 			_local_user.clear();
-
-			return true;
 		}
-		//continue the chat on the previous topic if it was started
-		bool chat(const std::string&with_user) {
-			
-			_local_user.clear(); 
-			update(); 
-			if (sessions.find(with_user) == sessions.end()) return false;
-
-			session* ses = sessions[with_user];
-			std::ostringstream stream; unsigned index;
-			ses->_prev_ask(stream);
-			wal.write(index, ses->_action, stream.str());
-
-			_local_user = with_user;
-			ses->_local = true;
-			update(); 
-			_local_user.clear();
-
-			return true;
-		}
-		
 		void update() {
 			unsigned tag; std::string blob;
 			for (; wal.read(wal_index, tag, blob); wal_index++) {
 				if (tag == 1) {// open session
-					std::stringstream stream(blob);
-					std::string user; stream >> user;
-					unsigned topic;   stream >> topic;
 
-					if (sessions.find(user) != sessions.end()) break;
-					sessions[user] = new session(this,user,topic);
+					if (sessions.find(blob) != sessions.end()) break;
+					sessions[blob] = new session(this,blob);
 
-					sessions[user]->open(wal_index + 2);
-					actions[wal_index + 2] = sessions[user];
+					sessions[blob]->open(wal_index + 2);
+					actions[wal_index + 2] = sessions[blob];
 				}
 				else if (tag == 0) {// close session
 					std::stringstream stream(blob);
@@ -706,12 +670,13 @@ namespace templet {
 
 					if(sessions.find(user) == sessions.end()) break;
 					session* ses = sessions[user];
+					bool local = ses->_local;
 					ses->close();
 					actions.erase(ses->_action);
 					sessions.erase(user);
 					delete ses;
 
-					if (user == _local_user) return;
+					if (local) return;
 				}
 				else {// next session input 
 					session* ses = actions[tag];
@@ -719,10 +684,11 @@ namespace templet {
 					actions.erase(tag);
 					actions[wal_index + 2] = ses;
 				}
+				//std::this_thread::sleep_for(100ms);
 			}
 		}
 	protected:
-		virtual void on_chat(const std::string&with_user, unsigned on_topic) = 0;
+		virtual void on_chat(const std::string&with_user) = 0;
 	protected:
 		void say(std::function<void()>f) {
 			if (_cur_session->_local) f();
@@ -742,8 +708,8 @@ namespace templet {
 		}
 	private:
 		struct session{
-			session(chatbot*cb,std::string&user,unsigned topic) : 
-				_cbot(cb), _user(user), _topic(topic) {}
+			session(chatbot*cb,std::string&user) : 
+				_cbot(cb), _user(user) {}
 
 			void open(unsigned action) {
 				_action = action; _local = (_user == _cbot->_local_user);
@@ -752,15 +718,18 @@ namespace templet {
 				_worker = _cbot->_scheduler.new_worker();
 
 				_thr = new std::thread([this](){
+
 					_cbot->_scheduler.worker_enter();
-					_cbot->on_chat(_user, _topic);
+					_cbot->on_chat(_user);
 					_cbot->_scheduler.worker_leave();
 
 					unsigned index;
-					if(_local)_cbot->wal.write(index, 0, _user);
+					if (_local) {
+						_cbot->wal.write(index, 0, _user);
+						_cbot->_local_user.clear();
+					}
 				});
 
-				_cbot->_scheduler.master_enter(_worker);
 				_cbot->_scheduler.master_next(_worker);
 			}
 			void next(unsigned action, std::string blob) {
@@ -768,9 +737,8 @@ namespace templet {
 				_cbot->_scheduler.master_next(_worker);
 			}
 			void close() {	
-				_thr->join(); 
-				delete _thr;
-				_cbot->_scheduler.master_leave(_worker);
+				_thr->join(); delete _thr;
+				_cbot->_scheduler.del_worker(_worker);
 			}
 
 			std::function<void(std::ostream&)>_prev_ask;
@@ -778,7 +746,6 @@ namespace templet {
 			std::string _blob;
 			bool _local;
 			std::string _user;
-			unsigned _topic;
 			chatbot* _cbot;
 			std::thread* _thr;
 			scheduler::worker* _worker;
