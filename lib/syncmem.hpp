@@ -552,7 +552,7 @@ namespace templet {
 #else
 	class scheduler {
 	public:
-		scheduler() : _worker(nullptr) {}
+		scheduler() : _worker(nullptr), _suspended(false), _entered(true){}
 	public:
 		class worker {
 			friend class scheduler;
@@ -564,51 +564,83 @@ namespace templet {
 		};
 	public:
 		worker* new_worker() {
+			// worker
 			_worker = new worker;
 			_worker->_suspended = true;
 			_worker->_leaved = false;
+			// master
+			assert(!_suspended && _entered);
+			_suspended = true;
+			_entered = false;
 			return _worker;
+		}
+		void master_enter(worker*w) {
+			assert(_worker == w);
+			{
+				std::unique_lock<std::mutex> lock(_mut);
+				assert(_suspended && !_entered);
+				while (_suspended) _cv.wait(lock);
+				_entered = true;
+			}
 		}
 		void master_next(worker*w) {
 			{
-				std::unique_lock<std::mutex> lock(_worker->_mut);
-				if (_worker->_leaved) return;
-			}
-			{
 				std::unique_lock<std::mutex> lock(_mut);
+				assert(_entered && !_suspended);
 				_suspended = true;
 				_worker = w;
 			}
 			{
 				std::unique_lock<std::mutex> lock(_worker->_mut);
+				assert(_worker->_suspended && !_worker->_leaved);
 				_worker->_suspended = false; _worker->_cv.notify_one();
 			}
 			{
 				std::unique_lock<std::mutex> lock(_mut);
+				assert(_suspended);
 				while (_suspended) _cv.wait(lock);
+			}
+		}
+		void master_leave(worker*w) {
+			{
+				std::unique_lock<std::mutex> lock(_mut);
+				assert(!_suspended && _entered);
+			}
+			{
+				std::unique_lock<std::mutex> lock(w->_mut);
+				assert(w->_suspended && !w->_leaved);
+				w->_suspended = false;
 			}
 		}
 		void del_worker(worker*w) {
 			{
 				std::unique_lock<std::mutex> lock(w->_mut);
-				while (!w->_leaved)w->_cv.wait(lock); 
+				assert(!w->_suspended && w->_leaved);
 			}
 			delete w;
 		}
 	public:
 		void worker_enter() {
 			{
+				std::unique_lock<std::mutex> lock(_mut);
+				assert(_suspended && !_entered);
+				_suspended = false; _cv.notify_one();
+			}
+			{
 				std::unique_lock<std::mutex> lock(_worker->_mut);
+				assert(_worker->_suspended);
 				while (_worker->_suspended)_worker->_cv.wait(lock);
 			}
 		}
 		void worker_next() {
 			{
 				std::unique_lock<std::mutex> lock(_mut);
+				assert(_suspended && _entered);
 				_suspended = false; _cv.notify_one();
 			}
 			{
 				std::unique_lock<std::mutex> lock(_worker->_mut);
+				assert(!_worker->_suspended && !_worker->_leaved);
 				_worker->_suspended = true;
 				while (_worker->_suspended)_worker->_cv.wait(lock);
 			}
@@ -616,16 +648,21 @@ namespace templet {
 		void worker_leave() {
 			{
 				std::unique_lock<std::mutex> lock(_mut);
+				assert(_suspended && _entered);
 				_suspended = false; _cv.notify_one();
 			}
 			{
 				std::unique_lock<std::mutex> lock(_worker->_mut);
-				_worker->_leaved = true; _worker->_cv.notify_one();
+				assert(!_worker->_suspended && !_worker->_leaved);
+				_worker->_suspended = true;
+				while (_worker->_suspended)_worker->_cv.wait(lock);
+				_worker->_leaved = true;
 			}
 		}
 	private:
 		worker* _worker;
 		bool _suspended;
+		bool _entered;
 		std::mutex _mut;
 		std::condition_variable _cv;
 	};
