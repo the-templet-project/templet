@@ -55,6 +55,58 @@ public:
 
 int main()
 {
+	templet::scheduler s;
+	templet::scheduler::worker* w1;
+	templet::scheduler::worker* w2;
+
+	for(int i=0; i<100; i++)
+	{
+		{
+			std::cout << "#" << i + 1 << std::endl;
+			w1 = s.new_worker();
+			std::thread t1([&]() {
+				std::cout << "--1--   0" << std::endl;
+				s.worker_enter();
+				std::cout << "--1--   1" << std::endl;
+				s.worker_next();
+				std::cout << "--1--   2" << std::endl;
+				s.worker_leave();
+				std::cout << "--1--   3" << std::endl;
+			});
+			s.master_enter(w1);
+
+			w2 = s.new_worker();
+			std::thread t2([&]() {
+				std::cout << "--2--   0" << std::endl;
+				s.worker_enter();
+				std::cout << "--2--   1" << std::endl;
+				s.worker_next();
+				std::cout << "--2--   2" << std::endl;
+				s.worker_leave();
+				std::cout << "--2--   3" << std::endl;
+			});
+			s.master_enter(w2);
+
+			s.master_next(w2);
+			s.master_next(w1);
+			s.master_next(w1);
+			s.master_next(w2);
+
+			s.master_leave(w2);
+			t2.join();
+			s.del_worker(w2);
+
+			s.master_leave(w1);
+			t1.join();
+			s.del_worker(w1);
+		}
+		std::cout << std::endl;
+	}
+}
+
+/*
+int main()
+{
 	std::atomic_int PID = 0;
 
 	templet::write_ahead_log wal;
@@ -75,3 +127,4 @@ int main()
 	for (auto& t : tbot.selected_tickets)
 		std::cout << "name:'" << t.first << "' ticket number:" << t.second << std::endl;
 }
+*/
