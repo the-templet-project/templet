@@ -66,37 +66,37 @@ int main()
 			c1 = s.create();
 			std::thread t1([&]() {
 				std::cout << "--1--   0" << std::endl;
-				s.begin();
-				//std::cout << "--1--   1" << std::endl;
-				//s.switch_back();
-				//std::cout << "--1--   2" << std::endl;
-				//s.switch_back();
-				//std::cout << "--1--   3" << std::endl;
+				s.begin(c1);
+				std::cout << "--1--   1" << std::endl;
+				s.switch_back();
+				std::cout << "--1--   2" << std::endl;
+				s.switch_back();
+				std::cout << "--1--   3" << std::endl;
 			});
-
-			s.end(c1);
-			t1.join();
-			s.close(c1);
 
 			c2 = s.create();
 			std::thread t2([&]() {
 				std::cout << "--2--   0" << std::endl;
-				s.begin();
-				//std::cout << "--2--   1" << std::endl;
-				//s.switch_back();
-				//std::cout << "--2--   2" << std::endl;
-				//s.switch_back();
-				//std::cout << "--2--   3" << std::endl;
+				s.begin(c2);
+				std::cout << "--2--   1" << std::endl;
+				s.switch_back();
+				std::cout << "--2--   2" << std::endl;
+				s.switch_back();
+				std::cout << "--2--   3" << std::endl;
 			});
 
-			//s.switch_to(c2);
-			//s.switch_to(c1);
-			//s.switch_to(c1);
-			//s.switch_to(c2);
-
+			s.switch_to(c1);
+			s.switch_to(c2);
+			s.switch_to(c1);
+			s.switch_to(c2);
+			
 			s.end(c2);
 			t2.join();
 			s.close(c2);
+
+			s.end(c1);
+			t1.join();
+			s.close(c1);
 		}
 		std::cout << std::endl;
 	}

@@ -565,27 +565,17 @@ namespace templet {
 		context* create() {
 			context* ctx = new context;
 			ctx->_suspended = true;
-			{
-				std::unique_lock<std::mutex> lock(_mut);
-				_context = ctx;
-			}
 			return ctx;
 		}
-		void begin() {
-			context* ctx;
-			{
-				std::unique_lock<std::mutex> lock(_mut);
-				ctx = _context;
-			}
-			{
-				std::unique_lock<std::mutex> lock(ctx->_mut);
-				while (ctx->_suspended) _cv.wait(lock);
-			}
+		void begin(context* ctx) {
+			std::unique_lock<std::mutex> lock(ctx->_mut);
+			while (ctx->_suspended) ctx->_cv.wait(lock);
 		}
 		void switch_to(context*ctx) {
 			{
 				std::unique_lock<std::mutex> lock(_mut);
 				_suspended = true;
+				_context = ctx;
 			}
 			{
 				std::unique_lock<std::mutex> lock(ctx->_mut);
@@ -612,12 +602,12 @@ namespace templet {
 			}
 			{
 				std::unique_lock<std::mutex> lock(ctx->_mut);
-				while (ctx->_suspended) _cv.wait(lock);
+				while (ctx->_suspended) ctx->_cv.wait(lock);
 			}
 		}
 		void end(context*ctx) {
 			std::unique_lock<std::mutex> lock(ctx->_mut);
-			ctx->_suspended = false; ctx->_cv.notify_one();
+			ctx->_suspended = false;  ctx->_cv.notify_one();
 		}
 		void close(context*ctx) { delete ctx; }
 
