@@ -7,7 +7,7 @@
 
 const int NUM_STUDENTS = 5;
 const int NUM_TICKETS = 5;
-
+/*
 class ticketchatbot : public templet::chatbot {
 	void on_chat(const std::string&user) override {
 		if (selected_tickets.find(user) != selected_tickets.end()) {
@@ -52,53 +52,51 @@ public:
 	std::set<int>         vacant_tickets;
 	std::map<std::string, int> selected_tickets;
 };
-
+*/
 int main()
 {
 	templet::scheduler s;
-	templet::scheduler::worker* w1;
-	templet::scheduler::worker* w2;
+	templet::scheduler::context* c1;
+	templet::scheduler::context* c2;
 
 	for(int i=0; i<100; i++)
 	{
 		{
 			std::cout << "#" << i + 1 << std::endl;
-			w1 = s.new_worker();
+			c1 = s.create();
 			std::thread t1([&]() {
 				std::cout << "--1--   0" << std::endl;
-				s.worker_enter();
-				std::cout << "--1--   1" << std::endl;
-				s.worker_next();
-				std::cout << "--1--   2" << std::endl;
-				s.worker_leave();
-				std::cout << "--1--   3" << std::endl;
+				s.begin();
+				//std::cout << "--1--   1" << std::endl;
+				//s.switch_back();
+				//std::cout << "--1--   2" << std::endl;
+				//s.switch_back();
+				//std::cout << "--1--   3" << std::endl;
 			});
-			s.master_enter(w1);
 
-			w2 = s.new_worker();
+			s.end(c1);
+			t1.join();
+			s.close(c1);
+
+			c2 = s.create();
 			std::thread t2([&]() {
 				std::cout << "--2--   0" << std::endl;
-				s.worker_enter();
-				std::cout << "--2--   1" << std::endl;
-				s.worker_next();
-				std::cout << "--2--   2" << std::endl;
-				s.worker_leave();
-				std::cout << "--2--   3" << std::endl;
+				s.begin();
+				//std::cout << "--2--   1" << std::endl;
+				//s.switch_back();
+				//std::cout << "--2--   2" << std::endl;
+				//s.switch_back();
+				//std::cout << "--2--   3" << std::endl;
 			});
-			s.master_enter(w2);
 
-			s.master_next(w2);
-			s.master_next(w1);
-			s.master_next(w1);
-			s.master_next(w2);
+			//s.switch_to(c2);
+			//s.switch_to(c1);
+			//s.switch_to(c1);
+			//s.switch_to(c2);
 
-			s.master_leave(w2);
+			s.end(c2);
 			t2.join();
-			s.del_worker(w2);
-
-			s.master_leave(w1);
-			t1.join();
-			s.del_worker(w1);
+			s.close(c2);
 		}
 		std::cout << std::endl;
 	}

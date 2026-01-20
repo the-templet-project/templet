@@ -552,139 +552,82 @@ namespace templet {
 #else
 	class scheduler {
 	public:
-		scheduler() : _worker(nullptr), _suspended(false), _entered(true){}
+		scheduler() : _context(nullptr), _suspended(false){}
 	public:
-		class worker {
+		class context {
 			friend class scheduler;
-		private: 
+		private:
 			bool _suspended;
-			bool _ready2leave;
 			std::mutex _mut;
 			std::condition_variable _cv;
 		};
 	public:
-		worker* new_worker() {
-			// master
-			assert(!_suspended && _entered);
-			_suspended = true;
-			_entered = false;
-			// worker
-			_worker = new worker;
-			_worker->_suspended = true;
-			_worker->_ready2leave = false;
-			return _worker;
-		}
-		void master_enter(worker*w) {
-			assert(_worker == w);
+		context* create() {
+			context* ctx = new context;
+			ctx->_suspended = true;
 			{
 				std::unique_lock<std::mutex> lock(_mut);
-				assert(_suspended);
-				assert(!_entered);
-				while (_suspended) _cv.wait(lock);
-				_entered = true;
+				_context = ctx;
+			}
+			return ctx;
+		}
+		void begin() {
+			context* ctx;
+			{
+				std::unique_lock<std::mutex> lock(_mut);
+				ctx = _context;
+			}
+			{
+				std::unique_lock<std::mutex> lock(ctx->_mut);
+				while (ctx->_suspended) _cv.wait(lock);
 			}
 		}
-		void master_next(worker*w) {
+		void switch_to(context*ctx) {
 			{
 				std::unique_lock<std::mutex> lock(_mut);
-				assert(_entered);
-				assert(!_suspended);
 				_suspended = true;
-				_worker = w;
 			}
 			{
-				std::unique_lock<std::mutex> lock(_worker->_mut);
-				assert(_worker->_suspended);
-				assert(!_worker->_ready2leave);///////////////////////
-				_worker->_suspended = false; _worker->_cv.notify_one();
+				std::unique_lock<std::mutex> lock(ctx->_mut);
+				ctx->_suspended = false; ctx->_cv.notify_one();
 			}
 			{
 				std::unique_lock<std::mutex> lock(_mut);
 				while (_suspended) _cv.wait(lock);
 			}
 		}
-		void master_leave(worker*w) {
+		void switch_back() {
+			context* ctx;
 			{
 				std::unique_lock<std::mutex> lock(_mut);
-				assert(!_suspended);
-				assert(_entered);
-				_worker = w;
+				ctx = _context;
 			}
 			{
-				std::unique_lock<std::mutex> lock(w->_mut);
-				assert(w->_suspended);
-				assert(w->_ready2leave);
-				w->_suspended = false; w->_cv.notify_one();
-			}
-		}
-		void del_worker(worker*w) {
-			{
-				std::unique_lock<std::mutex> lock(w->_mut);
-				assert(w->_ready2leave);
-				assert(!w->_suspended);
-			}
-			delete w;
-		}
-	public:
-		void worker_enter() {
-			{
-				std::unique_lock<std::mutex> lock(_mut);
-				assert(_suspended);
-				assert(!_entered);
-				_suspended = false; _cv.notify_one();
-			}
-			//std::this_thread::sleep_for(100ms);
-			{
-				std::unique_lock<std::mutex> lock(_worker->_mut);
-				assert(_worker->_suspended);//////////////////////////
-				while (_worker->_suspended)_worker->_cv.wait(lock);
-			}
-		}
-		void worker_next() {
-			{
-				std::unique_lock<std::mutex> lock(_worker->_mut);
-				assert(!_worker->_suspended);
-				assert(!_worker->_ready2leave);
-				_worker->_suspended = true;
+				std::unique_lock<std::mutex> lock(ctx->_mut);
+				ctx->_suspended = true;
 			}
 			{
 				std::unique_lock<std::mutex> lock(_mut);
-				assert(_suspended);
-				assert(_entered);
 				_suspended = false; _cv.notify_one();
 			}
 			{
-				std::unique_lock<std::mutex> lock(_worker->_mut);
-				while (_worker->_suspended)_worker->_cv.wait(lock);
+				std::unique_lock<std::mutex> lock(ctx->_mut);
+				while (ctx->_suspended) _cv.wait(lock);
 			}
 		}
-		void worker_leave() {
-			{
-				std::unique_lock<std::mutex> lock(_worker->_mut);
-				assert(!_worker->_suspended);
-				assert(!_worker->_ready2leave);
-				_worker->_suspended = true;
-				_worker->_ready2leave = true;
-			}
-			{
-				std::unique_lock<std::mutex> lock(_mut);
-				assert(_suspended);
-				assert(_entered);
-				_suspended = false; _cv.notify_one();
-			}
-			{
-				std::unique_lock<std::mutex> lock(_worker->_mut);
-				while (_worker->_suspended)_worker->_cv.wait(lock);
-			}
+		void end(context*ctx) {
+			std::unique_lock<std::mutex> lock(ctx->_mut);
+			ctx->_suspended = false; ctx->_cv.notify_one();
 		}
+		void close(context*ctx) { delete ctx; }
+
 	private:
-		worker* _worker;
+		context* _context;
 		bool _suspended;
-		bool _entered;
 		std::mutex _mut;
 		std::condition_variable _cv;
 	};
-
+/*
 	class chatbot {
 	protected:
 		chatbot(write_ahead_log&l): wal(l), wal_index(0) {}
@@ -816,5 +759,6 @@ namespace templet {
 		write_ahead_log& wal;
 		unsigned wal_index;
 	};
+*/
 #endif
 }
