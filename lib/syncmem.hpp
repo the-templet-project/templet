@@ -532,12 +532,12 @@ namespace templet {
 	protected:
 		chatbot(write_ahead_log&l): _run(false), _outer(false) {}
 	public:
-		void chat(const std::string&with_user) {
-			_run = true; on_chat(with_user); _run = false;
+		void chat(const std::string&user) {
+			_run = true; on_chat(user); _run = false;
 		}
 		void update() { assert(!_outer); }
 	protected:
-		virtual void on_chat(const std::string&with_user) = 0;
+		virtual void on_chat(const std::string&) = 0;
 	protected:
 		void say(std::function<void()>f) { 
 			assert(_run && !_outer); _outer = true; f(); _outer = false; 
@@ -562,16 +562,16 @@ namespace templet {
 			std::condition_variable _cv;
 		};
 	public:
-		context* create() {
+		context* create() {// called outside of a worker thread
 			context* ctx = new context;
 			ctx->_suspended = true;
 			return ctx;
 		}
-		void begin(context* ctx) {
+		void begin(context* ctx) {// called inside a worker thread
 			std::unique_lock<std::mutex> lock(ctx->_mut);
 			while (ctx->_suspended) ctx->_cv.wait(lock);
 		}
-		void switch_to(context*ctx) {
+		void switch_to(context*ctx) {// called outside of a worker thread
 			{
 				std::unique_lock<std::mutex> lock(_mut);
 				_suspended = true;
@@ -586,7 +586,7 @@ namespace templet {
 				while (_suspended) _cv.wait(lock);
 			}
 		}
-		void switch_back() {
+		void switch_back() {// called inside a worker thread
 			context* ctx;
 			{
 				std::unique_lock<std::mutex> lock(_mut);
@@ -605,10 +605,11 @@ namespace templet {
 				while (ctx->_suspended) ctx->_cv.wait(lock);
 			}
 		}
-		void end(context*ctx) {
+		void end(context*ctx) {// called outside of a worker thread
 			std::unique_lock<std::mutex> lock(ctx->_mut);
 			ctx->_suspended = false;  ctx->_cv.notify_one();
 		}
+		// called outside of a worker thread after thread::join()
 		void close(context*ctx) { delete ctx; }
 
 	private:
@@ -617,131 +618,136 @@ namespace templet {
 		std::mutex _mut;
 		std::condition_variable _cv;
 	};
-/*
+
 	class chatbot {
 	protected:
 		chatbot(write_ahead_log&l): wal(l), wal_index(0) {}
 	public:
-		void chat(const std::string&with_user) {
+		void chat(const std::string&user) {
+			local_user.clear();
 			update();
 
-			if (sessions.find(with_user) != sessions.end()) {
-				session* ses = sessions[with_user];
+			if (sessions.find(user) != sessions.end()) {
+				session* ses = sessions[user];
+
+				if (ses->finished) {
+					std::string str; unsigned index;
+					wal.write(index, ses->action, str);
+					return;
+				}
+
 				std::ostringstream stream; unsigned index;
-				ses->_prev_ask(stream);
-				wal.write(index, ses->_action, stream.str());
-				ses->_local = true;
+				ses->prev_ask(stream);
+				wal.write(index, ses->action, stream.str());
+				ses->local = true;
 			}
 			else {
 				unsigned index;
-				wal.write(index, 1, with_user);
+				wal.write(index, 1, user);
 			}
 
-			_local_user = with_user; 
-			while(_local_user== with_user) update();
-			_local_user.clear();
+			local_user = user;
+
+			for (;;) {
+				update(); 
+				if (local_user.empty()) break;
+				else std::this_thread::sleep_for(100ms);
+			}
 		}
 		void update() {
 			unsigned tag; std::string blob;
 			for (; wal.read(wal_index, tag, blob); wal_index++) {
+
 				if (tag == 1) {// open session
 
 					if (sessions.find(blob) != sessions.end()) break;
-					sessions[blob] = new session(this,blob);
-
-					sessions[blob]->open(wal_index + 2);
+					
+					session* ses = new session;
+					sessions[blob] = ses;
 					actions[wal_index + 2] = sessions[blob];
+
+					ses->action = wal_index + 2;
+					ses->local = (blob == local_user);
+					ses->user = blob;
+					ses->ctx = sched.create();
+					ses->thr = new std::thread([this,ses]() {
+						sched.begin(ses->ctx);
+						on_chat(ses->user);
+						ses->finished = true;
+						if (ses->local) {
+							unsigned index;
+							wal.write(index, 0, ses->user);
+						}
+						sched.switch_back();
+					});
+					cur_session = ses;
+					sched.switch_to(ses->ctx);
 				}
 				else if (tag == 0) {// close session
-					std::stringstream stream(blob);
-					std::string user; stream >> user;
 
-					if(sessions.find(user) == sessions.end()) break;
-					session* ses = sessions[user];
-					bool local = ses->_local;
-					ses->close();
-					actions.erase(ses->_action);
-					sessions.erase(user);
+					if(sessions.find(blob) == sessions.end()) break;
+					session* ses = sessions[blob];
+					if (!ses->finished) break;
+
+					actions.erase(ses->action);
+					sessions.erase(blob);
+
+					sched.end(ses->ctx);
+					ses->thr->join();
+					delete ses->thr;
+					sched.close(ses->ctx);
+					
+					bool local = ses->local;
 					delete ses;
-
-					if (local) return;
+					if (local) { local_user.clear(); return; }
 				}
-				else {// next session input 
+				else {// next session input
+
 					session* ses = actions[tag];
-					ses->next(wal_index + 2, blob);
+					if (ses->finished) break;
+
+					ses->blob = blob;
+					cur_session = ses;
+					sched.switch_to(ses->ctx);
+					
 					actions.erase(tag);
 					actions[wal_index + 2] = ses;
+					ses->action = wal_index + 2;
 				}
-				//std::this_thread::sleep_for(100ms);
 			}
 		}
 	protected:
 		virtual void on_chat(const std::string&with_user) = 0;
 	protected:
 		void say(std::function<void()>f) {
-			if (_cur_session->_local) f();
+			if (cur_session->local) f();
 		}
 		void ask(std::ostream&out, std::function<void(std::ostream&)>f) {
-			_cur_session->_prev_ask = f;
+			cur_session->prev_ask = f;
 
-			if (_cur_session->_local) {
+			if (cur_session->local) {
 				std::ostringstream stream; unsigned index;
 				f(stream);
-				wal.write(index, _cur_session->_action, stream.str());
+				wal.write(index, cur_session->action, stream.str());
 			}
-
-			_scheduler.worker_next();
-
-			out << _cur_session->_blob; 
+			sched.switch_back();
+			out << cur_session->blob; 
 		}
 	private:
 		struct session{
-			session(chatbot*cb,std::string&user) : 
-				_cbot(cb), _user(user) {}
-
-			void open(unsigned action) {
-				_action = action; _local = (_user == _cbot->_local_user);
-				_cbot->_cur_session = this;
-
-				_worker = _cbot->_scheduler.new_worker();
-
-				_thr = new std::thread([this](){
-
-					_cbot->_scheduler.worker_enter();
-					_cbot->on_chat(_user);
-					_cbot->_scheduler.worker_leave();
-
-					unsigned index;
-					if (_local) {
-						_cbot->wal.write(index, 0, _user);
-						_cbot->_local_user.clear();
-					}
-				});
-
-				_cbot->_scheduler.master_next(_worker);
-			}
-			void next(unsigned action, std::string blob) {
-				_action = action; _blob = blob;
-				_cbot->_scheduler.master_next(_worker);
-			}
-			void close() {	
-				_thr->join(); delete _thr;
-				_cbot->_scheduler.del_worker(_worker);
-			}
-
-			std::function<void(std::ostream&)>_prev_ask;
-			unsigned _action;
-			std::string _blob;
-			bool _local;
-			std::string _user;
-			chatbot* _cbot;
-			std::thread* _thr;
-			scheduler::worker* _worker;
+			std::function<void(std::ostream&)>prev_ask = [](std::ostream&) {};
+			bool finished = false;
+			unsigned action = 0;
+			std::string blob;
+			bool local = false;
+			std::string user;
+			std::thread* thr = nullptr;
+			scheduler::context* ctx = nullptr;
 		};
 	private:
-		std::string _local_user;
-		session*    _cur_session;
-		scheduler   _scheduler;
+		std::string local_user;
+		session*    cur_session;
+		scheduler   sched;
 	private:
 		std::map<std::string,session*> sessions;
 		std::map<unsigned,session*>    actions;
@@ -749,6 +755,5 @@ namespace templet {
 		write_ahead_log& wal;
 		unsigned wal_index;
 	};
-*/
 #endif
 }
