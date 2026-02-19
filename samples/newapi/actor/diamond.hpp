@@ -16,7 +16,6 @@
 /*--------------------------------------------------------------------------*/
 
 #pragma once
-#include <templet.hpp>
 #include <syncmem.hpp>
 using namespace templet;
 /*$TET$*/
@@ -53,7 +52,10 @@ struct A :public templet::actor {
 
 	void start() {
 /*$TET$A$start*/
-		t.submit([](std::ostream& out) {out << "A is running"; });
+		t.submit([](std::ostream& out) {
+			out << "A is running";
+			std::cout << "A is running" << std::endl;
+		});
 /*$TET$*/
 	}
 
@@ -69,8 +71,7 @@ struct A :public templet::actor {
 
 	inline void on_t(templet::syncmem_task&t) {
 /*$TET$A$t*/
-		t() >> str;
-		std::cout << str << std::endl;
+		std::getline(t(), str);
 		b.send(); c.send();
 /*$TET$*/
 	}
@@ -115,7 +116,10 @@ struct B :public templet::actor {
 
 	inline void on_a(message&m) {
 /*$TET$B$a*/
-		t.submit([](std::ostream& out) {out << "B is running"; });
+		t.submit([](std::ostream& out) {
+			out << "B is running";
+			std::cout << "B is running" << std::endl;
+		});
 /*$TET$*/
 	}
 
@@ -126,8 +130,7 @@ struct B :public templet::actor {
 
 	inline void on_t(templet::syncmem_task&t) {
 /*$TET$B$t*/
-		t() >> str;
-		std::cout << str << std::endl;
+		std::getline(t(), str);
 		d.send();
 /*$TET$*/
 	}
@@ -172,7 +175,10 @@ struct C :public templet::actor {
 
 	inline void on_a(message&m) {
 /*$TET$C$a*/
-		t.submit([](std::ostream& out) {out << "C is running"; });
+		t.submit([](std::ostream& out) {
+			out << "C is running";
+			std::cout << "C is running" << std::endl;
+		});
 /*$TET$*/
 	}
 
@@ -183,8 +189,7 @@ struct C :public templet::actor {
 
 	inline void on_t(templet::syncmem_task&t) {
 /*$TET$C$t*/
-		t() >> str;
-		std::cout << str << std::endl;
+		std::getline(t(), str);
 		d.send();
 /*$TET$*/
 	}
@@ -241,8 +246,7 @@ struct D :public templet::actor {
 
 	inline void on_t(templet::syncmem_task&t) {
 /*$TET$D$t*/
-		t() >> str;
-		std::cout << str << std::endl;
+		std::getline(t(), str);
 		stop();
 /*$TET$*/
 	}
@@ -257,7 +261,10 @@ struct D :public templet::actor {
 	std::string str;
 	void on_b_and_c(){ 
 		if(access(_c) && access(_b)) 
-			t.submit([](std::ostream& out) {out << "D is running"; });
+			t.submit([](std::ostream& out) {
+			out << "D is running";
+			std::cout << "D is running" << std::endl;
+		});
 	}
 /*$TET$*/
 };
