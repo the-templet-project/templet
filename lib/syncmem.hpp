@@ -343,13 +343,13 @@ namespace templet {
 		task_engine(write_ahead_log&) : in_exec(0), in_goon(0), in_await(0) {}
 		void async(std::function<void(std::ostream&)>exec,
 			std::function<void(std::istream&)>goon) {
-			assert(!in_await || (in_goon && !in_exec));
+			assert(!in_await || (in_await && in_goon && !in_exec));
 			task_pool.push_back(task(exec, goon));
 		}
 		void async(bool condition,
 			std::function<void(std::ostream&)>exec,
 			std::function<void(std::istream&)>goon) {
-			assert(!in_await || (in_goon && !in_exec));
+			assert(!in_await || (in_await && in_goon && !in_exec));
 			task_pool.push_back(task(exec, goon));
 		}
 		void await() {
@@ -385,7 +385,7 @@ namespace templet {
 		}
 		void async(std::function<void(std::ostream&)>exec,
 			std::function<void(std::istream&)>goon) {
-			//assert(!in_await || (in_goon && !in_exec)); ???
+			assert(!in_await || (in_await && in_goon && !in_exec)); 
 			task_pool[task_index] = task(false,false,exec,goon);
 			ready_tasks.insert(task_index);
 			task_index++;
@@ -393,7 +393,7 @@ namespace templet {
 		void async(bool condition,
 			std::function<void(std::ostream&)>exec,
 			std::function<void(std::istream&)>goon) {
-			//assert(!in_await || (in_goon && !in_exec)); ???
+			assert(!in_await || (in_await && in_goon && !in_exec));
 			task_pool[task_index] = task(true, condition, exec, goon);
 			if(condition)ready_tasks.insert(task_index);
 			task_index++;
@@ -415,7 +415,7 @@ namespace templet {
 					if (task_pool.find(tag) != task_pool.end()) {
 						task& t = task_pool[tag];
 						std::istringstream in(blob);
-						t.goon(in);
+						in_goon++; t.goon(in); in_goon--;
 						ready_tasks.erase(tag);
 						task_pool.erase(tag);
 					}
@@ -428,7 +428,7 @@ namespace templet {
 					auto it = ready_tasks.begin(); for (int i = 0; i != selected; i++, it++) {} tag = *it;
 
 					std::ostringstream out;
-					task_pool[tag].exec(out);
+					in_exec++; task_pool[tag].exec(out); in_exec--;
 					unsigned indx; wal.write(indx, tag, out.str());
 					ready_tasks.erase(tag);
 				}
