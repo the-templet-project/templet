@@ -17,7 +17,9 @@
 
 #include <vector>
 #include <string>
+#include <cstring>
 #include <mutex>
+#include <condition_variable>
 #include <iostream>
 #include <functional>
 #include <sstream>
@@ -47,7 +49,7 @@ namespace templet {
 			if (index < log.size()) { tag = log[index].first; blob = log[index].second; return true; }
 			return false;
 		}
-	private:
+	protected:
 		std::vector<std::pair<unsigned, std::string>> log;
 		std::mutex mut;
 	};
