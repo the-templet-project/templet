@@ -31,8 +31,10 @@ namespace templet {
 
     class server_side_wal : public write_ahead_log {
 	public:
-        server_side_wal(unsigned chunk_size, unsigned num_of_chunks, const std::string& wal_prefix, const std::string& wal_ext)
-            : write_ahead_log(),
+        server_side_wal(unsigned chunk_size, unsigned num_of_chunks,
+                        const std::string& wal_prefix, const std::string& wal_ext,
+                        bool lasy_save=false, bool auto_repare=false): write_ahead_log(),
+                _lasy_save(lasy_save), _auto_repare(auto_repare),
                 _chunk_size(chunk_size), _num_of_chunks(num_of_chunks), _wal_prefix(wal_prefix), _wal_ext(wal_ext),
                 _last_error(error::no_error), _wal_chunk_file(NULL), _is_chunk_full(false)
         {
@@ -51,6 +53,9 @@ namespace templet {
             
                     _wal_chunk_file_name = chunk_file_name.str();
                 }
+                log.resize(_chunk_size);
+                _base_position  = 0;
+                _write_position = 0;
             }
             _wal_chunk_file = fopen(_wal_chunk_file_name.c_str(), "ab");
                 
@@ -58,6 +63,12 @@ namespace templet {
                 std::cerr << "Cannot open WAL for appending: " << _wal_chunk_file_name; 
                 exit(EXIT_FAILURE);
             }
+            //_base_position;
+            //_write_position;
+            //_is_chunk_full;
+            //_wal_chunk;
+            //_wal_chunk_file;
+            //_wal_chunk_file_name;
         }
 
         ~server_side_wal(){ if(_wal_chunk_file) fclose(_wal_chunk_file);}
@@ -142,17 +153,21 @@ namespace templet {
             fclose(_wal_chunk_file);
             _wal_chunk_file = NULL;
         }
+
     private:
         unsigned    _base_position;
         unsigned    _write_position;
         bool        _is_chunk_full;
     private:
-        unsigned    _chunk_size;
-        unsigned    _num_of_chunks;
-    private:
         unsigned    _wal_chunk;
         FILE*       _wal_chunk_file;
         std::string _wal_chunk_file_name;
+    private:
+        unsigned    _chunk_size;
+        unsigned    _num_of_chunks;
+    private:
+        bool        _lasy_save;
+        bool        _auto_repare;
     private:
         std::string _wal_prefix;
         unsigned    _size_of_chunk_field;
