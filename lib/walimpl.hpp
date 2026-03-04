@@ -22,6 +22,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#if (__cplusplus>=201703L)
+#include <filesystem>
+#endif
+
 namespace templet {
 
 	class client_side_wal : public write_ahead_log {
@@ -38,6 +42,9 @@ namespace templet {
                 _chunk_size(chunk_size), _num_of_chunks(num_of_chunks), _wal_prefix(wal_prefix), _wal_ext(wal_ext),
                 _last_error(error::no_error), _wal_chunk_file(NULL), _is_chunk_full(false)
         {
+#if (__cplusplus<201703L)
+            _auto_repare = false;
+#endif   
             _size_of_chunk_field=0;
             for(int mult=1; (num_of_chunks-1)/mult > 0; _size_of_chunk_field++, mult*=10);
 
@@ -63,9 +70,10 @@ namespace templet {
                 std::cerr << "Cannot open WAL for appending: " << _wal_chunk_file_name; 
                 exit(EXIT_FAILURE);
             }
+            // are set here:
             //_base_position;
             //_write_position;
-            //_is_chunk_full;
+            //_is_chunk_full=false;
             //_wal_chunk;
             //_wal_chunk_file;
             //_wal_chunk_file_name;
@@ -120,13 +128,27 @@ namespace templet {
             }
 
             log.resize(_chunk_size);
-            
-            for(unsigned i=0; i < log.size(); i++){
+
+            unsigned i;
+            for(i=0; i < log.size(); i++){
                 size_t ret_code;
                 unsigned ubuf[3];//index,tag,size_buf
                 
                 ret_code = fread(ubuf, sizeof ubuf[0], 3, _wal_chunk_file);
-                if(feof(_wal_chunk_file)) { _write_position = i; break;}
+                if(ret_code==0 && feof(_wal_chunk_file)) break;
+
+                if(ret_code!=3 && feof(_wal_chunk_file)){
+                    if(_auto_repare){
+                        fclose(_wal_chunk_file);
+                        truncate_chunk(_wal_chunk_file_name,ret_code * sizeof ubuf[0]);
+                        if(i==0) _base_position == _chunk_size*chunk; 
+                        break;
+                    }
+                    else{
+                        std::cerr << "Error reading WAL (last record broken): " << _wal_chunk_file_name; 
+                        exit(EXIT_FAILURE);    
+                    }
+                }
                 
                 if(ferror(_wal_chunk_file)){
                     std::cerr << "Error reading WAL (index,tag,size_buf): " << _wal_chunk_file_name; 
@@ -140,18 +162,45 @@ namespace templet {
                         exit(EXIT_FAILURE);
                     }
                 }
+                else{
+                    if(ubuf[0] != _base_position + i){
+                        std::cerr << "Error (index != _base_position + i) in : " << _wal_chunk_file_name; 
+                        exit(EXIT_FAILURE);
+                    }
+                }
 
                 log[i].first = ubuf[1];//tag
                 log[i].second.resize(ubuf[2]);
                 ret_code = fread((void*)log[i].second.c_str(), sizeof(char), ubuf[2], _wal_chunk_file);//blob
+
+                if(ret_code!=ubuf[2] && feof( _wal_chunk_file)){
+                    if(_auto_repare){
+                        fclose(_wal_chunk_file);
+                        truncate_chunk(_wal_chunk_file_name, 3 * sizeof ubuf[0] + ret_code);
+                        break;
+                    }
+                    else{
+                        std::cerr << "Error reading WAL (last record broken): " << _wal_chunk_file_name; 
+                        exit(EXIT_FAILURE);    
+                    }
+                }
                 
-                if(ret_code!=ubuf[2]||feof( _wal_chunk_file)||ferror( _wal_chunk_file)){
+                if(ret_code!=ubuf[2] && ferror( _wal_chunk_file)){
                     std::cerr << "Error reading WAL (blob): " << _wal_chunk_file_name; 
                     exit(EXIT_FAILURE);
                 }
             }
+            _write_position = i;
+            
             fclose(_wal_chunk_file);
             _wal_chunk_file = NULL;
+        }
+
+        void truncate_chunk(const std::string& filename,unsigned n){
+#if (__cplusplus>=201703L)
+            std::filesystem::path p=filename;
+            std::filesystem::resize_file(p,std::filesystem::file_size(p)-n);
+#endif
         }
 
     private:
