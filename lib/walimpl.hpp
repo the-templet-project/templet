@@ -40,7 +40,7 @@ namespace templet {
                         bool lasy_save=false, bool auto_repare=false): write_ahead_log(),
                 _lasy_save(lasy_save), _auto_repare(auto_repare),
                 _chunk_size(chunk_size), _num_of_chunks(num_of_chunks), _wal_prefix(wal_prefix), _wal_ext(wal_ext),
-                _last_error(error::no_error), _wal_chunk_file(NULL), _is_chunk_full(false)
+                _index_not_exist(true), _wal_chunk_file(NULL), _is_chunk_full(false)
         {
 #if (__cplusplus<201703L)
             _auto_repare = false;
@@ -71,26 +71,107 @@ namespace templet {
                 exit(EXIT_FAILURE);
             }
             // are set here:
-            //_base_position;
-            //_write_position;
-            //_is_chunk_full=false;
-            //_wal_chunk;
-            //_wal_chunk_file;
-            //_wal_chunk_file_name;
+            std::cout << "_base_position = " << _base_position << std::endl; 
+            std::cout << "_write_position = " << _write_position << std::endl;
+            std::cout << "_is_chunk_full = " << _is_chunk_full << std::endl;
+            std::cout << "_wal_chunk = " << _wal_chunk << std::endl;
+            std::cout << "_wal_chunk_file = " << _wal_chunk_file << std::endl;
+            std::cout << "_wal_chunk_file_name = " << _wal_chunk_file_name << std::endl;
         }
 
         ~server_side_wal(){ if(_wal_chunk_file) fclose(_wal_chunk_file);}
  
         void write(unsigned& index, unsigned tag, const std::string& blob) override {
+            std::unique_lock<std::mutex> lock(mut);
+
+            if(_write_position == _chunk_size){
+                fclose(_wal_chunk_file);
+                
+                _wal_chunk++;
+                if(_wal_chunk == _num_of_chunks){
+                    std::cerr << "The last chunk is full: " << _wal_chunk_file_name; 
+                    exit(EXIT_FAILURE);
+                }
+                {
+                    std::ostringstream chunk_file_name;
+                    chunk_file_name << _wal_prefix; 
+                    if(_size_of_chunk_field) chunk_file_name << std::setw(_size_of_chunk_field) << std::setfill('0') << _wal_chunk; 
+                    chunk_file_name << '.' <<_wal_ext;
+                    _wal_chunk_file_name = chunk_file_name.str();
+                }
+                
+                _wal_chunk_file = fopen(_wal_chunk_file_name.c_str(), "ab");
+                if(!_wal_chunk_file){
+                    std::cerr << "Cannot open WAL for appending: " << _wal_chunk_file_name; 
+                    exit(EXIT_FAILURE);
+                }
+                
+                _base_position = _chunk_size*_wal_chunk;
+                _write_position = 0;
+                _is_chunk_full = true;
+            }
             
+			log[_write_position].first  = tag;
+            log[_write_position].second = blob;
+			index = _write_position;
+
+            {
+                size_t ret_code;
+                unsigned ubuf[3];//index,tag,blob size
+                
+                ubuf[0] = index; //index
+                ubuf[1] = tag;   //tag
+                ubuf[2] = blob.size(); //blob size
+
+                ret_code = fwrite(ubuf, sizeof ubuf[0], 3, _wal_chunk_file);
+                if(ret_code !=3){
+                    std::cerr << "Error write WAL (index,tag,size): " << _wal_chunk_file_name;  
+                    exit(EXIT_FAILURE);
+                }
+
+                ret_code = fwrite(blob.c_str(), sizeof(char), ubuf[2], _wal_chunk_file);
+                if(ret_code != ubuf[2]){
+                    std::cerr << "Error write WAL (blob): " << _wal_chunk_file_name;  
+                    exit(EXIT_FAILURE);
+                }
+                
+                if(!_lasy_save) fflush(_wal_chunk_file);
+            }
+            _write_position++;
         }
 
         bool read(unsigned index, unsigned& tag, std::string& blob) override {
-            return false;
+            std::unique_lock<std::mutex> lock(mut);
+            
+            if((_base_position+_write_position) <= index){
+                _index_not_exist = true;
+                return false;
+            }
+            
+            if(_base_position <= index && index < _write_position){//in current chunk
+                tag = log[index-_base_position].first; 
+                blob = log[index-_base_position].second;
+                _index_not_exist = false;
+                return true;
+            }
+
+            if(!_is_chunk_full){
+                _index_not_exist = false;
+                return false;
+            }
+            
+        	if((_base_position-_chunk_size)+_write_position <= index){//in previous chunk
+                 tag = log[index-(_base_position-_chunk_size)].first; 
+                blob = log[index-(_base_position-_chunk_size)].second;
+                _index_not_exist = false;
+                return true;
+            }
+            
+            _index_not_exist = false;
+			return false;
         }
 
-        enum error {no_error};
-        error last_error(){ return _last_error; }
+        bool index_not_exist(){ return _index_not_exist; }
 
     private:
         bool find_last_not_empty_chunk(unsigned& not_empty_chunk){
@@ -130,9 +211,9 @@ namespace templet {
             log.resize(_chunk_size);
 
             unsigned i;
-            for(i=0; i < log.size(); i++){
+            for(i=0; i < _chunk_size; i++){
                 size_t ret_code;
-                unsigned ubuf[3];//index,tag,size_buf
+                unsigned ubuf[3];//index,tag,blob size
                 
                 ret_code = fread(ubuf, sizeof ubuf[0], 3, _wal_chunk_file);
                 if(ret_code==0 && feof(_wal_chunk_file)) break;
@@ -145,13 +226,13 @@ namespace templet {
                         break;
                     }
                     else{
-                        std::cerr << "Error reading WAL (last record broken): " << _wal_chunk_file_name; 
+                        std::cerr << "Error read WAL (last record broken): " << _wal_chunk_file_name; 
                         exit(EXIT_FAILURE);    
                     }
                 }
                 
                 if(ferror(_wal_chunk_file)){
-                    std::cerr << "Error reading WAL (index,tag,size_buf): " << _wal_chunk_file_name; 
+                    std::cerr << "Error read WAL (index,tag,blob size): " << _wal_chunk_file_name; 
                     exit(EXIT_FAILURE);
                 }
 
@@ -170,23 +251,23 @@ namespace templet {
                 }
 
                 log[i].first = ubuf[1];//tag
-                log[i].second.resize(ubuf[2]);
+                log[i].second.resize(ubuf[2]);//blob size
                 ret_code = fread((void*)log[i].second.c_str(), sizeof(char), ubuf[2], _wal_chunk_file);//blob
 
                 if(ret_code!=ubuf[2] && feof( _wal_chunk_file)){
                     if(_auto_repare){
                         fclose(_wal_chunk_file);
-                        truncate_chunk(_wal_chunk_file_name, 3 * sizeof ubuf[0] + ret_code);
+                        truncate_chunk(_wal_chunk_file_name, 3*sizeof ubuf[0] + ret_code*sizeof(char));
                         break;
                     }
                     else{
-                        std::cerr << "Error reading WAL (last record broken): " << _wal_chunk_file_name; 
+                        std::cerr << "Error read WAL (last record broken): " << _wal_chunk_file_name; 
                         exit(EXIT_FAILURE);    
                     }
                 }
                 
-                if(ret_code!=ubuf[2] && ferror( _wal_chunk_file)){
-                    std::cerr << "Error reading WAL (blob): " << _wal_chunk_file_name; 
+                if(ferror( _wal_chunk_file)){
+                    std::cerr << "Error read WAL (blob): " << _wal_chunk_file_name; 
                     exit(EXIT_FAILURE);
                 }
             }
@@ -222,7 +303,7 @@ namespace templet {
         unsigned    _size_of_chunk_field;
         std::string _wal_ext;
     private:
-        error       _last_error;
+        bool        _index_not_exist;
 	};
 
     class server_stub{
