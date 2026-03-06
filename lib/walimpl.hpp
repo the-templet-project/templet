@@ -28,11 +28,6 @@
 
 namespace templet {
 
-	class client_side_wal : public write_ahead_log {
-	public:
-        
-	};
-
     class server_side_wal : public write_ahead_log {
 	public:
         server_side_wal(unsigned chunk_size, unsigned num_of_chunks,
@@ -86,6 +81,7 @@ namespace templet {
 
             if(_write_position == _chunk_size){
                 fclose(_wal_chunk_file);
+                _wal_chunk_file = NULL;
                 
                 _wal_chunk++;
                 if(_wal_chunk == _num_of_chunks){
@@ -304,6 +300,110 @@ namespace templet {
         std::string _wal_ext;
     private:
         bool        _index_not_exist;
+	};
+
+	class client_side_wal : public write_ahead_log {
+	public:
+        client_side_wal(unsigned chunk_size, unsigned num_of_chunks, 
+                        const std::string& wal_prefix, const std::string& wal_ext, server_side_wal& server_wal):
+            _chunk_size(chunk_size), _num_of_chunks(num_of_chunks),
+            _wal_prefix(wal_prefix), _wal_ext(wal_ext), _server_wal(server_wal),
+            _is_chunk_full(false)
+        {
+            log.resize(chunk_size);
+            _size_of_chunk_field=0;
+            for(int mult=1; (num_of_chunks-1)/mult > 0; _size_of_chunk_field++, mult*=10);
+        }
+
+        void write(unsigned& index, unsigned tag, const std::string& blob) override {
+            std::unique_lock<std::mutex> lock(mut);
+            _server_wal.write(index,tag,blob);
+        }
+        
+        bool read(unsigned index, unsigned& tag, std::string& blob) override {
+            std::unique_lock<std::mutex> lock(mut);
+
+            if(_is_chunk_full && (_base_position <= index && index < _base_position+_chunk_size)){
+                tag = log[index-_base_position].first; 
+                blob = log[index-_base_position].second;
+                return true;    
+            }
+
+            if(_server_wal.read(index,tag,blob)) return true;
+            if(_server_wal.index_not_exist()) return false;
+
+            load_chunk_by_index(index);
+
+            tag = log[index-_base_position].first; 
+            blob = log[index-_base_position].second;
+            
+            return true;
+        }
+    private:
+        void load_chunk_by_index(unsigned index){
+            std::string wal_chunk_file_name;
+            FILE* wal_chunk_file;
+            {
+                std::ostringstream chunk_file_name;
+                unsigned chunk = index / _chunk_size;
+                    
+                chunk_file_name << _wal_prefix; 
+                if(_size_of_chunk_field) chunk_file_name << std::setw(_size_of_chunk_field) << std::setfill('0') << chunk; 
+                chunk_file_name << '.' <<_wal_ext;
+        
+                wal_chunk_file_name = chunk_file_name.str();
+                wal_chunk_file = fopen(wal_chunk_file_name.c_str(), "rb");
+                
+                _base_position =_chunk_size*chunk;
+            }
+            
+                
+            if(!wal_chunk_file){
+                std::cerr << "Cannot open WAL for reading: " << wal_chunk_file_name; 
+                exit(EXIT_FAILURE);
+            }
+            
+            for(unsigned i=0; i < _chunk_size; i++){
+                size_t ret_code;
+                unsigned ubuf[3];//index,tag,blob size
+                
+                ret_code = fread(ubuf, sizeof ubuf[0], 3, wal_chunk_file);
+
+                if(ret_code!=3){
+                    std::cerr << "Error read WAL (index,tag,blob size): " << wal_chunk_file_name;  
+                    exit(EXIT_FAILURE);    
+                }
+
+                if(_base_position+i != ubuf[0]){
+                    std::cerr << "Error (index != _base_position + i) in : " << wal_chunk_file_name;
+                    exit(EXIT_FAILURE);
+                }
+                    
+                log[i].first = ubuf[1];//tag
+                log[i].second.resize(ubuf[2]);//blob size
+                ret_code = fread((void*)log[i].second.c_str(), sizeof(char), ubuf[2], wal_chunk_file);//blob
+
+                if(ret_code!=ubuf[2]){
+                    std::cerr << "Error read WAL (blob): " << wal_chunk_file_name; 
+                    exit(EXIT_FAILURE);
+                }
+            }
+            fclose(wal_chunk_file);
+            _is_chunk_full = true;
+        }
+
+    private:
+        unsigned    _base_position;
+        bool        _is_chunk_full;
+    private:
+        unsigned    _chunk_size;
+        unsigned    _num_of_chunks;
+    private:
+        std::string _wal_prefix;
+        unsigned    _size_of_chunk_field;
+        std::string _wal_ext;
+    private:
+        server_side_wal& _server_wal;
 	};
 
     class server_stub{
