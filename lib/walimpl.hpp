@@ -68,7 +68,6 @@ namespace templet {
             // are set here:
             std::cout << "_base_position = " << _base_position << std::endl; 
             std::cout << "_write_position = " << _write_position << std::endl;
-            std::cout << "_is_chunk_full = " << _is_chunk_full << std::endl;
             std::cout << "_wal_chunk = " << _wal_chunk << std::endl;
             std::cout << "_wal_chunk_file = " << _wal_chunk_file << std::endl;
             std::cout << "_wal_chunk_file_name = " << _wal_chunk_file_name << std::endl;
@@ -109,7 +108,7 @@ namespace templet {
             
 			log[_write_position].first  = tag;
             log[_write_position].second = blob;
-			index = _write_position;
+			index = _write_position + _base_position;
 
             {
                 size_t ret_code;
@@ -144,7 +143,7 @@ namespace templet {
                 return false;
             }
             
-            if(_base_position <= index && index < _write_position){//in current chunk
+            if(_base_position <= index && index < _base_position+_write_position){//in current chunk
                 tag = log[index-_base_position].first; 
                 blob = log[index-_base_position].second;
                 _index_not_exist = false;
@@ -214,15 +213,16 @@ namespace templet {
                 ret_code = fread(ubuf, sizeof ubuf[0], 3, _wal_chunk_file);
                 if(ret_code==0 && feof(_wal_chunk_file)) break;
 
-                if(ret_code!=3 && feof(_wal_chunk_file)){
+                if(ret_code!=3 && feof(_wal_chunk_file)){// to be checked !!!
                     if(_auto_repare){
                         fclose(_wal_chunk_file);
+                        _wal_chunk_file = NULL;
                         truncate_chunk(_wal_chunk_file_name,ret_code * sizeof ubuf[0]);
-                        if(i==0) _base_position == _chunk_size*chunk; 
+                        if(i==0) _base_position = _chunk_size*chunk; 
                         break;
                     }
                     else{
-                        std::cerr << "Error read WAL (last record broken): " << _wal_chunk_file_name; 
+                        std::cerr << "Error read WAL (last record broken in header): " << _wal_chunk_file_name; 
                         exit(EXIT_FAILURE);    
                     }
                 }
@@ -250,14 +250,15 @@ namespace templet {
                 log[i].second.resize(ubuf[2]);//blob size
                 ret_code = fread((void*)log[i].second.c_str(), sizeof(char), ubuf[2], _wal_chunk_file);//blob
 
-                if(ret_code!=ubuf[2] && feof( _wal_chunk_file)){
+                if(ret_code!=ubuf[2] && feof( _wal_chunk_file)){// to be checked !!!
                     if(_auto_repare){
                         fclose(_wal_chunk_file);
-                        truncate_chunk(_wal_chunk_file_name, 3*sizeof ubuf[0] + ret_code*sizeof(char));
+                        _wal_chunk_file = NULL;
+                        truncate_chunk(_wal_chunk_file_name, 3*(sizeof ubuf[0]) + ret_code*sizeof(char));
                         break;
                     }
                     else{
-                        std::cerr << "Error read WAL (last record broken): " << _wal_chunk_file_name; 
+                        std::cerr << "Error read WAL (last record broken in blob): " << _wal_chunk_file_name; 
                         exit(EXIT_FAILURE);    
                     }
                 }
@@ -269,7 +270,7 @@ namespace templet {
             }
             _write_position = i;
             
-            fclose(_wal_chunk_file);
+            if(_wal_chunk_file)fclose(_wal_chunk_file);
             _wal_chunk_file = NULL;
         }
 
@@ -356,7 +357,6 @@ namespace templet {
                 
                 _base_position =_chunk_size*chunk;
             }
-            
                 
             if(!wal_chunk_file){
                 std::cerr << "Cannot open WAL for reading: " << wal_chunk_file_name; 
