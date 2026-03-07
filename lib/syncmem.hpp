@@ -232,7 +232,7 @@ namespace templet {
 				command = skel_file + " -i " + module_file + " -s " + module_file + ".cgn";
 
 				int ret;
-				if (ret = system(command.c_str()) == EXIT_FAILURE) {
+				if ((ret = system(command.c_str())) == EXIT_FAILURE) {
 #if defined(_WIN32) || defined(_WIN64)
 					command = std::string("copy ") + module_file + ".bak" + " " + module_file;
 #else	
