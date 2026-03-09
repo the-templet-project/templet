@@ -210,14 +210,14 @@ namespace templet {
                 size_t ret_code;
                 unsigned ubuf[3];//index,tag,blob size
                 
-                ret_code = fread(ubuf, sizeof ubuf[0], 3, _wal_chunk_file);
+                ret_code = fread(ubuf, 1, sizeof ubuf, _wal_chunk_file);
                 if(ret_code==0 && feof(_wal_chunk_file)) break;
 
-                if(ret_code!=3 && feof(_wal_chunk_file)){// to be checked !!!
+                if(ret_code!=3 && feof(_wal_chunk_file)){
                     if(_auto_repare){
                         fclose(_wal_chunk_file);
                         _wal_chunk_file = NULL;
-                        truncate_chunk(_wal_chunk_file_name,ret_code * sizeof ubuf[0]);
+                        truncate_chunk(_wal_chunk_file_name,ret_code);
                         if(i==0) _base_position = _chunk_size*chunk; 
                         break;
                     }
@@ -250,7 +250,7 @@ namespace templet {
                 log[i].second.resize(ubuf[2]);//blob size
                 ret_code = fread((void*)log[i].second.c_str(), sizeof(char), ubuf[2], _wal_chunk_file);//blob
 
-                if(ret_code!=ubuf[2] && feof( _wal_chunk_file)){// to be checked !!!
+                if(ret_code!=ubuf[2] && feof( _wal_chunk_file)){
                     if(_auto_repare){
                         fclose(_wal_chunk_file);
                         _wal_chunk_file = NULL;
