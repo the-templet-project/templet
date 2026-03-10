@@ -1,9 +1,10 @@
-﻿#include <iostream>
+#include <iostream>
 #include <thread>
 #include <atomic>
 
 //#define TEMPLET_TASK_TEST_IMPL
 #include <syncmem.hpp>
+#include <walimpl.hpp>
 
 const int NUM_THREADS = 10;
 const int ARRAY_SIZE = 10;
@@ -12,8 +13,11 @@ int main()
 {
 	std::atomic_int PID = 0;
 
-	templet::write_ahead_log wal;
-	std::vector<std::thread> threads(NUM_THREADS);
+	//templet::write_ahead_log wal;
+    templet::server_side_wal server_wal(10, 100, std::string("file"), std::string("txt"));
+    templet::client_side_wal wal(10,100,std::string("file"), std::string("txt"),server_wal);
+	
+    std::vector<std::thread> threads(NUM_THREADS);
 
 	for (auto& t : threads)t = std::thread([&] { int pid = PID++;
 	//////////////// inside a 'process' ////////////////
@@ -55,3 +59,4 @@ int main()
 	}); for (auto& t : threads) t.join();
 	std::cout << "Success!" << std::endl;
 }
+﻿
