@@ -29,6 +29,7 @@
 namespace templet {
 
     class server_side_wal : public write_ahead_log {
+    friend class client_side_wal;
 	public:
         server_side_wal(unsigned chunk_size, unsigned num_of_chunks,
                         const std::string& wal_prefix, const std::string& wal_ext,
@@ -65,12 +66,6 @@ namespace templet {
                 std::cerr << "Cannot open WAL for appending: " << _wal_chunk_file_name; 
                 exit(EXIT_FAILURE);
             }
-            // are set here:
-            std::cout << "_base_position = " << _base_position << std::endl; 
-            std::cout << "_write_position = " << _write_position << std::endl;
-            std::cout << "_wal_chunk = " << _wal_chunk << std::endl;
-            std::cout << "_wal_chunk_file = " << _wal_chunk_file << std::endl;
-            std::cout << "_wal_chunk_file_name = " << _wal_chunk_file_name << std::endl;
         }
 
         ~server_side_wal(){ if(_wal_chunk_file) fclose(_wal_chunk_file);}
@@ -300,7 +295,7 @@ namespace templet {
         unsigned    _size_of_chunk_field;
         std::string _wal_ext;
     private:
-        bool        _index_not_exist;
+        bool _index_not_exist;
 	};
 
 	class client_side_wal : public write_ahead_log {
@@ -340,8 +335,11 @@ namespace templet {
             
             return true;
         }
+
+    bool index_not_exist(){ return _server_wal._index_not_exist; }
+
     private:
-        void load_chunk_by_index(unsigned index){
+        void load_chunk_by_index(unsigned index){ 
             std::string wal_chunk_file_name;
             FILE* wal_chunk_file;
             {
