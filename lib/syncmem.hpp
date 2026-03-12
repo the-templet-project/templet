@@ -401,6 +401,8 @@ namespace templet {
 			task_index++;
 		}
 		void await() {
+            static std::mutex mut;
+            
 			assert(!in_await);
 			in_await++;
 
@@ -421,13 +423,18 @@ namespace templet {
 						ready_tasks.erase(tag);
 						task_pool.erase(tag);
 					}
+                    if (task_pool.size() == 0) break;
 				}
 
 				if (task_pool.size() == 0) break;
 
 				if (ready_tasks.size() != 0) {
-					int selected = rand() % ready_tasks.size();
-					auto it = ready_tasks.begin(); for (int i = 0; i != selected; i++, it++) {} tag = *it;
+                    int selected;
+                    {
+                        std::unique_lock<std::mutex> lock(mut);
+    					selected = rand() % ready_tasks.size();
+                    }
+                    auto it = ready_tasks.begin(); for (int i = 0; i != selected; i++, it++) {} tag = *it;
 
 					std::ostringstream out;
 					in_exec++; task_pool[tag].exec(out); in_exec--;
