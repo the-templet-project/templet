@@ -6,16 +6,16 @@
 #include <syncmem.hpp>
 #include <walimpl.hpp>
 
-const int NUM_THREADS = 10;
-const int ARRAY_SIZE = 10;
+const int NUM_THREADS = 2;
+const int ARRAY_SIZE = 20;
 
 int main()
 {
 	std::atomic_int PID = 0;
 
 	//templet::write_ahead_log wal;
-    templet::server_side_wal server_wal(10, 100, std::string("file"), std::string("txt"));
-    templet::client_side_wal wal(10,100,std::string("file"), std::string("txt"),server_wal);
+    templet::server_side_wal server_wal(1000,1,std::string("file"), std::string("txt"));
+    templet::client_side_wal wal(1000,1,std::string("file"), std::string("txt"),server_wal);
 	
     std::vector<std::thread> threads(NUM_THREADS);
 
@@ -26,10 +26,13 @@ int main()
 
 	templet::task_engine eng(wal);
 
+    std::srand((unsigned)time(NULL));
+                                                 
 	for (int i = 0; i < ARRAY_SIZE; i++) {
 		eng.async(pid == 0,
-			[i](std::ostream&out) {
-			out << i;
+			[i,pid](std::ostream&out) {
+			out << i;              std::cout << " (for1 pid=" << pid << " i=" << i <<")" << std::endl;
+            std::this_thread::sleep_for(1s);
 		},
 			[i,&N](std::istream&in) {
 			in >> N[i];
@@ -40,14 +43,15 @@ int main()
 
 	for (int i = 0; i < ARRAY_SIZE; i++) {
 		eng.async(
-			[&N,i](std::ostream&out) {
-			out << N[i] * N[i];
-		},
+			[&N,i,pid](std::ostream&out) {
+			out << N[i] * N[i];  std::cout << " (for2 pid=" << pid << " i=" << i <<")" << std::endl;
+            std::this_thread::sleep_for(1s);
+    	},
 			[&NxN,i](std::istream&in) {
 			in >> NxN[i];
-		}
-		);
-	}
+        }
+        );
+    }
 	eng.await();
 
 	if (pid == 0) {// .. or any other pid < NUM_THREADS 
@@ -59,4 +63,3 @@ int main()
 	}); for (auto& t : threads) t.join();
 	std::cout << "Success!" << std::endl;
 }
-﻿
