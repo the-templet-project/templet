@@ -1,16 +1,14 @@
 #include <walimpl.hpp>
 #include <syncmem.hpp>
 #include <chrono>
+#include <thread>
+#include <atomic>
 
 #include "general-classes.hpp"
 
-
 class sync_state_engine: public mapper::engine{
 public:
-    sync_state_engine(int argc, char *argv[]):_tbag(_wal,*this){
-        if(argc>1){_master=true; _num_workers=std::stoi(std::string(argv[1]));}
-        else{_master=false; _num_workers=0;}
-    }
+    sync_state_engine(templet::write_ahead_log&wal):_tbag(wal,*this){}
     double duration(){ std::chrono::duration<double> dur = _end - _beg;
             return dur.count();}
 private:
@@ -36,7 +34,7 @@ private:
     		[this](std::istream&in) {
                 unsigned size; in >> size;
                 _size = size; _engine.on_init(size);
-                unprocessed.clear();
+                unprocessed.clear(); _ready_to_get = false;
     		});   
         }
         void add(unsigned id){
@@ -47,11 +45,12 @@ private:
                 unsigned id; in >> id;
                 _engine.on_load(id,in,false);
                 unprocessed.insert(id);
+                if(unprocessed.size()==_size) _ready_to_get = true;
     		});     
         }
         bool ready_to_get(){
             update();
-            return unprocessed.size()==_size;
+            return _ready_to_get;
         }
         bool get(unsigned& id){
             update(); 
@@ -73,6 +72,7 @@ private:
         sync_state_engine& _engine;
         unsigned _size;
         std::set<unsigned> unprocessed;
+        bool _ready_to_get;
         unsigned get_rand_unprocessed(){
             int selected = rand() % unprocessed.size();
     		auto it = unprocessed.begin(); 
@@ -80,13 +80,43 @@ private:
             return *it;
         }
     } _tbag;
-    templet::write_ahead_log _wal;
     std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;
-    bool _master;
-    int  _num_workers;
 };
 
 int main()
 {
+    const int NUM_PROC = 100;
+    const int SIZE = 10000;
+    
+    //templet::write_ahead_log wal;
+    templet::server_side_wal server_wal(10000,10,std::string("file"), std::string("txt"), true);
+    templet::client_side_wal wal(10000,10,std::string("file"), std::string("txt"),server_wal);
+    
+    //////////////// 'process' simulation ///////////////////////////////
+    std::atomic_int PID = 0;
+    std::vector<std::thread> threads(NUM_PROC);
+	for (auto& t : threads)t = std::thread([&] { int pid = PID++;
+	//////////////// inside a 'process' /////////////////////////////////
+    sync_state_engine eng(wal);
+    throughput_test_mapper a_mapper(eng);
+    
+    if(pid==0){// in master 'process'
+        a_mapper.N.resize(SIZE);
+        for(int i=0;i<SIZE;i++) a_mapper.N[i] = i;
+        a_mapper.init(SIZE);
+    }
+    a_mapper.map();
+   
+    if(pid==0){// in master 'process'
+        for(int i=0;i<SIZE;i++){
+            std::cout << a_mapper.N[i] <<"^2 = " << a_mapper.NxN[i] << std::endl;
+            if(i>100){ std::cout << "..." << std::endl; break;}
+        }
+        std::cout << "Execution time (in sec): " << eng.duration() << std::endl;
+    }                                             
+    ////////////// outside a 'process' //////////////////////////////////
+	}); for (auto& t : threads) t.join();
+	std::cout << "Success!" << std::endl;
+    /////////////////////////////////////////////////////////////////////
     return EXIT_SUCCESS;
 }
