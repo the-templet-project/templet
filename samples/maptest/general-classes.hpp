@@ -1,4 +1,6 @@
 #include <vector>
+#include <iostream>
+#include <sstream>
 
 class mapper{
 public:

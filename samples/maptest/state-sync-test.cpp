@@ -1,10 +1,10 @@
+#include "general-classes.hpp"
+
 #include <walimpl.hpp>
 #include <syncmem.hpp>
 #include <chrono>
 #include <thread>
 #include <atomic>
-
-#include "general-classes.hpp"
 
 class sync_state_engine: public mapper::engine{
 public:
