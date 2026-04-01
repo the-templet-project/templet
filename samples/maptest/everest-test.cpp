@@ -28,7 +28,7 @@ private:
             int from = 0;
             int to;
 
-            templet::everest_engine teng("token");
+            templet::everest_engine teng("fi7bat1tl1u62jw9zwwr8ypwumx627ytbt384lokhxzbjo7c1yhi8kigea8y69c6");
             if (!teng) {
         		std::cout << "...task engine not connected..." << std::endl;
         		exit(EXIT_FAILURE);
@@ -39,7 +39,7 @@ private:
                 to = from + (base_chunk_size-1) + (rest?1:0); if(rest)rest--;
                 if(from > to){ _num_workers = w; break;}
     
-                task[w].app_id("app id");
+                task[w].app_id("69cd58ce1e00005d2ea17d90");
         		task[w].engine(teng);
                 
                 json in;
@@ -48,7 +48,7 @@ private:
 
                 std::stringstream sstr;
                 sstr << _size << " " << from << " " << to << " ";
-                for(int id=from;id<=to;id++)on_save(id,sstr,false);
+                for(int id=from;id<=to;id++){on_save(id,sstr,false);sstr<<" ";}
                 
         		in["inputs"]["input"]=sstr.str();    
                 task[w].submit(in);
@@ -72,7 +72,7 @@ private:
                 std::stringstream sstr(str_out);
                 int from, to;
                 sstr >> from; sstr >> to; 
-                for(int id=from;id<=to;id++)on_save(id,sstr,true);
+                for(int id=from;id<=to;id++)on_load(id,sstr,true);
             }
             _end=std::chrono::high_resolution_clock::now();
         }
@@ -83,7 +83,7 @@ private:
             unsigned to; in >> to; out << to << " ";
             
             for(int id=from;id<=to;id++){
-                on_load(id,in,false); on_map(id); on_save(id,out,true);
+                on_load(id,in,false); on_map(id); on_save(id,out,true); out<<" ";
             }
         }
     }
@@ -96,7 +96,7 @@ unsigned _size;
 int main(int argc, char *argv[])
 {
     //set NUM_PROC as a command line argument
-    const int SIZE = 10;
+    const int SIZE = 10000;
 
     everest_engine eng(argc,argv);
     throughput_test_mapper a_mapper(eng);

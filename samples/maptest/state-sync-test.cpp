@@ -5,6 +5,7 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
+#include <random>
 
 class sync_state_engine: public mapper::engine{
 public:
@@ -26,7 +27,7 @@ private:
     class taskbag:public templet::state{
     friend class sync_state_engine;
         taskbag(templet::write_ahead_log&l,sync_state_engine&eng):
-            state(l),_engine(eng) {init();}
+            state(l),_engine(eng) {init();_rand.seed(std::time(nullptr));}
         void resize(unsigned size){
             update(_resize, [&](std::ostream&out) {
                 out << size;
@@ -73,8 +74,9 @@ private:
         unsigned _size;
         std::set<unsigned> unprocessed;
         bool _ready_to_get;
+        std::minstd_rand _rand;
         unsigned get_rand_unprocessed(){
-            int selected = rand() % unprocessed.size();
+            int selected = _rand() % unprocessed.size();
     		auto it = unprocessed.begin(); 
             for (int i = 0; i != selected; i++, it++) {}
             return *it;
@@ -88,9 +90,7 @@ int main()
     const int NUM_PROC = 100;
     const int SIZE = 10000;
     
-    //templet::write_ahead_log wal;
-    templet::server_side_wal server_wal(10000,10,std::string("file"), std::string("txt"), true);
-    templet::client_side_wal wal(10000,10,std::string("file"), std::string("txt"),server_wal);
+    templet::server_side_wal wal(SIZE*3,1,std::string("file"),std::string("txt"),false);//lasy save
     
     //////////////// 'process' simulation ///////////////////////////////
     std::atomic_int PID = 0;
