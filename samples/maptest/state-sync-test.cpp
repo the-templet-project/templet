@@ -15,8 +15,10 @@ public:
 private:
     void init(unsigned size)override{
         _beg=std::chrono::high_resolution_clock::now();
-        _tbag.resize(size);
-        for(int id=0; id<size; id++)_tbag.add(id);
+        if(!_tbag.ready_to_get()){
+            _tbag.resize(size);
+            for(int id=0; id<size; id++)_tbag.add(id);
+        }
     }
     void map()override{
         while(!_tbag.ready_to_get())/*wait*/;
@@ -89,8 +91,8 @@ int main()
 {
     const int NUM_PROC = 100;
     const int SIZE = 10000;
-    
-    templet::server_side_wal wal(SIZE*3,1,std::string("file"),std::string("txt"),false);//lasy save
+                                                                            // lasy save
+    templet::server_side_wal wal(SIZE*3,1,std::string("file"),std::string("txt"),false);
     
     //////////////// 'process' simulation ///////////////////////////////
     std::atomic_int PID = 0;
