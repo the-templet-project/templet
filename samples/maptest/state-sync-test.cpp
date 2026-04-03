@@ -89,10 +89,11 @@ private:
 
 int main()
 {
-    const int NUM_PROC = 100;
-    const int SIZE = 10000;
+    const int NUM_PROC = 500;
+    const int SIZE = 12000;
                                                                             // lasy save
-    templet::server_side_wal wal(SIZE*3,1,std::string("file"),std::string("txt"),false);
+    //templet::server_side_wal wal(SIZE*3,1,std::string("file"),std::string("txt"),true);
+    templet::write_ahead_log wal;
     
     //////////////// 'process' simulation ///////////////////////////////
     std::atomic_int PID = 0;

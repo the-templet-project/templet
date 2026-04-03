@@ -28,7 +28,7 @@ private:
             int from = 0;
             int to;
 
-            templet::everest_engine teng("fi7bat1tl1u62jw9zwwr8ypwumx627ytbt384lokhxzbjo7c1yhi8kigea8y69c6");
+            templet::everest_engine teng("90r09vccwydt34u8tz0e8qmfxvukj31qcud177fs5pk6srfcfug4d83ehyvpfsdv");
             if (!teng) {
         		std::cout << "...task engine not connected..." << std::endl;
         		exit(EXIT_FAILURE);
@@ -50,12 +50,23 @@ private:
                 sstr << _size << " " << from << " " << to << " ";
                 for(int id=from;id<=to;id++){on_save(id,sstr,false);sstr<<" ";}
                 
-        		in["inputs"]["input"]=sstr.str();    
-                task[w].submit(in);
-                
-                std::cout << "submit task from = " 
-                    << from << " to = " << to << " size = " << _size << std::endl;
-      
+        		in["inputs"]["input"]=sstr.str();
+
+                if(!task[w].submit(in)){
+                    std::cout << "...task submit error..." << std::endl;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    templet::everest_error cntxt;
+                    teng.error(&cntxt);
+                    if(*cntxt._type==templet::everest_error::SUBMIT_FAILED){
+                        json input = json::parse(cntxt._task_input);
+                        cntxt._task->resubmit(input);
+                    }
+                    if(teng.error(&cntxt)){
+                        std::cout << "...submit recover error..." << std::endl;
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
                 from = to + 1;
             }
             teng.run();
@@ -96,7 +107,7 @@ unsigned _size;
 int main(int argc, char *argv[])
 {
     //set NUM_PROC as a command line argument
-    const int SIZE = 10000;
+    const int SIZE = 1500;
 
     everest_engine eng(argc,argv);
     throughput_test_mapper a_mapper(eng);
