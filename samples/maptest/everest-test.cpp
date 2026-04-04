@@ -98,7 +98,7 @@ private:
             }
         }
     }
-unsigned _size;
+    unsigned _size;
     std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;
     unsigned _num_workers;
     bool     _master;
@@ -107,7 +107,7 @@ unsigned _size;
 int main(int argc, char *argv[])
 {
     //set NUM_PROC as a command line argument
-    const int SIZE = 1500;
+    const int SIZE = 15000;
 
     everest_engine eng(argc,argv);
     throughput_test_mapper a_mapper(eng);

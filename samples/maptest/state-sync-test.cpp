@@ -90,10 +90,9 @@ private:
 int main()
 {
     const int NUM_PROC = 500;
-    const int SIZE = 12000;
+    const int SIZE = 15000;
                                                                             // lasy save
-    //templet::server_side_wal wal(SIZE*3,1,std::string("file"),std::string("txt"),true);
-    templet::write_ahead_log wal;
+    templet::server_side_wal wal(SIZE*3,1,std::string("file"),std::string("txt"),true);
     
     //////////////// 'process' simulation ///////////////////////////////
     std::atomic_int PID = 0;
