@@ -6,14 +6,9 @@ class mapper{
 public:
     class engine{
     friend class mapper;
-    protected:
-        virtual void init(unsigned size){_size=size;on_init(size);}
-        virtual void map(){
-            for(int id=0;id<_size;id++){io_test(id,false);on_map(id);io_test(id,true);}}
-    protected:
-        void io_test(unsigned id,bool mapped){
-            std::stringstream sstr;on_save(id,sstr,mapped);on_load(id,sstr,mapped);}
-        unsigned _size;
+    private:
+        virtual void init(unsigned size)=0;
+        virtual void map()=0;
     protected:
         void on_init(unsigned size){_mapper->on_init(size);}
         void on_map(unsigned id){_mapper->on_map(id);}
@@ -21,7 +16,7 @@ public:
             _mapper->on_save(id,out,mapped);}
     	void on_load(unsigned id, std::istream&in, bool mapped){
             _mapper->on_load(id,in,mapped);}
-    protected:
+    private:
         mapper* _mapper;
     };
 public:
@@ -35,6 +30,22 @@ protected:
 	virtual void on_load(unsigned id, std::istream&, bool mapped) = 0;
 private:
     mapper::engine& _engine;
+};
+
+class base_engine: public mapper::engine {
+    void init(unsigned size)override{
+        _beg=std::chrono::high_resolution_clock::now();
+        _size=size;on_init(size);}
+    void map()override{
+        for(int id=0;id<_size;id++){io_test(id,false);on_map(id);io_test(id,true);}
+        _end=std::chrono::high_resolution_clock::now();}
+    void io_test(unsigned id,bool mapped){
+        std::stringstream sstr;on_save(id,sstr,mapped);on_load(id,sstr,mapped);}
+    unsigned _size;
+    std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;
+public:
+    double duration(){ std::chrono::duration<double> dur = _end - _beg;
+        return dur.count();}
 };
 
 class dls7_mapper: public mapper{
