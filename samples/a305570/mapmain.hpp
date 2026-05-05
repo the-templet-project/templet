@@ -1,9 +1,11 @@
 #include <vector>
+#include <list>
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
 #include <fstream>
 #include <cstdio>
+#include <chrono>
 
 class mapper{
 public:
@@ -79,10 +81,27 @@ private:
         }
     }
     void on_save(unsigned id, std::ostream& out, bool mapped) override{
-          
+        return;
+        if(mapped){
+            out << orto_dls7_local.size() << ' ';
+            for(auto& it:orto_dls7_local){
+                save_dls(out,it.first); out << std::endl;
+                save_dls(out,it.second);out << std::endl;
+            }
+        }
+        else out << tasks[id].first << ' ' << tasks[id].second;
     }
 	void on_load(unsigned id, std::istream& in, bool mapped) override{
-        
+        return;
+        if(mapped){
+            int size; in >> size;
+            for(int i=0; i<size; i++){
+                sq7x7 dls1, dls2;
+                load_dls(in,dls1); load_dls(in,dls2);
+                orto_dls7_final.push_back(std::pair(dls1,dls2));
+            }
+        }
+        else in >> tasks[id].first >> tasks[id].second;     
     }
 private:
     void load(std::vector<sq7x7>& chunk, unsigned chunk_id){
@@ -94,36 +113,37 @@ private:
         
         std::ifstream file(chunk_file_name);
     	std::cout << "loading file " << chunk_file_name << std::endl;
-    
-    	if (file) {
-    		int k;
-    		while(!file.eof()){
-    			sq7x7 sqware; unsigned digit;
-    			for (int i = 0; i < DIM; i++) for (int j = 0; j < DIM; j++) {
-    				if (file >> digit)  sqware.sq[i*DIM + j] = digit;
-    				else {
-    					if (i == 0 && j == 0) 
-    						std::cout << "file " << name_buf << " loaded" << std::endl;
-    					else {
-    						std::cout << "Error!!! Bad file";
-    						exit(EXIT_FAILURE);
-    					}
-    				}
-    			}
-                chunk.push_back(sqware);
-    		}
-    	}
-    	else {
-    		std::cout << "Error!!! Cannot open file";
+
+        if(!file){
+            std::cout << "Error!!! Cannot open file";
     		exit(EXIT_FAILURE);
-    	}
+        }
+   
+        while(!file.eof()){
+            sq7x7 sqware; unsigned digit;
+            for (int i = 0; i < DIM*DIM; i++){
+                if (file >> digit)  sqware.sq[i] = digit;
+                else {
+                    if (i == 0 && file.eof()){ 
+                        std::cout << "file " << name_buf << " loaded" << std::endl;
+                        return;//////////////////////////////
+                    }
+                    else {
+                        std::cout << "Error!!! Bad file";
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+            chunk.push_back(sqware);
+        }
     }
     void find_orto_in_one(){
         orto_dls7_local.clear();
         for (int m1 = 0; m1 < first_dls7_chunk.size(); m1++)
 			for (int m2 = m1 + 1; m2 < first_dls7_chunk.size(); m2++)
 				if (is_ortogonal_pair(first_dls7_chunk[m1],first_dls7_chunk[m2])) {
-            		orto_dls7_local.push_back(std::pair(first_dls7_chunk[m1],first_dls7_chunk[m2]));
+                    orto_dls7_final.
+            		/*orto_dls7_local.*/push_back(std::pair(first_dls7_chunk[m1],first_dls7_chunk[m2]));
 				}
     }
     void find_orto_in_two(){
@@ -131,11 +151,11 @@ private:
         for (int m1 = 0; m1 < first_dls7_chunk.size(); m1++)
 			for (int m2 = 0; m2 < second_dls7_chunk.size(); m2++)
 				if (is_ortogonal_pair(first_dls7_chunk[m1],second_dls7_chunk[m2])) {
-            		orto_dls7_local.push_back(std::pair(first_dls7_chunk[m1],second_dls7_chunk[m2]));
+                    orto_dls7_final.
+            		/*orto_dls7_local.*/push_back(std::pair(first_dls7_chunk[m1],second_dls7_chunk[m2]));
 				}
     }
-    static bool is_ortogonal_pair(sq7x7 f, sq7x7 s)
-    {
+    static bool is_ortogonal_pair(sq7x7 f, sq7x7 s){
     	unsigned my_set[DIM*DIM];
     	int cur_elem = 0;
     	for (int i = 0; i < DIM*DIM; i++) {
@@ -145,6 +165,14 @@ private:
     		my_set[cur_elem++] = inserted;
     	}
     	return true;
+    }
+    void save_dls(std::ostream& out,sq7x7 dls){
+        for(int i=0; i< DIM*DIM; i++) 
+            out << dls.sq[i] << ' ';
+    }
+    void load_dls(std::istream& in,sq7x7& dls){
+        for(int i=0; i< DIM*DIM; i++) 
+            in >> dls.sq[i];
     }
 private:
     std::string filedir;
