@@ -3,8 +3,8 @@
 int main(){
     bool master = true;
     
-    const int NUM_OF_CHUNKS = 2;
-    const std::string CHUNKS_DIR = "";
+    const int NUM_OF_CHUNKS = 1;
+    const std::string CHUNKS_DIR = "C:\\Users\\Сергей\\Downloads\\DLS\\";
     
     base_engine eng;
     dls7_mapper a_mapper(eng,CHUNKS_DIR,NUM_OF_CHUNKS);
