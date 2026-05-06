@@ -3,7 +3,7 @@
 int main(){
     bool master = true;
     
-    const int NUM_OF_CHUNKS = 1;
+    const int NUM_OF_CHUNKS = 2;
     const std::string CHUNKS_DIR = "";
     
     base_engine eng;
@@ -14,8 +14,9 @@ int main(){
     a_mapper.map();
    
     if(master){
-        std::cout << "number of ortogonal dls(7) = " 
-            << a_mapper.orto_dls7_final.size() << std::endl;
+        std::cout << "Number of diagonal Latin squares of order 7 with the first row in order" << std::endl
+                  << "and at least one orthogonal diagonal mate = A305570(7) = " 
+                  << a_mapper.get_mates_number() << std::endl;
         std::cout << "duration = " << eng.duration() << " s" << std::endl;
     }
 }

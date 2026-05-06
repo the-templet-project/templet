@@ -1,5 +1,5 @@
 #include <vector>
-#include <list>
+#include <set>
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
@@ -63,31 +63,37 @@ public:
             for(int j=i+1; j<num_of_chunks; j++)tasks.push_back(std::pair(i,j));
         }
 public:
-    struct sq7x7{unsigned sq[DIM*DIM];};
-    std::list<std::pair<sq7x7,sq7x7>> orto_dls7_final;
+    struct sq7x7{
+        unsigned sq[DIM*DIM];
+        bool operator<(const sq7x7&arg)const{
+            for(int i=0;i<DIM*DIM;i++)
+                if(!(sq[i]<arg.sq[i])) return false;
+            return true;
+        }
+    };
+    unsigned get_mates_number(){return orto_mates_final.size();} 
 private:
     void on_init(unsigned size) override{
        tasks.resize(num_of_chunks*(1+num_of_chunks)/2);
     }
     void on_map(unsigned id) override{
         if(tasks[id].first==tasks[id].second){
-            load(first_dls7_chunk,tasks[id].first);
+            load(first_ndls7_chunk,tasks[id].first);
             find_orto_in_one();
         }
         else{
-            load(first_dls7_chunk,tasks[id].first);
-            load(second_dls7_chunk,tasks[id].second);
+            load(first_ndls7_chunk,tasks[id].first);
+            load(second_ndls7_chunk,tasks[id].second);
             find_orto_in_two();
         }
     }
     void on_save(unsigned id, std::ostream& out, bool mapped) override{
         return;
         if(mapped){
-            out << orto_dls7_local.size() << ' ';
-            for(auto& it:orto_dls7_local){
-                save_dls(out,it.first); out << std::endl;
-                save_dls(out,it.second);out << std::endl;
-            }
+            out << orto_mates_local.size() << ' ';
+            for(auto& it:orto_mates_local)
+                for(int i=0; i< DIM*DIM; i++) out << it.sq[i] << ' ';
+            
         }
         else out << tasks[id].first << ' ' << tasks[id].second;
     }
@@ -96,9 +102,9 @@ private:
         if(mapped){
             int size; in >> size;
             for(int i=0; i<size; i++){
-                sq7x7 dls1, dls2;
-                load_dls(in,dls1); load_dls(in,dls2);
-                orto_dls7_final.push_back(std::pair(dls1,dls2));
+                sq7x7 dls;
+                for(int i=0; i< DIM*DIM; i++) in >> dls.sq[i]; 
+                orto_mates_final.insert(dls);
             }
         }
         else in >> tasks[id].first >> tasks[id].second;     
@@ -119,10 +125,10 @@ private:
     		exit(EXIT_FAILURE);
         }
    
-        while(!file.eof()){
+        for(;;){
             sq7x7 sqware; unsigned digit;
             for (int i = 0; i < DIM*DIM; i++){
-                if (file >> digit)  sqware.sq[i] = digit;
+                if (file >> digit) sqware.sq[i] = digit;
                 else {
                     if (i == 0 && file.eof()){ 
                         std::cout << "file " << name_buf << " loaded" << std::endl;
@@ -138,21 +144,21 @@ private:
         }
     }
     void find_orto_in_one(){
-        orto_dls7_local.clear();
-        for (int m1 = 0; m1 < first_dls7_chunk.size(); m1++)
-			for (int m2 = m1 + 1; m2 < first_dls7_chunk.size(); m2++)
-				if (is_ortogonal_pair(first_dls7_chunk[m1],first_dls7_chunk[m2])) {
-                    orto_dls7_final.
-            		/*orto_dls7_local.*/push_back(std::pair(first_dls7_chunk[m1],first_dls7_chunk[m2]));
+        orto_mates_local.clear();
+        for (int m1 = 0; m1 < first_ndls7_chunk.size(); m1++)
+			for (int m2 = m1 + 1; m2 < first_ndls7_chunk.size(); m2++)
+				if (is_ortogonal_pair(first_ndls7_chunk[m1],first_ndls7_chunk[m2])) {
+                    orto_mates_final.
+            		/*orto_mates_local.*/insert(first_ndls7_chunk[m1]);
 				}
     }
     void find_orto_in_two(){
-        orto_dls7_local.clear();
-        for (int m1 = 0; m1 < first_dls7_chunk.size(); m1++)
-			for (int m2 = 0; m2 < second_dls7_chunk.size(); m2++)
-				if (is_ortogonal_pair(first_dls7_chunk[m1],second_dls7_chunk[m2])) {
-                    orto_dls7_final.
-            		/*orto_dls7_local.*/push_back(std::pair(first_dls7_chunk[m1],second_dls7_chunk[m2]));
+        orto_mates_local.clear();
+        for (int m1 = 0; m1 < first_ndls7_chunk.size(); m1++)
+			for (int m2 = 0; m2 < second_ndls7_chunk.size(); m2++)
+				if (is_ortogonal_pair(first_ndls7_chunk[m1],second_ndls7_chunk[m2])) {
+                    orto_mates_final.
+            		/*orto_mates_local.*/insert(first_ndls7_chunk[m1]);
 				}
     }
     static bool is_ortogonal_pair(sq7x7 f, sq7x7 s){
@@ -167,8 +173,7 @@ private:
     	return true;
     }
     void save_dls(std::ostream& out,sq7x7 dls){
-        for(int i=0; i< DIM*DIM; i++) 
-            out << dls.sq[i] << ' ';
+        for(int i=0; i< DIM*DIM; i++)out << dls.sq[i] << ' ';
     }
     void load_dls(std::istream& in,sq7x7& dls){
         for(int i=0; i< DIM*DIM; i++) 
@@ -178,7 +183,8 @@ private:
     std::string filedir;
     unsigned num_of_chunks;
     std::vector<std::pair<unsigned,unsigned>> tasks;
-    std::list<std::pair<sq7x7,sq7x7>> orto_dls7_local;
-    std::vector<sq7x7> first_dls7_chunk;
-    std::vector<sq7x7> second_dls7_chunk;
+    std::set<sq7x7> orto_mates_local;
+    std::set<sq7x7> orto_mates_final;
+    std::vector<sq7x7> first_ndls7_chunk;
+    std::vector<sq7x7> second_ndls7_chunk;
 };
