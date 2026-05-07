@@ -3,7 +3,7 @@
 int main(){
     bool master = true;
     
-    const int NUM_OF_CHUNKS = 1;
+    const int NUM_OF_CHUNKS = 10;
     const std::string CHUNKS_DIR = "C:\\Users\\Сергей\\Downloads\\DLS\\";
     
     base_engine eng;

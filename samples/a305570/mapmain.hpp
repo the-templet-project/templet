@@ -83,7 +83,7 @@ public:
 			return false;
 		}
 	};
-    unsigned get_mates_number(){return orto_mates_final.size();} 
+    unsigned get_mates_number(){return orto_mates_final.size();}
 private:
     void on_init(unsigned size) override{
        tasks.resize(num_of_chunks*(1+num_of_chunks)/2);
@@ -160,7 +160,7 @@ private:
 			for (unsigned m2 = m1 + 1; m2 < first_ndls7_chunk.size(); m2++)
 				if (is_ortogonal_pair(first_ndls7_chunk[m1],first_ndls7_chunk[m2])) {
 					num_of_orto_pairs++;
-					std::cout << num_of_orto_pairs << std::endl;
+					std::cout << num_of_orto_pairs << " orto pair(s) found" << std::endl;
                     orto_mates_local.insert(first_ndls7_chunk[m1]);
 					orto_mates_local.insert(first_ndls7_chunk[m2]);
 				}
@@ -171,9 +171,9 @@ private:
 			for (unsigned m2 = 0; m2 < second_ndls7_chunk.size(); m2++)
 				if (is_ortogonal_pair(first_ndls7_chunk[m1],second_ndls7_chunk[m2])) {
 					num_of_orto_pairs++;
-					std::cout << num_of_orto_pairs << std::endl;
+					std::cout << num_of_orto_pairs << " orto pair(s) found" << std::endl;
             		orto_mates_local.insert(first_ndls7_chunk[m1]);
-					orto_mates_local.insert(first_ndls7_chunk[m2]);
+					orto_mates_local.insert(second_ndls7_chunk[m2]);
 				}
     }
     static bool is_ortogonal_pair(sq7x7& f, sq7x7& s){
