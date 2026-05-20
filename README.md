@@ -1,8 +1,8 @@
 ![](LOGO.png)  
-##  **TEMPLET** -- a framework for actor-task computing 
-*******************************************************
+##  **TEMPLET** -- software for on-premise distributed computing 
+****************************************************************
 
-[The Templet project](http://templet.ssau.ru) exists to take full advantage of computing resources in scientific, educational and industrial applications through the implementation of *actor-task computing*, a generic approach that adapts [actor model](https://en.wikipedia.org/wiki/Actor_model) for [many-task computing](https://en.wikipedia.org/wiki/Many-task_computing) across multiple cores, clusters, and the Internet.
+[The Templet project](http://templet.ssau.ru) exists to take full advantage of computing resources in scientific, educational and industrial applications through the implementation of *actor-task computing*, a generic approach that adapts [actor model](https://en.wikipedia.org/wiki/Actor_model) for [many-task computing](https://en.wikipedia.org/wiki/Many-task_computing) and [WAL-based](https://en.wikipedia.org/wiki/Write-ahead_logging) [distributed shared memory](https://en.wikipedia.org/wiki/Distributed_shared_memory)  across local clusters and the Internet.
 
 The current implementation supports the [Everest platform](http://everest.distcomp.org) for managing the execution of parallel tasks on distributed computing resources over the Internet. It can also model logic and measure the performance of a complex many-task workflow on a single computer.
 
