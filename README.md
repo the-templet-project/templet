@@ -1,6 +1,6 @@
 ![](LOGO.png)  
-##  **TEMPLET** -- software development for on-premise distributed computing 
-****************************************************************************
+##  **TEMPLET** -- software tools for on-premises distributed computing 
+***********************************************************************
 
 [The Templet project](http://templet.ssau.ru) exists to take full advantage of computing resources in scientific, educational and industrial applications through the implementation of *actor-task computing*, a generic approach that adapts [actor model](https://en.wikipedia.org/wiki/Actor_model) for [many-task computing](https://en.wikipedia.org/wiki/Many-task_computing) across local clusters and the Internet. 
 
