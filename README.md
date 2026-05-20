@@ -4,7 +4,9 @@
 
 [The Templet project](http://templet.ssau.ru) exists to take full advantage of computing resources in scientific, educational and industrial applications through the implementation of *actor-task computing*, a generic approach that adapts [actor model](https://en.wikipedia.org/wiki/Actor_model) for [many-task computing](https://en.wikipedia.org/wiki/Many-task_computing) across local clusters and the Internet. 
 
-The current implementation supports the [Everest platform](http://everest.distcomp.org) for managing the execution of parallel tasks on distributed computing resources over the Internet. It can also model logic and measure the performance of a complex many-task workflow on a single computer. Now we are working on supporting [WAL-based](https://en.wikipedia.org/wiki/Write-ahead_logging) implementations of [distributed shared memory](https://en.wikipedia.org/wiki/Distributed_shared_memory).
+The current implementation supports the [Everest platform](http://everest.distcomp.org) for managing the execution of parallel tasks on distributed computing resources over the Internet. It can also model logic and measure the performance of a complex many-task workflow on a single computer.
+
+We are currently working on supporting [WAL-based](https://en.wikipedia.org/wiki/Write-ahead_logging)  [distributed shared memory](https://en.wikipedia.org/wiki/Distributed_shared_memory) implementations and running them on systems with shared file storage without the use of third-party software.
 
 You can try Templet
 * interactively with Binder [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/the-templet-project/templet.git/master?urlpath=lab), 
