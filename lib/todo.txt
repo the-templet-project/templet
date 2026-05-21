@@ -2,8 +2,7 @@ new programming models/code names:
 ==================================
 
 actor task model -- templet::acta + templet::meta::acta
-(in templet::acta::message use 'ask','reply','tell';
- in templet::acta::actor use 'task')
+(in templet::acta::actor  use 'task','ask','ret','say','avail')
 
 global object model -- templet::globj + templet::meta::globj
 (in templet::globj use 'update')
@@ -12,7 +11,7 @@ async-await model -- templet::async
 (in templet::async use 'task', 'wait')
 
 ask-say model- templet::chat
-(in templet::chat use 'ask', 'tell')
+(in templet::chat use 'ask', 'say')
 
-parallel for each model - templet::pfor
-(in templet::pfor use 'on_iter','on_save','on_load','on_resize')
+parallel map - templet::map
+(in templet::map use 'on_run(unsigned iter)','on_save','on_load','on_init(unsigned size)')

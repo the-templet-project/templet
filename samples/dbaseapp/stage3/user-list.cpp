@@ -32,43 +32,43 @@ int main(int argc, char*argv[])
 
     user_name+=pw->pw_name; // getting current user from the system
 
-    templet::server_side_wal wal(1000,1,std::string("dbase"),std::string("txt"));
-    user_full_name ufname(wal);
+	system("clear");
 
-    for(;;){
-        system("clear");
-        std::cout << "Введите номер желаемого действия + <Enter>" << std::endl;
-        std::cout << "1. Изменить полное имя пользователя" << std::endl;
-        std::cout << "2. Распечатать список пользователей и их полных имен" << std::endl;
-        std::cout << "3. Выйти из программы" << std::endl;
-        char ch;
-        std::cin >> ch; std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        switch(ch){
-            case '1':{
-                std::string full_name; 
-                std::cout << "Пользователь " << user_name << "!" <<std::endl;
-                std::cout << "Пожалуйста, введите свое полное имя:" << std::endl;
-                std::getline(std::cin,full_name);
-                   
-                // getting exclusive lock to the dbase.txt
-                sem_wait(sem); ufname.change_full_name(user_name,full_name); sem_post(sem);        
-                break;
-            }
-            case '2':{
-                // getting exclusive lock to the dbase.txt
-                sem_wait(sem); ufname.print(std::cout); sem_post(sem);
-                std::cout << "---" <<std::endl;
-                std::cout << "Введите любой символ + <Enter> чтобы продолжить" <<std::endl;
-                char ch; std::cin >> ch;
-                break;
-            }
-            case '3':{
-                goto exit_for;
-                break;
-            }
+	std::cout << "Введите номер желаемого действия + <Enter>" << std::endl;
+    std::cout << "1. Изменить полное имя пользователя" << std::endl;
+    std::cout << "2. Распечатать список пользователей и их полных имен" << std::endl;
+    
+	char ch;    
+    std::cin >> ch; std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+	std::string full_name;
+
+    switch(ch){
+        case '1':{         
+            std::cout << "Пользователь " << user_name << "!" <<std::endl;
+            std::cout << "Пожалуйста, введите свое полное имя:" << std::endl;
+            std::getline(std::cin,full_name);      
+            break;
         }
     }
-exit_for:       
+
+	sem_wait(sem);// getting exclusive lock to the dbase.txt
+	templet::server_side_wal wal(1000, 1, std::string("dbase"), std::string("txt"));
+	user_full_name ufname(wal);
+
+	switch (ch) {
+		case '1': {
+			ufname.change_full_name(user_name, full_name);
+			break;
+		}
+		case '2': {
+			ufname.print(std::cout);
+			break;
+		}
+	}
+
+	sem_post(sem);
     sem_close(sem);
-    return EXIT_SUCCESS;
+
+	return EXIT_SUCCESS;
 }
