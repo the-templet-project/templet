@@ -41,31 +41,27 @@ int main(int argc, char*argv[])
 	char ch;    
     std::cin >> ch; std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-	std::string full_name;
+    if(ch!='1'&&ch!='2'){
+        std::cout << "Ошибка ввода. Перезапустите программу." << std::endl;
+        return EXIT_FAILURE;
+    }
 
-    switch(ch){
-        case '1':{         
-            std::cout << "Пользователь " << user_name << "!" <<std::endl;
-            std::cout << "Пожалуйста, введите свое полное имя:" << std::endl;
-            std::getline(std::cin,full_name);      
-            break;
-        }
+    std::string full_name;
+
+    if(ch=='1'){       
+        std::cout << "Пользователь " << user_name << "!" <<std::endl;
+        std::cout << "Пожалуйста, введите свое полное имя:" << std::endl;
+        std::getline(std::cin,full_name);      
     }
 
 	sem_wait(sem);// getting exclusive lock to the dbase.txt
 	templet::server_side_wal wal(1000, 1, std::string("dbase"), std::string("txt"));
 	user_full_name ufname(wal);
 
-	switch (ch) {
-		case '1': {
-			ufname.change_full_name(user_name, full_name);
-			break;
-		}
-		case '2': {
-			ufname.print(std::cout);
-			break;
-		}
-	}
+    if(ch=='1')
+		ufname.change_full_name(user_name, full_name);
+	else if(ch=='2')
+		ufname.print(std::cout);
 
 	sem_post(sem);
     sem_close(sem);
