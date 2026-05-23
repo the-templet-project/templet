@@ -2,7 +2,22 @@
 #include <istream>
 #include <ostream>
 
+/*
+wal.hpp
+meta.hpp
+map.hpp
+globj.hpp
+async.hpp
+chat.hpp
+acta.hpp
+*/
+
 namespace templet {
+
+namespace meta {
+	class processor{};
+}
+
 	class wal {
 	public:
 		virtual void write(unsigned& index, unsigned tag, const std::string& blob) = 0;
@@ -17,7 +32,6 @@ namespace templet {
 	};
 
 	class stub {
-		;
 	private:
 		class srvwal :public wal {};
 	};
@@ -36,10 +50,10 @@ namespace templet {
 		);
 	};
 
-	class procpool {
+	class cluster {
 	public:
-		procpool(unsigned size, wal&);
-		void operator()(std::function<unsigned pid, wal&>) process);
+		cluster(unsigned size);
+		void run(std::function<unsigned rank>) process);
 		void delay(double seconds);
 		double duration();
 	};
@@ -75,13 +89,15 @@ namespace meta{
     class globj{
     public:
         void name(const char name[]);
-		void prefix(const char prefix[]);
+		void pref(const char prefix[]);
         update& def(const char name[]);
         class update{
             update& in(const char param[],const char stub_value[]="",const char stub_value_def[]="");
             update& out(const char param[],const char stub_value[]="",const char stub_value_def[]="");
             update& constant();
         };
+	public:
+		void generate(const char file[]);
     };
 }
     class async{
@@ -110,7 +126,7 @@ namespace meta{
     public:
         acta(wal&);
         void run();
-        virtual on_run() 
+		virtual on_run() {}
     public:
         class actor{
         public:
@@ -124,7 +140,7 @@ namespace meta{
             void say(message&);
             void say(message*);
         public:
-             void task(bool local,
+            void task(bool local,
                 std::function<void(std::ostream&)> action,
                 std::function<void(std::istream&)> load
             );
@@ -134,7 +150,7 @@ namespace meta{
             message(actor&);
             message(actor*);
         public:
-            bool operator(actor*)();
+            bool operator(actor*)();// is available now?
             bool operator(actor&)();
         };
     };
@@ -144,14 +160,17 @@ namespace meta{
     class acta{
     public:
         void name(const char name[]);
-		void prefix(const char prefix[]);
+		void pref(const char prefix[]);
         actor& def(const char name[]);
     public:
         class actor{
-            actor& in(const char type[],const char name[]);
-            actor& out(const char type[],const char name[]);
+			actor& start();
+            actor& in(const char message[],const char name[]);
+            actor& out(const char message[],const char name[]);
             actor& task(const char name[]);
-        }
+		};
+	public:
+		void generate(const char file[]);
     };
 }
 }
