@@ -21,18 +21,15 @@ namespace templet {
 			unsigned id,
 			std::function<void(std::ostream&)> save,
 			std::function<void(std::istream&, std::ostream&)> update,
-			std::function<void(std::istream&)> load
+			std::function<void(std::istream&)> load = [](std::istream&) {}
 		);
-		void update(
+		inline void update(
 			unsigned id,
 			std::function<void(std::istream&, std::ostream&)> update,
-			std::function<void(std::istream&)> load
-		);
-		void update(
-			unsigned id,
-			std::function<void(std::ostream&)> save,
-			std::function<void(std::istream&, std::ostream&)> update
-		);
+			std::function<void(std::istream&)> load = [](std::istream&) {}
+		) {
+			globj::update(id, [](std::ostream&) {}, update, load);
+		}
 		void update();
 	};
 }
