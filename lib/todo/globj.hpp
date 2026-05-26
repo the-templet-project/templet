@@ -14,7 +14,7 @@ namespace templet {
 	public:
 		globj(wal&);
 		void init();
-	public:
+	protected:
 		virtual void on_init() = 0;
 	public:
 		void update(
