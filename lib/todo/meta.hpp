@@ -19,13 +19,13 @@ namespace templet {
 			class update {
 				update& in(const char param[], const char stub_value[] = "", const char stub_value_def[] = "");
 				update& out(const char param[], const char stub_value[] = "", const char stub_value_def[] = "");
-				update& ret(const char type[]);
-				update& cnst();
+				update& ret(const char ret_type[], const char ret_param[], const char ret_param_def[] = "");
 			};
 		public:
 			void name(const char name[]);
 			void pref(const char prefix[]);
 			update& def(const char name[]);
+			update& def_const(const char name[]);
 		public:
 			void generate(const char file[]);
 		};
