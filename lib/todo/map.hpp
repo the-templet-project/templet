@@ -10,17 +10,25 @@
 
 namespace templet {
 
-	class map {
+    class map {
 	public:
-		map(wal&);
-		void init(unsigned size);
-		void operator()(
+		map(wal&){}
+		void init(unsigned size){}
+        inline void operator()(
 			std::function<void(unsigned size)> init,
 			std::function<void(unsigned iter)> map,
 			std::function<void(unsigned iter, std::ostream&, bool mapped)> save
 			= [](unsigned, std::ostream&, bool) {},
 			std::function<void(unsigned iter, std::istream&, bool mapped)> load
 			= [](unsigned, std::istream&, bool) {}
-		);
+        ){ map::run(init,map,save,load); }
+		void run(
+			std::function<void(unsigned size)> init,
+			std::function<void(unsigned iter)> map,
+			std::function<void(unsigned iter, std::ostream&, bool mapped)> save
+			= [](unsigned, std::ostream&, bool) {},
+			std::function<void(unsigned iter, std::istream&, bool mapped)> load
+			= [](unsigned, std::istream&, bool) {}
+		){}
 	};
 }
