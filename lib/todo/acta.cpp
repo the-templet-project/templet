@@ -75,7 +75,7 @@ private:
 
 int main()
 {  
-    templet::wal wal;
+    templet::memwal wal;
     templet::job job(NUM_PROC);
 
     job([&](unsigned pid){

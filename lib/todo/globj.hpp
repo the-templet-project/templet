@@ -11,6 +11,7 @@
 #include <ostream>
 #include <sstream>
 #include <map>
+#include <mutex>
 
 namespace templet {
 
@@ -30,6 +31,8 @@ namespace templet {
 			if (_is_init)
 				_updaters[id] = update;
 			else {
+				std::unique_lock<std::mutex> lock(_mut);
+
 				std::ostringstream out; unsigned index;
 				save(out); _wal.write(index, id, out.str()); out.clear();
 
@@ -57,7 +60,11 @@ namespace templet {
 			globj::update(id, [](std::ostream&) {}, update, load);
 		}
 		void update() {
-			unsigned tag; std::string blob; std::ostringstream out;
+			std::unique_lock<std::mutex> lock(_mut);
+
+			unsigned tag; std::string blob;
+			std::ostringstream out;
+
 			for (; _wal.read(_wal_index, tag, blob); _wal_index++) {
 				auto& updater = _updaters[tag];
 				{ 
@@ -71,5 +78,6 @@ namespace templet {
 		unsigned _wal_index;
 		bool _is_init;
 		std::map<unsigned,std::function<void(std::istream&, std::ostream&)>> _updaters;
+		std::mutex _mut;
 	};
 }
