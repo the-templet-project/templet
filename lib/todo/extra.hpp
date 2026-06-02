@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <thread>
+#include <ostream>
 
 namespace templet {
 	
@@ -53,6 +54,7 @@ namespace templet {
 	public:// server side
 		void write(const std::string&);
 		void readln(std::string&);
+		void readln(std::ostream&);
 	};
 
 }

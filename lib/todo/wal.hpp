@@ -34,6 +34,12 @@ namespace templet {
 		std::mutex _mut;
 	};
 
+	class filewal :public wal {
+	public:
+		filewal(const std::string&file);
+		filewal(const char file[]);
+	};
+
 	class cliwal :public wal {
 	private:
 		class proxy :public wal {};

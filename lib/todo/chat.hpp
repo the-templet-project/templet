@@ -17,8 +17,8 @@ namespace templet {
 		virtual void on_run(const std::string& user) = 0;
 		void say(std::function<void()>output_action);
 		void ask(
-			std::function<void(std::ostream&)>input_action,
-			std::istream& input
+			std::istream& input,
+			std::function<void(std::ostream&)>input_action
 		);
 	};
 }
