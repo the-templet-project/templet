@@ -19,6 +19,7 @@ namespace templet {
 			class update {
 				update& in(const char param[], const char stub_value[] = "", const char stub_value_def[] = "");
 				update& out(const char param[], const char stub_value[] = "", const char stub_value_def[] = "");
+				update& ret(const char type[], const char ret_value[] = "", const char ret_value_def[] = "");
 				update& constant();
 			};
 		public:
