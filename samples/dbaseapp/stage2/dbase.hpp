@@ -3,17 +3,17 @@
 #include <iostream>
 #include <iomanip>
 
-#include <syncmem.hpp>
+#include "globj.hpp"
 
-class user_full_name:public templet::state{
+class user_full_name:public templet::globj{
 public:
-    user_full_name(templet::write_ahead_log&l):state(l) {init();}
+    user_full_name(templet::wal&w):globj(w) {init();}
 
     void change_full_name(const std::string&user,const std::string&fname){
          update(_change_full_name, [&](std::ostream&out) {
             out << user << std::endl << fname << std::endl;
 		},
-		[this](std::istream&in) {
+		[this](std::istream&in,std::ostream&) {
             std::string user, fname;
             getline(in,user); getline(in,fname);
             //--------------------------//
