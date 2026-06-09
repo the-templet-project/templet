@@ -21,7 +21,7 @@ namespace templet {
 	public:
 		void write(unsigned& index, unsigned tag, const std::string& blob) override {
 			std::unique_lock<std::mutex> lock(_mut);
-			log.push_back(std::pair<unsigned, std::string>(tag, blob));
+			_log.push_back(std::pair<unsigned, std::string>(tag, blob));
 			index = (unsigned)(_log.size() - 1);
 		}
 		virtual bool read(unsigned index, unsigned& tag, std::string& blob) override {

@@ -12,58 +12,49 @@ const int SIZE = 10;
 class bag_of_tasks:public templet::globj{
 public:
     bag_of_tasks(templet::wal&l):globj(l) {
-		std::random_device rd;_rand.seed(rd());init(); }
-    void resize(unsigned size){//---------------------
+		std::random_device rd;_rand.seed(rd());init(); 
+	}
+    void resize(unsigned size){
         update(_resize, [&](std::ostream&out) {
             out << size;
 		},
 		[this](std::istream&in, std::ostream&) {
             unsigned size; in >> size;
-            //----------------------------------------
             N.resize(size); NxN.resize(size);
             _unprocessed.clear(); _ready_to_get = false;
-            //----------------------------------------
 		});   
     }
-    void add(unsigned id,int n){//--------------------
+    void add(unsigned id,int n){
         update(_add, [&](std::ostream&out) {
             out << id << " " << n;
 		},
 		[this](std::istream&in, std::ostream&) {
             unsigned id; int n; in >> id >> n;
-            //----------------------------------------
             N[id]=n; _unprocessed.insert(id);
             if(_unprocessed.size()==N.size()) _ready_to_get = true;
-            //----------------------------------------
 		});     
     }
-    bool ready_to_get(){//------------------------
+    bool ready_to_get(){
         update();
-        //----------------------------------------
         return _ready_to_get;
-        //----------------------------------------
     }
-    bool get(unsigned& id, int& n){//-------------
+    bool get(unsigned& id, int& n){
         update();
-        //----------------------------------------
         if(_unprocessed.empty())return false;
         id = get_rand_unprocessed(); n = N[id];
         return true;
-        //----------------------------------------
     }
-    void put(unsigned id,int nxn){//-----------------
+    void put(unsigned id,int nxn){
         update(_put, [&](std::ostream&out) {
             out << id << " " << nxn;
 		},
 		[this](std::istream&in, std::ostream&) {
             unsigned id; int nxn; in >> id >> nxn;
-            //----------------------------------------
+        
             _unprocessed.erase(id);
             NxN[id]=nxn;
-            //----------------------------------------
 		});  
     }
-    //----------------------------------------
 public:
     std::vector<int> N;
     std::vector<int> NxN;
@@ -78,7 +69,6 @@ private:
         for (int i = 0; i != selected; i++, it++) {}
         return *it;
     }
-    //----------------------------------------
 private:
 	enum {_resize,_add,_put};
 	void on_init() override {

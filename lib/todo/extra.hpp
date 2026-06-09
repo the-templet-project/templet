@@ -16,7 +16,7 @@ namespace templet {
     class job {
 	public:
 		job(unsigned size):_size(size),_taskID(0){}
-        job():_size(0),_taskID(0){}
+        job():_size(std::thread::hardware_concurrency()),_taskID(0){}
         void init(unsigned size){_size = size;}
     public:
         inline void operator()(std::function<void(unsigned taskID)> task){
