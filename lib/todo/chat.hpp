@@ -14,6 +14,8 @@ namespace templet {
 	public:
 		chat(wal&);
 		void run(const std::string& user);
+		void operator()(const std::string& user) { run(user); }
+		void update();
 		virtual void on_run(const std::string& user) = 0;
 		void say(std::function<void()>output_action);
 		void ask(
