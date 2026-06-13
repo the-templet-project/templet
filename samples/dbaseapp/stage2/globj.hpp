@@ -23,14 +23,14 @@ namespace templet {
     class wal {
 	public:
 		virtual void write(unsigned& index, unsigned tag, const std::string& blob) = 0;
-		virtual bool read(unsigned index, unsigned& tag, std::string& blob) = 0;////////////////////////
+		virtual bool read(unsigned index, unsigned& tag, std::string& blob) = 0;
 	};
     
-    class filewal :public wal { ///////////////////
+    class filewal :public wal {
 	public:
-		filewal(const char filename[],bool lasy_save=true):filewal(std::string(filename,lasy_save)){}
-		filewal(const std::string& filename,bool lasy_save=true):
-            _current_index(0),_cashed_index(UINT_MAX),_filename(filename),_lasy_save(lasy_save){
+		filewal(const char filename[],bool lazy=true):filewal(std::string(filename),lazy){}
+		filewal(const std::string& filename,bool lazy=true):
+            _current_index(0),_cashed_index(UINT_MAX),_filename(filename),_lazy(lazy){
             _file = fopen(_filename.c_str(), "rb");
             if(!_file){
                 _file = fopen(_filename.c_str(), "ab");
@@ -52,13 +52,13 @@ namespace templet {
             ubuf[1] = tag;   //tag
             ubuf[2] = blob.size(); //blob size
 
-            ret_code = fwrite(ubuf, sizeof ubuf[0], 3, _file);
-            assert(ret_code==3 && "filewal: write error");
+            ret_code = fwrite(ubuf, sizeof(ubuf), 1, _file);
+            assert(ret_code==1 && "filewal: write error");
 
             ret_code = fwrite(blob.c_str(), sizeof(char), ubuf[2], _file);
             assert(ret_code==ubuf[2] && "filewal: write error");
             
-            if(!_lasy_save) fflush(_file);
+            if(!_lazy) fflush(_file);
 
             _cashed_index = _current_index;
             _cashed_tag = tag;
@@ -71,7 +71,7 @@ namespace templet {
                 unsigned ubuf[3];//index,tag,blob size
 
                 assert(index==_current_index && "filewal: access pattern violated");
-                ret_code = fread(ubuf, 1, sizeof ubuf, _file);
+                ret_code = fread(ubuf, 1, sizeof(ubuf), _file);
                 
                 if(ret_code==0 && feof(_file)){
                     fclose(_file);
@@ -81,7 +81,7 @@ namespace templet {
                     return false;
                 }
 
-                if(ret_code!=3 && feof(_file)){
+                if(ret_code!=sizeof(ubuf) && feof(_file)){
                     fclose(_file);
                     truncate_chunk(_filename,ret_code);
                     _file = fopen(_filename.c_str(), "ab");
@@ -111,11 +111,14 @@ namespace templet {
                 return true;
             }
             else{
-                assert(_cashed_index!=UINT_MAX);
-                if(index==_cashed_index+1) return false;
-                assert(index==_cashed_index && "filewal: access pattern violated");
-                tag = _cashed_tag; blob = _cashed_blob;
-                return true;
+                assert(_cashed_index!=UINT_MAX && "filewal: access pattern violated");       
+                assert((index==_cashed_index||index==_cashed_index+1) && "filewal: access pattern violated");
+                
+                if(index==_cashed_index){
+                    tag = _cashed_tag; blob = _cashed_blob;
+                    return true;
+                }
+                return false;
             }
         }
     private:
@@ -126,14 +129,14 @@ namespace templet {
         unsigned _cashed_index;
         unsigned _cashed_tag;
         std::string _cashed_blob;
-        bool _lasy_save;
+        bool _lazy;
     private:
         void truncate_chunk(const std::string& filename,unsigned n){
 #if (__cplusplus>=201703L)
             std::filesystem::path p=filename;
             std::filesystem::resize_file(p,std::filesystem::file_size(p)-n);
 #else
-            assert(!"filewal: the last entry is corrupted in header");
+            assert(!"filewal: the last entry is corrupted");
 #endif
         }        
 	};
@@ -142,7 +145,7 @@ namespace templet {
 	public:
 		void write(unsigned& index, unsigned tag, const std::string& blob) override {
 			std::unique_lock<std::mutex> lock(_mut);
-			_log.push_back(std::pair<unsigned, std::string>(tag, blob)); ///////////////////
+			_log.push_back(std::pair<unsigned, std::string>(tag, blob));
 			index = (unsigned)(_log.size() - 1);
 		}
 		bool read(unsigned index, unsigned& tag, std::string& blob) override {
@@ -151,8 +154,10 @@ namespace templet {
 			return false;
 		}
         void print(){
-            for(int i=0; i< _log.size(); i++)
-                std::cout << i << " " << _log[i].first << std::endl << _log[i].second << std::endl;  
+            for(int i=0; i< _log.size(); i++){
+                std::cout << "index:" << i << " tag:" << _log[i].first << std::endl
+                    <<"entry:" << _log[i].second << std::endl;
+            }
         }
 	protected:
 		std::vector<std::pair<unsigned, std::string>> _log;
