@@ -17,8 +17,8 @@ namespace templet {
 
 	class globj {
 	public:
-		globj(wal&w):_wal(w), _wal_index(0), _is_init(false) {}
-		void init() { _is_init = true; on_init(); _is_init = false; }
+		globj(wal&w) :_wal(w), _wal_index(0), _is_init(false) {}
+		void init() { _is_init = true; on_init(); _is_init = false; update(); }
 	protected:
 		virtual void on_init() = 0;
 	public:
@@ -67,8 +67,8 @@ namespace templet {
 
 			for (; _wal.read(_wal_index, tag, blob); _wal_index++) {
 				auto& updater = _updaters[tag];
-				{ 
-					std::istringstream in(blob); 
+				{
+					std::istringstream in(blob);
 					updater(in, out); out.clear();
 				}
 			}
@@ -77,7 +77,8 @@ namespace templet {
 		wal& _wal;
 		unsigned _wal_index;
 		bool _is_init;
-		std::map<unsigned,std::function<void(std::istream&, std::ostream&)>> _updaters;
+		std::map<unsigned, std::function<void(std::istream&, std::ostream&)>> _updaters;
 		std::mutex _mut;
 	};
+
 }

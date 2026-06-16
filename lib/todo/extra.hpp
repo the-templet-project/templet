@@ -10,6 +10,7 @@
 #include <chrono>
 #include <thread>
 #include <ostream>
+#include <cassert>
 
 namespace templet {
 	
@@ -43,18 +44,23 @@ namespace templet {
         std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;
 	};
 
-	class terminal {
+	class walfixer {
 	public:
-		enum role{client,server};
-		terminal(role, const char inpipe[], const char outpipe[]);
-		terminal(role, const std::string& inpipe, const std::string& outpipe);
+		walfixer(const char filename[]): walfixer(std::string(filename)) {}
+		walfixer() : walfixer(std::string()) {}
+		walfixer(const std::string& filename);
 	public:
-		void run(unsigned topic);// client side
-		void run(std::function<void(unsigned topic)> action);// server side
-	public:// server side
-		void write(const std::string&);
-		void readln(std::string&);
-		void readln(std::ostream&);
+		bool check();
+		bool check(const char filename[]) { return check(std::string(filename)); }
+		bool check(const std::string& filename);
+	public:
+		bool corrupted() { assert(checked() && "walfix: wrong call pattern"); }
+		bool checked();
+		unsigned size();
+		unsigned first();
+		unsigned last();
+	public:
+		bool fix();
 	};
 
 }
