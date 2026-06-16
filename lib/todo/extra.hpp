@@ -54,13 +54,17 @@ namespace templet {
 		bool check(const char filename[]) { return check(std::string(filename)); }
 		bool check(const std::string& filename);
 	public:
-		bool corrupted() { assert(checked() && "walfix: wrong call pattern"); }
+		bool corrupted() { assert(checked() && "walfix: wrong call pattern"); return false; }
 		bool checked();
 		unsigned size();
 		unsigned first();
 		unsigned last();
 	public:
 		bool fix();
+	public:
+		void print(std::ostream&);
+		void print(std::ostream&,unsigned by_ord_from, unsigned by_ord_to);
+		void print(std::ostream&, unsigned by_rev_ord);
 	};
 
 }
