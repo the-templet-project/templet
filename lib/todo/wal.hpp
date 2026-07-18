@@ -9,6 +9,7 @@
 #include <ostream>
 #include <mutex>
 #include <cstdio>
+#include <cassert>
 
 namespace templet {
 
@@ -41,10 +42,10 @@ namespace templet {
 		std::mutex _mut;
 	};
 
-	class filewal :public wal {
+	class globjwal :public wal {
 	public:
-		filewal(const char filename[], bool lazy = true) :filewal(std::string(filename), lazy) {}
-		filewal(const std::string& filename, bool lazy = true) :
+		globjwal(const char filename[], bool lazy = true) :globjwal(std::string(filename), lazy) {}
+		globjwal(const std::string& filename, bool lazy = true) :
 			_current_index(0), _cashed_write(false), _filename(filename), _lazy(lazy) {
 			_file = fopen(_filename.c_str(), "rb");
 			if (!_file) {
@@ -55,7 +56,7 @@ namespace templet {
 			else
 				_initial_read = true;
 		}
-		~filewal() { fclose(_file); }
+		~globjwal() { fclose(_file); }
 
 		void write(unsigned& index, unsigned tag, const std::string& blob) override {
 			assert(!_initial_read && "filewal: access pattern violated");
@@ -129,14 +130,81 @@ namespace templet {
 		bool _lazy;
 	};
 
-	class cliwal :public wal {
-	private:
-		class proxy :public wal {};
-	};
+    class walbuf{};
+    class walcfg{};
 
-	class stub {
-	private:
-		class srvwal :public wal {};
-	};
+    class srvbuf: public walbuf{
+    public:
+        srvbuf(const walcfg&);
+    };
+
+    class stub{
+    public:
+        stub(const walcfg&,walbuf&);
+    public:
+        void run();
+    };
+
+    class srvwal{
+    public:
+        srvwal(const walcfg&cfg){
+            _srvbuf = new srvbuf(cfg); _stub = new stub(cfg,*_srvbuf);
+        }
+        ~srvwal(){delete _srvbuf;delete _stub;}
+    public:
+        void run(){_stub->run();}
+    private:
+        stub* _stub;
+        srvbuf* _srvbuf;
+    };
+
+    class proxy: public walbuf{
+    public:
+        proxy(const walcfg&);
+    };
+
+    class clibuf: public wal{
+    public:
+        clibuf(const walcfg&,walbuf&);
+    public:
+		void write(unsigned& index, unsigned tag, const std::string& blob) override {}
+        bool read(unsigned index, unsigned& tag, std::string& blob) override { return false; }
+    };
+
+    class cliwal: public wal{
+    public:
+        cliwal(const walcfg&cfg){
+            _proxy = new proxy(cfg); _clibuf = new clibuf(cfg,*_proxy);
+        }
+        ~cliwal(){delete _proxy;delete _clibuf;}
+    public:
+		void write(unsigned& index, unsigned tag, const std::string& blob) override {
+            _clibuf->write(index,tag,blob);
+        }
+        bool read(unsigned index, unsigned& tag, std::string& blob) override { 
+            return _clibuf->read(index,tag,blob); 
+        }
+    private:
+        proxy* _proxy;
+        clibuf* _clibuf;
+    };
+    
+    class filewal: public wal{
+    public:
+        filewal(const walcfg&cfg){
+            _srvbuf = new srvbuf(cfg); _clibuf = new clibuf(cfg,*_srvbuf);
+        }
+        ~filewal(){delete _srvbuf;delete _clibuf;}
+    public:
+		void write(unsigned& index, unsigned tag, const std::string& blob) override {
+            _clibuf->write(index,tag,blob);
+        }
+        bool read(unsigned index, unsigned& tag, std::string& blob) override { 
+            return _clibuf->read(index,tag,blob); 
+        }
+    private:
+        srvbuf* _srvbuf;
+        clibuf* _clibuf;
+    };
 
 }

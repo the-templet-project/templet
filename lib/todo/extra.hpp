@@ -44,27 +44,30 @@ namespace templet {
         std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;
 	};
 
-	class walfixer {
-	public:
-		walfixer(const char filename[]): walfixer(std::string(filename)) {}
-		walfixer() : walfixer(std::string()) {}
-		walfixer(const std::string& filename);
-	public:
-		bool check();
-		bool check(const char filename[]) { return check(std::string(filename)); }
-		bool check(const std::string& filename);
-	public:
-		bool corrupted() { assert(checked() && "walfix: wrong call pattern"); return false; }
-		bool checked();
-		unsigned size();
-		unsigned first();
-		unsigned last();
-	public:
-		bool fix();
-	public:
-		void print(std::ostream&);
-		void print(std::ostream&,unsigned by_ord_from, unsigned by_ord_to);
-		void print(std::ostream&, unsigned by_rev_ord);
-	};
+	class walfix {
+    public:
+        walfix(bool autofix=true):_autofix(autofix){}
+    public:
+        bool operator()(const char walfilename[]){
+            ////
+            return _valid;
+        }
+        bool operator()(const std::string& walfilename){
+            return operator()(walfilename.c_str());
+        }
+    public:
+        bool valid(){return _valid;}
+        bool fixed(){return _fixed;}
+    public:
+        unsigned size(){return (_valid?_size:0);}
+        unsigned first(){return (_valid?_first:0);}
+        unsigned last(){return (_valid?_first+_size-1:0);}
+    private:
+        bool _valid;
+        bool _fixed;
+        unsigned _size;
+        unsigned _first;
+        bool _autofix;
+    };
 
 }
