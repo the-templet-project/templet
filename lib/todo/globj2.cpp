@@ -1,4 +1,3 @@
-#include "wal.hpp"
 #include "globj.hpp"
 #include "extra.hpp"
 
@@ -8,8 +7,8 @@
 
 class phonebook :public templet::globj {
 public:
-	phonebook(templet::wal&l) :globj(l) { init(); }
-
+	phonebook(const char filename[]) :globj(filename) { init(); }
+public:
 	void put(const std::string& name, long phone) {
 		update(_put, [&](std::ostream&out) {
 			out << name << " " << phone;
@@ -18,14 +17,6 @@ public:
 				std::string name; long phone; in >> name >> phone;
 				book[name] = phone;
 			});
-	}
-	bool get(const std::string& name, long& phone) {
-		update();
-		if (book.find(name) != book.end()) {
-			phone = book[name];
-			return true;
-		}
-		return false;
 	}
 	void print() {
 		update();
@@ -44,12 +35,11 @@ private:
 
 int main()
 {
-	templet::memwal wal;
-	templet::job job(3);
-
+    phonebook book("data.txt");
+	
+    templet::job job(3);
+    
 	job([&](unsigned pid) {
-
-		phonebook book(wal);
 
 		if (pid == 1) {// user 1 'process'
 			book.put(std::string("John"), 111111);
@@ -64,7 +54,7 @@ int main()
 			templet::job::delay(1.0);
 			book.print();
 		}
-		});
-
+	});
+    
 	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
 }
