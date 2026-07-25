@@ -1,4 +1,4 @@
-//#include "wal.hpp"
+#include "wal.hpp"
 #include "globj.hpp"
 #include "extra.hpp"
 
@@ -32,18 +32,52 @@ private:
 
 int main()
 {
-	templet::memwal wal; 
-    templet::job job(4);
-    
-	job([&](unsigned pid) {
-        counter a_counter(wal);
+    {
+        std::cout << "Development with 'in memory' WAL ..." << std::endl;
         
-    	a_counter.inc(1); templet::job::delay(1.0);
+    	templet::memwal wal; 
+        templet::job job(4);
         
-		if (pid == 0) {// in master 'process'	
-			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
-		}
-	});
-    
-	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
+    	job([&](unsigned pid) {
+            counter a_counter(wal);
+        	a_counter.inc(1); templet::job::delay(1.0); 
+    		if (pid == 0) // in master 'process'	
+    			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
+    	});    
+    	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
+    }
+    {
+        std::cout << "Development with 'in file' WAL ..." << std::endl;
+
+        templet::config conf("some params");
+    	templet::server srv(conf); 
+        templet::job job(4);
+        
+    	job([&](unsigned pid) {
+            templet::client cli(srv);
+            counter a_counter(cli);
+        	a_counter.inc(1); templet::job::delay(1.0); 
+    		if (pid == 0) // in master 'process'	
+    			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
+    	});    
+    	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
+    }
+    {
+        std::cout << "Development with 'in file' WAL and networking ..." << std::endl;
+
+        templet::config conf("some params");
+    	templet::server srv(conf);
+        srv.listen();
+        templet::job job(4);
+        
+    	job([&](unsigned pid) {
+            templet::client cli(conf);
+            counter a_counter(cli);
+        	a_counter.inc(1); templet::job::delay(1.0); 
+    		if (pid == 0) // in master 'process'	
+    			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
+    	});    
+    	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
+    }
+
 }

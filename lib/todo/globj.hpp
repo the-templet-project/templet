@@ -1,8 +1,8 @@
+#pragma once
+
 /*--------------------------------------------------------------------------*/
 /*  Copyright 2026 Sergei Vostokin                                          */
 /*--------------------------------------------------------------------------*/
-
-#pragma once
 
 #include "wal.hpp"
 
@@ -33,7 +33,7 @@ namespace templet {
 				_initial_read = true;
 		}
         globjwal() :  _file(NULL){}
-		~globjwal() { if(_file) fclose(_file); }
+	   ~globjwal() { if(_file) fclose(_file); }
     private:
 		void write(unsigned& index, unsigned tag, const std::string& blob) override {
 			assert(!_initial_read && "filewal: access pattern violated");

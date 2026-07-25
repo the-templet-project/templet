@@ -1,14 +1,15 @@
+#pragma once
+
 /*--------------------------------------------------------------------------*/
 /*  Copyright 2026 Sergei Vostokin                                          */
 /*--------------------------------------------------------------------------*/
-
-#pragma once
 
 #include <functional>
 #include <istream>
 #include <ostream>
 #include <mutex>
 #include <cstdio>
+#include <fstream>
 #include <cassert>
 
 namespace templet {
@@ -18,6 +19,14 @@ namespace templet {
 		virtual void write(unsigned& index, unsigned tag, const std::string& blob) = 0;
 		virtual bool read(unsigned index, unsigned& tag, std::string& blob) = 0;
 	};
+
+    class objstore {
+    public:
+        virtual bool read(const std::string& objID,unsigned index,std::ifstream&) = 0;
+        virtual bool write(const std::string& objID,unsigned index,std::ofstream&) = 0;
+        virtual bool erase(const std::string& objID,unsigned index) = 0; 
+        virtual bool commit(const std::string& objID) = 0;
+    };
 
 	class memwal :public wal {
 	public:
@@ -41,5 +50,38 @@ namespace templet {
 		std::vector<std::pair<unsigned, std::string>> _log;
 		std::mutex _mut;
 	};
+
+    class config {
+    public:
+        config(const char[]){}
+    };
+
+    class intrapi{};
+    
+    class stub{
+    friend class server;
+    };
+
+    class server : public intrapi {
+    public:
+        server(const config&){}
+        void listen(){}
+    };
+
+    class proxy : public intrapi{
+    friend class client;
+    };
+
+    class client : public wal /*, public objstore */{
+    public:
+        client(server&){}
+        client(const config&){}
+    public:
+        void write(unsigned& index, unsigned tag, const std::string& blob) override {
+		}
+		bool read(unsigned index, unsigned& tag, std::string& blob) override {
+			return false;
+		}
+    };
 
 }
