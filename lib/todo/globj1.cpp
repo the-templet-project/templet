@@ -107,4 +107,5 @@ int main()
 
     std::cout << "Duration with " << NUM_PROC << 
         " thread(s) is " << job.duration() << " seconds." << std::endl;
+    std::cout << "Speedup is " << SIZE/job.duration() << " ." << std::endl;
 }

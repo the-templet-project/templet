@@ -1,3 +1,4 @@
+#include "wal.hpp"
 #include "globj.hpp"
 #include "extra.hpp"
 
@@ -18,41 +19,35 @@ public:
 				book[name] = phone;
 			});
 	}
-	void print() {
-		update();
-		std::cout << "Phone book:" << std::endl;
-		for (auto& it : book)
-			std::cout << it.first << "--" << it.second << std::endl;
-	}
-private:
 	std::map<std::string, long> book;
 private:
 	enum { _put };
-	void on_init() override {
-		put(std::string(), 0);
-	}
+	void on_init() override { put(std::string(), 0); }
 };
 
 int main()
 {
-    phonebook book("data.txt");
+    phonebook phbook("data.txt");
 	
     templet::job job(3);
     
 	job([&](unsigned pid) {
 
 		if (pid == 1) {// user 1 'process'
-			book.put(std::string("John"), 111111);
-			book.put(std::string("Mary"), 333333);
+			phbook.put(std::string("John"), 111111);
+			phbook.put(std::string("Mary"), 333333);
 		}
 		else if (pid == 2) {// user 2 'process'
-			book.put(std::string("John"), 222222);
-			book.put(std::string("Bob"), 4444444);
+			phbook.put(std::string("John"), 222222);
+			phbook.put(std::string("Bob"), 4444444);
 		}
 
 		if (pid == 0) {// in master 'process'
 			templet::job::delay(1.0);
-			book.print();
+			phbook.update();
+            std::cout << "Phone book:" << std::endl;
+    		for (auto& it : phbook.book)
+    			std::cout << it.first << "--" << it.second << std::endl;
 		}
 	});
     

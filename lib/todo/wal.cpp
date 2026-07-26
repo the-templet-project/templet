@@ -41,7 +41,7 @@ int main()
     	job([&](unsigned pid) {
             counter a_counter(wal);
         	a_counter.inc(1); templet::job::delay(1.0); 
-    		if (pid == 0) // in master 'process'	
+            if (pid == 0) // in master 'process'	
     			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
     	});    
     	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
@@ -50,14 +50,15 @@ int main()
         std::cout << "Development with 'in file' WAL ..." << std::endl;
 
         templet::config conf("some params");
-    	templet::server srv(conf); 
+    	templet::srvwal swal(conf); 
         templet::job job(4);
         
     	job([&](unsigned pid) {
-            templet::client cli(srv);
-            counter a_counter(cli);
-        	a_counter.inc(1); templet::job::delay(1.0); 
-    		if (pid == 0) // in master 'process'	
+            templet::cliwal wal(swal);
+            
+            counter a_counter(wal);
+            a_counter.inc(1); templet::job::delay(1.0); 
+            if (pid == 0) // in master 'process'	
     			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
     	});    
     	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
@@ -66,13 +67,14 @@ int main()
         std::cout << "Development with 'in file' WAL and networking ..." << std::endl;
 
         templet::config conf("some params");
-    	templet::server srv(conf);
-        srv.listen();
+    	templet::srvwal swal(conf);
+        swal.listen();
         templet::job job(4);
         
     	job([&](unsigned pid) {
-            templet::client cli(conf);
-            counter a_counter(cli);
+            templet::cliwal wal(conf);
+            
+            counter a_counter(wal);
         	a_counter.inc(1); templet::job::delay(1.0); 
     		if (pid == 0) // in master 'process'	
     			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;

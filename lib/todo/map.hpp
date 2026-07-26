@@ -1,8 +1,10 @@
+#pragma once
+
 /*--------------------------------------------------------------------------*/
 /*  Copyright 2026 Sergei Vostokin                                          */
 /*--------------------------------------------------------------------------*/
 
-#pragma once
+#include "wal.hpp"
 
 #include <functional>
 #include <istream>

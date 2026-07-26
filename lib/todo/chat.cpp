@@ -69,7 +69,7 @@ int main()
 		std::ostringstream user; user << "user" << std::setw(3) << std::setfill('0') << pid;
 		ticketchat tbot(wal);
 		tbot.run(user.str());
-		});
+	});
 
 	ticketchat tbot(wal);
 	tbot.update();

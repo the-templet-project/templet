@@ -17,11 +17,11 @@ namespace templet {
 
     class globj;
 
-	class globjwal :public wal {
+	class glowal :public wal {
     friend class globj;
     private:
-		globjwal(const char filename[], bool lazy = true) :globjwal(std::string(filename), lazy) {}
-		globjwal(const std::string& filename, bool lazy = true) :
+		glowal(const char filename[], bool lazy = true) :glowal(std::string(filename), lazy) {}
+		glowal(const std::string& filename, bool lazy = true) :
 			_current_index(0), _cashed_write(false), _filename(filename), _lazy(lazy) {
 			_file = fopen(_filename.c_str(), "rb");
 			if (!_file) {
@@ -32,8 +32,8 @@ namespace templet {
 			else
 				_initial_read = true;
 		}
-        globjwal() :  _file(NULL){}
-	   ~globjwal() { if(_file) fclose(_file); }
+        glowal() :  _file(NULL){}
+	   ~glowal() { if(_file) fclose(_file); }
     private:
 		void write(unsigned& index, unsigned tag, const std::string& blob) override {
 			assert(!_initial_read && "filewal: access pattern violated");
@@ -112,9 +112,9 @@ namespace templet {
 		globj(wal&w) :_wal(w), _wal_index(0), _is_init(false) {}
     public:
         globj(const std::string& filename, bool lazy = true) :
-            _globjwal(filename,lazy), _wal(_globjwal), _wal_index(0), _is_init(false) {}
+            _glowal(filename,lazy), _wal(_glowal), _wal_index(0), _is_init(false) {}
         globj(const char filename[], bool lazy = true) :
-            _globjwal(filename,lazy), _wal(_globjwal), _wal_index(0), _is_init(false) {}
+            _glowal(filename,lazy), _wal(_glowal), _wal_index(0), _is_init(false) {}
     public:
         void init() { _is_init = true; on_init(); _is_init = false; update(); }
 	protected:
@@ -178,7 +178,7 @@ namespace templet {
 		std::map<unsigned, std::function<void(std::istream&, std::ostream&)>> _updaters;
 		std::mutex _mut;
     private:
-        globjwal _globjwal;
+        glowal _glowal;
 	};
 
 }
