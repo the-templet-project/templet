@@ -64,7 +64,7 @@ namespace templet {
     friend class cliwal;
     };
 
-    class cliwal : public wal /*, public objstore */{
+    class cliwal : public wal {
     public:
         cliwal(srvwal&){}
         cliwal(const config&){}
