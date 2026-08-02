@@ -46,6 +46,9 @@ namespace templet {
     class config {
     public:
         config(const char[]){}
+        unsigned jobs_num(){return 0;}
+        bool is_srv(){return false;}
+        bool is_master(){return false;}
     };
 
     class intrapi{};
@@ -57,6 +60,7 @@ namespace templet {
     class srvwal : public intrapi {
     public:
         srvwal(const config&){}
+    public:
         void listen(){}
     };
 
@@ -64,10 +68,12 @@ namespace templet {
     friend class cliwal;
     };
 
-    class cliwal : public wal {
+    class cliwal : public wal /*, public objstore */{
     public:
         cliwal(srvwal&){}
-        cliwal(const config&){}
+        cliwal(){}
+    public:
+        void connect(const config&){}
     public:
         void write(unsigned& index, unsigned tag, const std::string& blob) override {
 		}

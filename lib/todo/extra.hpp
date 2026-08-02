@@ -29,10 +29,14 @@ namespace templet {
             job::run(task);
         }
 		void run(std::function<void(unsigned taskID)> task){
-            std::vector<std::thread> threads(_size);
+            if(_size==0)_size=std::thread::hardware_concurrency();
             _beg=std::chrono::high_resolution_clock::now();
-        	for (auto& t : threads) t = std::thread([&]{task(_taskID++);}); 
-            for (auto& t : threads) t.join();
+            if(_size==1) task(0);
+            else{
+                std::vector<std::thread> threads(_size);
+            	for (auto& t : threads) t = std::thread([&]{task(_taskID++);}); 
+                for (auto& t : threads) t.join();
+            }
             _end=std::chrono::high_resolution_clock::now();
         }
 		static void delay(double seconds){

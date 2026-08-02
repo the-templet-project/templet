@@ -33,7 +33,7 @@ private:
 int main()
 {
     {
-        std::cout << "Development with 'in memory' WAL ..." << std::endl;
+        std::cout << "Initial development with 'in memory' WAL ..." << std::endl;
         
     	templet::memwal wal; 
         templet::job job(4);
@@ -41,45 +41,32 @@ int main()
     	job([&](unsigned pid) {
             counter a_counter(wal);
         	a_counter.inc(1); templet::job::delay(1.0); 
-            if (pid == 0) // in master 'process'	
-    			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
-    	});    
-    	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
-    }
-    {
-        std::cout << "Development with 'in file' WAL ..." << std::endl;
-
-        templet::config conf("some params");
-    	templet::srvwal swal(conf); 
-        templet::job job(4);
-        
-    	job([&](unsigned pid) {
-            templet::cliwal wal(swal);
             
-            counter a_counter(wal);
-            a_counter.inc(1); templet::job::delay(1.0); 
             if (pid == 0) // in master 'process'	
     			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
     	});    
     	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
     }
     {
-        std::cout << "Development with 'in file' WAL and networking ..." << std::endl;
+        std::cout << "'Single deployment' WAL ..." << std::endl;
 
         templet::config conf("some params");
+        
     	templet::srvwal swal(conf);
-        swal.listen();
-        templet::job job(4);
+        if(conf.is_srv())swal.listen();
+        
+        templet::job job(conf.jobs_num());
         
     	job([&](unsigned pid) {
-            templet::cliwal wal(conf);
-            
+            templet::cliwal wal(swal);//or 'templet::cliwal wal; wal.connect(conf);' 
+            if(!conf.is_srv()) wal.connect(conf);
+
             counter a_counter(wal);
-        	a_counter.inc(1); templet::job::delay(1.0); 
-    		if (pid == 0) // in master 'process'	
+        	a_counter.inc(1); templet::job::delay(1.0);
+            
+    		if (conf.is_master() && pid == 0) // in master 'process'	
     			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
     	});    
     	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
     }
-
 }
