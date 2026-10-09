@@ -24,7 +24,7 @@ namespace templet {
 				update& out(const char param[], const char stub_value[] = "0", const char stub_value_def[] = ""){
                     return *this;
                 }
-				update& ret(const char type[], const char ret_value[] = "0", const char ret_value_def[] = ""){
+				update& ret(const char type[], const char ret_value[], const char ret_value_def[]){
                     return *this;
                 }
 			};
