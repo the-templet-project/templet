@@ -102,8 +102,10 @@ private:
 #pragma templet /bag_of_tasks.class     
 };
 
+#pragma templet footer
 int main()
 {  
     meta_bag_of_tasks meta;
     meta.generate(__FILE__);
 }
+#pragma templet /footer
