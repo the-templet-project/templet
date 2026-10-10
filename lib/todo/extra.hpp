@@ -123,8 +123,8 @@ namespace templet {
         unsigned first(){return ((_valid||_fixed)?_first:0);}
         unsigned last(){return ((_valid||_fixed)?_first+_size-1:0);}
     private:
-        bool _valid;
-        bool _fixed;
+        bool _valid=false;
+        bool _fixed=false;
         unsigned _size;
         unsigned _first;
     };
