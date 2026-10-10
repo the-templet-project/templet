@@ -18,13 +18,16 @@ namespace templet {
 		public:
 			class update {
             public:
+				//	e.g. in("const std::string& str","stub_str","std::string stub_str")
 				update& in(const char param[], const char stub_value[] = "0", const char stub_value_def[] = ""){
                     return *this;
                 }
+				//	e.g. out("bool& ret","stub_ret","bool stub_ret")
 				update& out(const char param[], const char stub_value[] = "0", const char stub_value_def[] = ""){
                     return *this;
                 }
-				update& ret(const char type[], const char ret_value[], const char ret_value_def[]){
+				//	e.g. ret("bool","bool ret=false","ret")
+				update& ret(const char type[], const char ret_value_def[], const char ret_value[]){
                     return *this;
                 }
 			};
