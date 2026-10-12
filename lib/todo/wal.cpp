@@ -1,6 +1,5 @@
 #include "wal.hpp"
 #include "globj.hpp"
-#include "extra.hpp"
 
 #include <iostream>
 
@@ -32,41 +31,20 @@ private:
 
 int main()
 {
-    {
-        std::cout << "Initial development with 'in memory' WAL ..." << std::endl;
-        
-    	templet::memwal wal; 
-        templet::job job(4);
-        
-    	job([&](unsigned pid) {
-            counter a_counter(wal);
-        	a_counter.inc(1); templet::job::delay(1.0); 
-            
-            if (pid == 0) // in master 'process'	
-    			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
-    	});    
-    	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
-    }
-    {
-        std::cout << "'Single deployment' WAL ..." << std::endl;
+    bool master = true;
+    
+    templet::cfg cfg; 
+    templet::env env(cfg);
 
-        templet::config conf("some params");
-        
-    	templet::srvwal swal(conf);
-        if(conf.is_srv())swal.listen();
-        
-        templet::job job(conf.jobs_num());
-        
-    	job([&](unsigned pid) {
-            templet::cliwal wal(swal);//or 'templet::cliwal wal; wal.connect(conf);' 
-            if(!conf.is_srv()) wal.connect(conf);
+    // setting cfg parameters
+    cfg.mode(templet::cfg::type::mem);
+    cfg.numtasks(templet::cfg::SYSDEF);
 
-            counter a_counter(wal);
-        	a_counter.inc(1); templet::job::delay(1.0);
-            
-    		if (conf.is_master() && pid == 0) // in master 'process'	
-    			std::cout << "total number of jobs: " << a_counter.inc(0) << std::endl;
-    	});    
-    	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
-    }
-}
+    env([&](unsigned pid,templet::wal& wal) {
+        counter a_counter(wal);
+        a_counter.inc(1); templet::env::delay(1.0); 
+        
+        if (pid == 0 && master) // in master 'process'	
+            std::cout << "total number of processes: " << a_counter.inc(0) << std::endl;
+    });
+ }
