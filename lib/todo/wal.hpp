@@ -113,7 +113,7 @@ namespace templet {
                 memwal wal;
                 
                 unsigned size=_cfg._numtasks;
-                if(size==0)size=std::thread::hardware_concurrency();
+                if(size==cfg::SYSDEF)size=std::thread::hardware_concurrency();
                 
                 _beg=std::chrono::high_resolution_clock::now();
                 
@@ -150,7 +150,7 @@ namespace templet {
             std::function<void(unsigned taskID,templet::wal&wal)> task)
         {
             unsigned size=_cfg._numtasks;
-            if(size==0)size=std::thread::hardware_concurrency();
+            if(size==cfg::SYSDEF)size=std::thread::hardware_concurrency();
             
             _beg=std::chrono::high_resolution_clock::now();
             
