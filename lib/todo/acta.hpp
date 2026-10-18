@@ -17,7 +17,6 @@ namespace templet {
 		acta(wal&){}
 		void run(){}
 		inline void operator()() { acta::run(); }
-		virtual void on_run() {}
 	public:
 		class actor;
 		class message {
@@ -42,10 +41,10 @@ namespace templet {
 		class actor {
 		public:
             actor(){}
-			actor(acta&,bool start=false){}
-			actor(acta*,bool start = false){}
-            void init(acta&,bool start = false){}
-            void init(acta*,bool start = false){}
+			actor(acta&,bool on_run=false){}
+			actor(acta*,bool on_run = false){}
+            void init(acta&,bool on_run = false){}
+            void init(acta*,bool on_run = false){}
 		public:
 			void ask(message&){}
 			void ask(message*){}
@@ -66,7 +65,7 @@ namespace templet {
 			}
 			void stop(){}
         protected:
-            virtual void on_start(){}
+            virtual void on_run(){}
 		};
 	};
 }

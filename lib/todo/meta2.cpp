@@ -7,24 +7,13 @@ class meta_bag_of_tasks: public templet::meta::acta {
 public:
     meta_bag_of_tasks(){
         name("bag_of_tasks");
-
-        def("master")
-            .in("message", "in");
-
-        def("worker")
-            .start()
-            .out("message", "out");
+        def("master").in("in","message");
+        def("worker",true).out("out","message");
     }
 };
 #pragma templet /header
 
 class bag_of_tasks : public templet::acta {
-public:
-    bag_of_tasks(templet::wal&l):templet::acta(l){
-#pragma templet bag_of_tasks.bag_of_tasks
-        
-#pragma templet /bag_of_tasks.bag_of_tasks
-    }
 public:
     class message:public templet::acta::message{
 #pragma templet message
@@ -81,7 +70,7 @@ public:
 
 #pragma templet /worker.on_out
         }
-        void on_start()override{
+        void on_run()override{
 #pragma templet worker.on_start
 
 #pragma templet /worker.on_start   
@@ -91,12 +80,6 @@ public:
 
 #pragma templet /worker.class
     };
-private:
-    void on_run()override{
-#pragma templet bag_of_tasks.on_run
-        
-#pragma templet /bag_of_tasks.on_run     
-    }
 #pragma templet bag_of_tasks.class
         
 #pragma templet /bag_of_tasks.class     

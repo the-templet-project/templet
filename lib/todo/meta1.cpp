@@ -7,17 +7,9 @@ class meta_bag_of_tasks: public templet::meta::globj {
 public:
     meta_bag_of_tasks(){
         name("bag_of_tasks");
-
-        def("resize")
-            .in("unsigned size");
-
-        def("add")
-            .in("unsigned id")
-            .in("int n");
-
-        def("put")
-            .in("unsigned id")
-            .in("int nxn");
+        def("resize").in("unsigned size");
+        def("add").in("unsigned id").in("int n");
+        def("put").in("unsigned id").in("int nxn");
     }
 };
 #pragma templet /header
@@ -69,9 +61,7 @@ public:
 private:
 	enum {_resize,_add,_put};
 	void on_init() override {
-		resize(0);
-        add(0,0);
-        put(0,0);
+		resize(0);add(0,0);put(0,0);
 	}
 #pragma templet bag_of_tasks.class
             
