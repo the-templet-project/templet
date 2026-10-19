@@ -106,9 +106,9 @@ namespace templet {
     public:
         env(cfg&c):_cfg(c){}
     public:
-        inline void operator()(std::function<void(unsigned taskID,templet::wal&wal)>task){env::run(task);}
+        inline void operator()(std::function<void(unsigned taskID,templet::wal&)>task){env::run(task);}
         static void delay(double seconds){std::this_thread::sleep_for(std::chrono::duration<double>(seconds));}
-        void run(std::function<void(unsigned taskID,templet::wal&wal)> task){
+        void run(std::function<void(unsigned taskID,templet::wal&)> task){
             if(_cfg._mode==cfg::type::mem){
                 memwal wal;
                 
@@ -147,7 +147,7 @@ namespace templet {
         }
     private:
         inline void _run_cli_tasks(interapi&srv,
-            std::function<void(unsigned taskID,templet::wal&wal)> task)
+            std::function<void(unsigned taskID,templet::wal&)> task)
         {
             unsigned size=_cfg._numtasks;
             if(size==cfg::SYSDEF)size=std::thread::hardware_concurrency();
