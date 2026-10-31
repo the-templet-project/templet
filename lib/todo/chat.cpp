@@ -49,6 +49,20 @@ class ticketchat : public templet::chat {
 			});
 	}
 public:
+    void topic(unsigned t){_topic=t;}
+    unsigned topic(){
+        unsigned t;
+        std::stringstream ios;
+		ask(ios, [=](std::ostream&out) {
+			out << _topic;
+			});
+        ios >> t;
+        return t;
+    }
+private:
+    unsigned _topic;
+
+public:
 	ticketchat(templet::wal&wal) :templet::chat(wal) {
 		for (int i = 1; i <= NUM_TICKETS; i++) vacant_tickets.insert(i);
 		std::random_device rd; _rand.seed(rd());

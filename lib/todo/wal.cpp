@@ -37,7 +37,8 @@ int main()
     templet::env env(cfg);
 
     // setting cfg parameters
-    cfg.mode(templet::cfg::type::mem);
+    cfg.mode(templet::cfg::type::local);
+    cfg.rewrite(true);
     cfg.numtasks(templet::cfg::SYSDEF);
 
     env([&](unsigned pid,templet::wal& wal) {
