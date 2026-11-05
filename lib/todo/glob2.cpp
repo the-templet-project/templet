@@ -1,14 +1,14 @@
 #include "wal.hpp"
-#include "globj.hpp"
-#include "extra.hpp"
+#include "glob.hpp"
+#include "opt.hpp"
 
 #include <map>
 #include <string>
 #include <iostream>
 
-class phonebook :public templet::globj {
+class phonebook :public templet::glob {
 public:
-	phonebook(const char filename[]) :globj(filename) { init(); }
+	phonebook(const char filename[]) :glob(filename) { init(); }
 public:
 	void put(const std::string& name, long phone) {
 		update(_put, [&](std::ostream&out) {

@@ -1,11 +1,11 @@
 #include "wal.hpp"
-#include "globj.hpp"
+#include "glob.hpp"
 
 #include <iostream>
 
-class counter :public templet::globj {
+class counter :public templet::glob {
 public:
-	counter(templet::wal& wal) :globj(wal),_counter(0) { init(); }
+	counter(templet::wal& wal) :glob(wal),_counter(0) { init(); }
 public:
 	unsigned inc(unsigned count) {
         unsigned ret;

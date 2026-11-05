@@ -1,5 +1,9 @@
 #pragma once
 
+/*--------------------------------------------------------------------------*/
+/*  Copyright 2026 Sergei Vostokin                                          */
+/*--------------------------------------------------------------------------*/
+
 #include <functional>
 #include <istream>
 #include <ostream>
@@ -22,34 +26,81 @@ namespace templet {
     public:
         virtual void write(unsigned& index, unsigned tag, const std::string& blob) = 0;
         virtual bool read(unsigned index, unsigned& tag, std::string& blob) = 0;
+    };
+
+    class memwal :public wal {
     public:
-        void print(std::ostream& out) {
-            unsigned index = 0; unsigned tag; std::string blob;
-            while(read(index,tag,blob)){
-               out << "index:" << index << " tag:" << tag << std::endl
-                    << "entry:" << blob << std::endl;                
-            }
+        void write(unsigned& index, unsigned tag, const std::string& blob) override {
+            std::unique_lock<std::mutex> lock(_mut);
+            _log.push_back(std::pair<unsigned, std::string>(tag, blob));
+            index = (unsigned)(_log.size() - 1);
         }
+        bool read(unsigned index, unsigned& tag, std::string& blob) override {
+            std::unique_lock<std::mutex> lock(_mut);
+            if (index < _log.size()) { tag = _log[index].first; blob = _log[index].second; return true; }
+            return false;
+        }
+    private:
+        std::vector<std::pair<unsigned, std::string>> _log;
+        std::mutex _mut;
     };
 
     class filewal :public wal {
     public:
-        filewal(const std::string&file,bool rewrite,bool lazy):_file(file),_rewrite(rewrite),_lazy(lazy),_hfile(NULL){
+        filewal(const std::string&file,bool rewrite=false,bool lazy=true):
+            _file(file),_rewrite(rewrite),_lazy(lazy),_hfile(NULL){
+            
             if(_rewrite) _hfile = fopen(_file.c_str(), "wb");
             else _hfile = fopen(_file.c_str(), "r+b");
-                
+            
             if(!_hfile){ std::cerr << "cannot open the file '" << _file
                 << "' in '" << (_rewrite?"wb":"r+b") << "' mode"; 
                 exit(EXIT_FAILURE);
             }
 
-            ////////// read _hfile
+            if(_rewrite) return;
+
+            unsigned ubuf[3];//index,tag,blob size
+            std::string blob;
+            size_t ret_code;
+            
+            for(;;){
+                ret_code = fread(ubuf, 1, sizeof(ubuf), _hfile);
+                if(ret_code==0) break;
+                
+                if(ret_code!=sizeof(ubuf)){ std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                if(ubuf[2]>blob.max_size()){ std::cerr << "bad blob size in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                if(ubuf[0]!=_log.size()){ std::cerr << "bad index in file '" << _file <<"'";exit(EXIT_FAILURE);}
+
+                blob.resize(ubuf[2]);//size
+
+                ret_code = fread((void*)blob.c_str(), sizeof(char), ubuf[2], _hfile);//blob
+                if(ret_code!=ubuf[2]){ std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+
+                _log.push_back(std::pair<unsigned, std::string>(ubuf[1], blob));//tag,blob
+            }
         }
+        ~filewal(){fclose(_hfile);}
 
         void write(unsigned& index, unsigned tag, const std::string& blob) override {
             std::unique_lock<std::mutex> lock(_mut);
             _log.push_back(std::pair<unsigned, std::string>(tag, blob));
             index = (unsigned)(_log.size() - 1);
+
+            size_t ret_code;
+            unsigned ubuf[3];//index,tag,blob size
+            
+            ubuf[0] = _log.size()-1; //index
+            ubuf[1] = tag;   //tag
+            ubuf[2] = blob.size(); //blob size
+
+            ret_code = fwrite(ubuf, sizeof ubuf[0], 3, _hfile);
+            if(ret_code !=3){ std::cerr << "error write to file '" << _file <<"'";exit(EXIT_FAILURE);}
+
+            ret_code = fwrite(blob.c_str(), sizeof(char), ubuf[2], _hfile);
+            if(ret_code != ubuf[2]){ std::cerr << "error write to file '" << _file <<"'";exit(EXIT_FAILURE);}
+            
+            if(!_lazy) fflush(_hfile);
         }
         bool read(unsigned index, unsigned& tag, std::string& blob) override {
             std::unique_lock<std::mutex> lock(_mut);
@@ -152,6 +203,8 @@ namespace templet {
             }
             else{
                 std::vector<std::thread> threads(size);
+                std::atomic_int _taskID = 0;
+                
                 for (auto& t : threads) t = std::thread([&]{
                     task(_taskID++,srv);
                 }); 
@@ -161,9 +214,6 @@ namespace templet {
         }
     private:
         cfg& _cfg;
-    private:
-        unsigned _size;
-        std::atomic_int _taskID = 0;
         std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;
     };
 }

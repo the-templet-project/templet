@@ -4,6 +4,8 @@
 /*  Copyright 2026 Sergei Vostokin                                          */
 /*--------------------------------------------------------------------------*/
 
+#include "wal.hpp"
+
 #include <functional>
 #include <string>
 #include <atomic>
@@ -18,11 +20,33 @@
 #endif
 
 namespace templet {
-	
+
+    class walout{
+    public:
+        walout(wal&w):_wal(w){}
+    public:
+        void operator()(std::ostream& out,unsigned from=0) const {
+            unsigned index = from; unsigned tag; std::string blob;
+            while(_wal.read(index,tag,blob)){
+                out << "index:" << index << " tag:" << tag << "blob:" << std::endl
+                    << blob << std::endl << std::endl;                
+            }
+        }
+        void operator()(std::ostream& out,unsigned from,unsigned to) const {
+            unsigned index = from; unsigned tag; std::string blob;
+            while(_wal.read(index,tag,blob) && index<=to){
+                out << "index:" << index << " tag:" << tag << "blob:" << std::endl
+                    << blob << std::endl << std::endl;                
+            }
+        }
+    private:
+        wal& _wal;
+    };
+
     class job {
 	public:
-		job(unsigned size):_size(size),_taskID(0){}
-        job():_size(std::thread::hardware_concurrency()),_taskID(0){}
+		job(unsigned size):_size(size){}
+        job():_size(std::thread::hardware_concurrency()){}
         void init(unsigned size){_size = size;}
     public:
         inline void operator()(std::function<void(unsigned taskID)> task){
@@ -33,6 +57,7 @@ namespace templet {
             _beg=std::chrono::high_resolution_clock::now();
             if(_size==1) task(0);
             else{
+                std::atomic_int _taskID = 0;
                 std::vector<std::thread> threads(_size);
             	for (auto& t : threads) t = std::thread([&]{task(_taskID++);}); 
                 for (auto& t : threads) t.join();
@@ -49,7 +74,6 @@ namespace templet {
         }
     private:
         unsigned _size;
-        std::atomic_int _taskID = 0;
         std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;
 	};
 
@@ -128,5 +152,4 @@ namespace templet {
         unsigned _size;
         unsigned _first;
     };
-
 }

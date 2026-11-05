@@ -1,6 +1,6 @@
 #include "wal.hpp"
-#include "globj.hpp"
-#include "extra.hpp"
+#include "glob.hpp"
+#include "opt.hpp"
 
 #include <random>
 #include <set>
@@ -9,9 +9,9 @@
 const int NUM_PROC = 10;
 const int SIZE = 10;
 
-class bag_of_tasks:public templet::globj{
+class bag_of_tasks:public templet::glob{
 public:
-    bag_of_tasks(templet::wal&l):globj(l) {
+    bag_of_tasks(templet::wal&l):glob(l) {
 		std::random_device rd;_rand.seed(rd());init(); 
 	}
     void resize(unsigned size){

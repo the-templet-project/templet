@@ -15,10 +15,10 @@
 
 namespace templet {
 
-    class globj;
+    class glob;
 
 	class glowal :public wal {
-    friend class globj;
+    friend class glob;
     private:
 		glowal(const char filename[], bool lazy = true) :glowal(std::string(filename), lazy) {}
 		glowal(const std::string& filename, bool lazy = true) :
@@ -107,13 +107,13 @@ namespace templet {
 		bool _lazy;
 	};
 
-	class globj {
+	class glob {
 	public:
-		globj(wal&w) :_wal(w), _wal_index(0), _is_init(false) {}
+		glob(wal&w) :_wal(w), _wal_index(0), _is_init(false) {}
     public:
-        globj(const std::string& filename, bool lazy = true) :
+        glob(const std::string& filename, bool lazy = true) :
             _glowal(filename,lazy), _wal(_glowal), _wal_index(0), _is_init(false) {}
-        globj(const char filename[], bool lazy = true) :
+        glob(const char filename[], bool lazy = true) :
             _glowal(filename,lazy), _wal(_glowal), _wal_index(0), _is_init(false) {}
     public:
         void init() { _is_init = true; on_init(); _is_init = false; update(); }
@@ -155,7 +155,7 @@ namespace templet {
 			std::function<void(std::istream&, std::ostream&)> update,
 			std::function<void(std::istream&)> load = [](std::istream&) {}
 		) {
-			globj::update(id, [](std::ostream&) {}, update, load);
+			glob::update(id, [](std::ostream&) {}, update, load);
 		}
 		void update() {
 			std::unique_lock<std::mutex> lock(_mut);

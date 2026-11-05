@@ -1,9 +1,9 @@
 #pragma templet header
 
 #include "meta.hpp"
-#include "globj.hpp"
+#include "glob.hpp"
 
-class meta_bag_of_tasks: public templet::meta::globj {
+class meta_bag_of_tasks: public templet::meta::glob {
 public:
     meta_bag_of_tasks(){
         name("bag_of_tasks");
@@ -14,9 +14,9 @@ public:
 };
 #pragma templet /header
 
-class bag_of_tasks:public templet::globj{
+class bag_of_tasks:public templet::glob{
 public:
-    bag_of_tasks(templet::wal&l):globj(l) {
+    bag_of_tasks(templet::wal&l):glob(l) {
 #pragma templet bag_of_tasks.bag_of_tasks
         
 #pragma templet /bag_of_tasks.bag_of_tasks

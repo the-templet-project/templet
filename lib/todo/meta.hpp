@@ -14,7 +14,7 @@ namespace templet {
 
 		class processor {};
 
-		class globj {
+		class glob {
         public:
 			void name(const char name[]){}
 		public:
