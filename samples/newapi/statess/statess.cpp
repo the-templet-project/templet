@@ -153,14 +153,14 @@ private:
 
 int main()
 {
-	std::atomic_int PID = 0;
 	int NUM_THREADS = 10;
 	int ARRAY_SIZE = 10;
 
-	templet::write_ahead_log wal;
-	std::vector<std::thread> threads(NUM_THREADS);
+	templet::environment env;
+    env.poolsize(NUM_THREADS);
+    env.memory(true);
 
-	for (auto& t : threads)t = std::thread([&] { int pid = PID++;
+    env([&](unsigned pid,templet::write_ahead_log& wal){ 
 	//////////////// inside a 'process' ////////////////
 	calc_sqware_scanner scanner_object(pid == 0, wal);
 
@@ -178,7 +178,8 @@ int main()
 			<< std::endl;
 	}
 	////////////////////////////////////////////////////
-	}); for (auto& t : threads) t.join();
+	}); 
+    
 	std::cout << "Success!" << std::endl;
 }
 /*$TET$*/

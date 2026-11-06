@@ -19,14 +19,110 @@
 
 #include <iomanip>
 #include <fstream>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <thread>
+#include <atomic>
 
 #if (__cplusplus>=201703L)
 #include <filesystem>
 #endif
 
 namespace templet {
+
+	class write_ahead_log {
+	public:
+		virtual void write(unsigned& index, unsigned tag, const std::string& blob) {
+			std::unique_lock<std::mutex> lock(mut);
+			log.push_back(std::pair<unsigned, std::string>(tag, blob));
+			index = log.size() - 1;
+		}
+		virtual bool read(unsigned index, unsigned& tag, std::string& blob) {
+			std::unique_lock<std::mutex> lock(mut);
+			if (index < log.size()) { tag = log[index].first; blob = log[index].second; return true; }
+			return false;
+		}
+	protected:
+		std::vector<std::pair<unsigned, std::string>> log;
+		std::mutex mut;
+	};
+
+    class in_file_wal : public write_ahead_log {
+    public:
+        in_file_wal(const std::string&file,bool rewrite=false,bool lazy=true):
+            _file(file),_rewrite(rewrite),_lazy(lazy),_hfile(NULL){
+            
+            if(_rewrite) _hfile = fopen(_file.c_str(), "wb");
+            else _hfile = fopen(_file.c_str(), "r+b");
+            
+            if(!_hfile){ std::cerr << "cannot open the file '" << _file
+                << "' in '" << (_rewrite?"wb":"r+b") << "' mode"; 
+                exit(EXIT_FAILURE);
+            }
+
+            if(_rewrite) return;
+
+            unsigned ubuf[3];//index,tag,blob size
+            std::string blob;
+            size_t ret_code;
+            
+            for(;;){
+                ret_code = fread(ubuf, 1, sizeof(ubuf), _hfile);
+                if(ret_code==0) break;
+                
+                if(ret_code!=sizeof(ubuf)){ 
+                    std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                if(ubuf[2]>blob.max_size()){
+                    std::cerr << "bad blob size in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                if(ubuf[0]!=_log.size()){
+                    std::cerr << "bad index in file '" << _file <<"'";exit(EXIT_FAILURE);}
+
+                blob.resize(ubuf[2]);//size
+
+                ret_code = fread((void*)blob.c_str(), sizeof(char), ubuf[2], _hfile);//blob
+                if(ret_code!=ubuf[2]){
+                    std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+
+                _log.push_back(std::pair<unsigned, std::string>(ubuf[1], blob));//tag,blob
+            }
+        }
+        ~in_file_wal(){fclose(_hfile);}
+
+        void write(unsigned& index, unsigned tag, const std::string& blob) override {
+            std::unique_lock<std::mutex> lock(_mut);
+            _log.push_back(std::pair<unsigned, std::string>(tag, blob));
+            index = (unsigned)(_log.size() - 1);
+
+            size_t ret_code;
+            unsigned ubuf[3];//index,tag,blob size
+            
+            ubuf[0] = _log.size()-1; //index
+            ubuf[1] = tag;   //tag
+            ubuf[2] = blob.size(); //blob size
+
+            ret_code = fwrite(ubuf, sizeof ubuf[0], 3, _hfile);
+            if(ret_code !=3){ std::cerr << "error write to file '" << _file <<"'";exit(EXIT_FAILURE);}
+
+            ret_code = fwrite(blob.c_str(), sizeof(char), ubuf[2], _hfile);
+            if(ret_code != ubuf[2]){ std::cerr << "error write to file '" << _file <<"'";exit(EXIT_FAILURE);}
+            
+            if(!_lazy) fflush(_hfile);
+        }
+        bool read(unsigned index, unsigned& tag, std::string& blob) override {
+            std::unique_lock<std::mutex> lock(_mut);
+            if (index < _log.size()) { tag = _log[index].first; blob = _log[index].second; return true; }
+            return false;
+        }
+    private:
+        std::vector<std::pair<unsigned, std::string>> _log;
+        std::mutex _mut;
+    private:
+        std::string _file;
+        FILE* _hfile;
+        bool _rewrite;
+        bool _lazy;
+    };
 
     class server_side_wal : public write_ahead_log {
     friend class client_side_wal;
@@ -410,5 +506,39 @@ namespace templet {
 
     class client_proxy : public write_ahead_log {
     public:
+    };
+
+    class environment{
+    public:
+        void memory(bool m){_memory=m;}
+        void server(const char addr[],unsigned port=0);
+        void client(const char addr[],unsigned port=0);
+        void client();
+        void poolsize(unsigned size){_poolsize=size;}
+        void file(const char[]);
+        void rewrite(bool);
+        void lazy(bool);
+    public:
+        inline void operator()(std::function<void(unsigned taskID,write_ahead_log&wal)>task){environment::run(task);}
+        void run(std::function<void(unsigned taskID,write_ahead_log&)> task){
+            write_ahead_log wal;
+            std::vector<std::thread> threads(_poolsize);
+            std::atomic_int _taskID = 0;
+            
+            for (auto& t : threads) t = std::thread([&]{
+                task(_taskID++,wal);
+            }); 
+            for (auto& t : threads) t.join();
+        }
+    private:
+        bool _memory;
+        bool _server;
+        bool _client;
+        std::string _addr;
+        unsigned _port;
+        unsigned _poolsize;
+        std::string _file;
+        bool _rewrite;
+        bool _lazy;
     };
 }

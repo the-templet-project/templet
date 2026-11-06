@@ -34,25 +34,9 @@
 using namespace std::chrono_literals;
 
 #include "templet.hpp"
+#include "walimpl.hpp"
 
 namespace templet {
-
-	class write_ahead_log {
-	public:
-		virtual void write(unsigned& index, unsigned tag, const std::string& blob) {
-			std::unique_lock<std::mutex> lock(mut);
-			log.push_back(std::pair<unsigned, std::string>(tag, blob));
-			index = log.size() - 1;
-		}
-		virtual bool read(unsigned index, unsigned& tag, std::string& blob) {
-			std::unique_lock<std::mutex> lock(mut);
-			if (index < log.size()) { tag = log[index].first; blob = log[index].second; return true; }
-			return false;
-		}
-	protected:
-		std::vector<std::pair<unsigned, std::string>> log;
-		std::mutex mut;
-	};
 
 #ifdef  TEMPLET_STATE_TEST_IMPL
 	class state {
