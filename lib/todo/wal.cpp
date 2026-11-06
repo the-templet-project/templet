@@ -1,5 +1,6 @@
 #include "wal.hpp"
 #include "glob.hpp"
+#include "opt.hpp"
 
 #include <iostream>
 
@@ -37,15 +38,23 @@ int main()
     templet::env env(cfg);
 
     // setting cfg parameters
-    cfg.mode(templet::cfg::type::local);
+    cfg.mode(templet::cfg::LOCAL);
+    cfg.wal(templet::cfg::DISK);
+    cfg.file(std::string("wal.dat"));
+    //cfg.rewrite(false);
     cfg.rewrite(true);
-    cfg.numtasks(templet::cfg::SYSDEF);
+    //cfg.size(templet::cfg::SYSDEF);
+    cfg.size(10);
 
     env([&](unsigned pid,templet::wal& wal) {
         counter a_counter(wal);
         a_counter.inc(1); templet::env::delay(1.0); 
         
         if (pid == 0 && master) // in master 'process'	
-            std::cout << "total number of processes: " << a_counter.inc(0) << std::endl;
+            std::cout << "total number of processes: " << a_counter.inc(0) << std::endl << std::endl;
     });
+
+    templet::filewal filewal(std::string("wal.dat"));
+    templet::walout walout(filewal);
+    walout(std::cout);
  }

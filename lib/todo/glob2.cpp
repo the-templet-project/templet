@@ -29,9 +29,9 @@ int main()
 {
     phonebook phbook("data.txt");
 	
-    templet::job job(3);
+    templet::fork fork(3);
     
-	job([&](unsigned pid) {
+	fork([&](unsigned pid) {
 
 		if (pid == 1) {// user 1 'process'
 			phbook.put(std::string("John"), 111111);
@@ -43,7 +43,7 @@ int main()
 		}
 
 		if (pid == 0) {// in master 'process'
-			templet::job::delay(1.0);
+			templet::fork::delay(1.0);
 			phbook.update();
             std::cout << "Phone book:" << std::endl;
     		for (auto& it : phbook.book)
@@ -51,5 +51,5 @@ int main()
 		}
 	});
     
-	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
+	std::cout << "Duration is " << fork.duration() << " seconds." << std::endl;
 }

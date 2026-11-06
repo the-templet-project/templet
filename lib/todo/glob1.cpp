@@ -79,9 +79,9 @@ private:
 int main()
 {
     templet::memwal wal;
-    templet::job job(NUM_PROC);
+    templet::fork fork(NUM_PROC);
 
-    job([&](unsigned pid){
+    fork([&](unsigned pid){
 
         bag_of_tasks tbag(wal);
 
@@ -95,7 +95,7 @@ int main()
         unsigned id; int N, NxN; 
         while(tbag.get(id,N)){
             NxN = N*N;
-            templet::job::delay(1.0);//simulate workload
+            templet::fork::delay(1.0);//simulate workload
             tbag.put(id,NxN);
         }
     
@@ -106,6 +106,6 @@ int main()
     });
 
     std::cout << "Duration with " << NUM_PROC << 
-        " thread(s) is " << job.duration() << " seconds." << std::endl;
-    std::cout << "Speedup is " << SIZE/job.duration() << " ." << std::endl;
+        " thread(s) is " << fork.duration() << " seconds." << std::endl;
+    std::cout << "Speedup is " << SIZE/fork.duration() << " ." << std::endl;
 }

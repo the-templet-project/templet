@@ -68,14 +68,18 @@ namespace templet {
                 ret_code = fread(ubuf, 1, sizeof(ubuf), _hfile);
                 if(ret_code==0) break;
                 
-                if(ret_code!=sizeof(ubuf)){ std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
-                if(ubuf[2]>blob.max_size()){ std::cerr << "bad blob size in file '" << _file <<"'";exit(EXIT_FAILURE);}
-                if(ubuf[0]!=_log.size()){ std::cerr << "bad index in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                if(ret_code!=sizeof(ubuf)){ 
+                    std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                if(ubuf[2]>blob.max_size()){
+                    std::cerr << "bad blob size in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                if(ubuf[0]!=_log.size()){
+                    std::cerr << "bad index in file '" << _file <<"'";exit(EXIT_FAILURE);}
 
                 blob.resize(ubuf[2]);//size
 
                 ret_code = fread((void*)blob.c_str(), sizeof(char), ubuf[2], _hfile);//blob
-                if(ret_code!=ubuf[2]){ std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                if(ret_code!=ubuf[2]){
+                    std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
 
                 _log.push_back(std::pair<unsigned, std::string>(ubuf[1], blob));//tag,blob
             }
@@ -121,23 +125,26 @@ namespace templet {
     friend class env;
     public:
         cfg(const char filename[]):cfg(){}
-        cfg():_mode(type::local),_numtasks(SYSDEF),
+        cfg():_mode(LOCAL),_wal(RAM),_size(SYSDEF),
             _addr("localhost:51717"),_port(51717),
             _file("wal.dat"),_rewrite(false),_lazy(true){}
     public:
-        enum type {local, loop, srv, cli};
+        enum deploy {LOCAL, LOOP, SRV, CLI};
+        enum place {RAM, DISK};
         static const unsigned SYSDEF = 0;
     public:
-        void mode(type m){_mode=m;}
-        void numtasks(unsigned nt){_numtasks=nt;}
+        void mode(deploy m){_mode=m;}
+        void wal(place w){_wal=w;}
+        void size(unsigned s){_size=s;}
         void addr(const std::string& a){_addr=a;}
         void port(unsigned p){_port=p;}
         void file(const std::string& f){_file=f;}
         void rewrite(bool rw){_rewrite=rw;}
         void lazy(bool l){_lazy=l;}
     private:
-        type _mode;
-        unsigned _numtasks;
+        deploy _mode;
+        place _wal;
+        unsigned _size;
         std::string _addr;
         unsigned _port;
         std::string _file;
@@ -165,22 +172,43 @@ namespace templet {
         inline void operator()(std::function<void(unsigned taskID,wal&wal)>task){env::run(task);}
         static void delay(double seconds){std::this_thread::sleep_for(std::chrono::duration<double>(seconds));}
         void run(std::function<void(unsigned taskID,wal&)> task){
-            if(_cfg._mode==cfg::type::local){
-                filewal wal(_cfg._file,_cfg._rewrite,_cfg._lazy);
-                _run_cli_tasks(wal,task);
+            if(_cfg._mode==cfg::LOCAL){
+                if(_cfg._wal==cfg::DISK){
+                    filewal wal(_cfg._file,_cfg._rewrite,_cfg._lazy);
+                    _run_cli_tasks(wal,task);
+                }
+                else if(_cfg._wal==cfg::RAM){
+                    memwal wal;
+                    _run_cli_tasks(wal,task);                    
+                }
             }
-            else if(_cfg._mode==cfg::type::loop){
-                filewal wal(_cfg._file,_cfg._rewrite,_cfg._lazy);
-                stub  srv(_cfg,wal);
-                proxy cli(_cfg);
-                _run_cli_tasks(cli,task);
+            else if(_cfg._mode==cfg::LOOP){
+                if(_cfg._wal==cfg::DISK){
+                    filewal wal(_cfg._file,_cfg._rewrite,_cfg._lazy);
+                    stub  srv(_cfg,wal);
+                    proxy cli(_cfg);
+                    _run_cli_tasks(cli,task);
+                }
+                else if(_cfg._wal==cfg::RAM){
+                    memwal wal;
+                    stub  srv(_cfg,wal);
+                    proxy cli(_cfg);
+                    _run_cli_tasks(cli,task);
+                }
             }
-            else if(_cfg._mode==cfg::type::srv){
-                filewal wal(_cfg._file,_cfg._rewrite,_cfg._lazy);
-                stub  srv(_cfg,wal);
-                _run_cli_tasks(wal,task);
+            else if(_cfg._mode==cfg::SRV){
+                if(_cfg._wal==cfg::DISK){
+                    filewal wal(_cfg._file,_cfg._rewrite,_cfg._lazy);
+                    stub  srv(_cfg,wal);
+                    _run_cli_tasks(wal,task);
+                }
+                else if(_cfg._wal==cfg::RAM){
+                    memwal wal;
+                    stub  srv(_cfg,wal);
+                    _run_cli_tasks(wal,task);
+                }
             }
-            else if(_cfg._mode==cfg::type::cli){
+            else if(_cfg._mode==cfg::CLI){
                 proxy cli(_cfg);
                 _run_cli_tasks(cli,task);
             }
@@ -193,7 +221,7 @@ namespace templet {
         inline void _run_cli_tasks(wal& srv,
             std::function<void(unsigned taskID,wal&)> task)
         {
-            unsigned size=_cfg._numtasks;
+            unsigned size=_cfg._size;
             if(size==cfg::SYSDEF)size=std::thread::hardware_concurrency();
             
             _beg=std::chrono::high_resolution_clock::now();

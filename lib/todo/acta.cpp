@@ -59,7 +59,7 @@ private:
         task(
             [this,&m](std::ostream& out){ 
                 out << m.n*m.n;
-                templet::job::delay(1.0);//simulate workload
+                templet::fork::delay(1.0);//simulate workload
             },
             [this,&m](std::istream& in){ 
                 in >> m.nxn;
@@ -76,9 +76,9 @@ private:
 int main()
 {  
     templet::memwal wal;
-    templet::job job(NUM_PROC);
+    templet::fork fork(NUM_PROC);
 
-    job([&](unsigned pid){
+    fork([&](unsigned pid){
  
         templet::acta acta(wal);
         master a_master(acta,pid);
@@ -103,5 +103,5 @@ int main()
     });
 
     std::cout << "Duration with " << NUM_PROC << 
-        " thread(s) is " << job.duration() << " seconds." << std::endl;
+        " thread(s) is " << fork.duration() << " seconds." << std::endl;
 }

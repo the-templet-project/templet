@@ -28,29 +28,31 @@ namespace templet {
         void operator()(std::ostream& out,unsigned from=0) const {
             unsigned index = from; unsigned tag; std::string blob;
             while(_wal.read(index,tag,blob)){
-                out << "index:" << index << " tag:" << tag << "blob:" << std::endl
-                    << blob << std::endl << std::endl;                
+                out << "index:" << index << " tag:" << tag << " blob:" << std::endl
+                    << blob << std::endl << std::endl;
+                index++;
             }
         }
         void operator()(std::ostream& out,unsigned from,unsigned to) const {
             unsigned index = from; unsigned tag; std::string blob;
             while(_wal.read(index,tag,blob) && index<=to){
                 out << "index:" << index << " tag:" << tag << "blob:" << std::endl
-                    << blob << std::endl << std::endl;                
+                    << blob << std::endl << std::endl;
+                index++;
             }
         }
     private:
         wal& _wal;
     };
 
-    class job {
+    class fork {
 	public:
-		job(unsigned size):_size(size){}
-        job():_size(std::thread::hardware_concurrency()){}
+		fork(unsigned size):_size(size){}
+        fork():_size(std::thread::hardware_concurrency()){}
         void init(unsigned size){_size = size;}
     public:
         inline void operator()(std::function<void(unsigned taskID)> task){
-            job::run(task);
+            fork::run(task);
         }
 		void run(std::function<void(unsigned taskID)> task){
             if(_size==0)_size=std::thread::hardware_concurrency();

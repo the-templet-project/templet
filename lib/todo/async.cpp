@@ -10,9 +10,9 @@ const int SIZE = 10;
 int main()
 {  
     templet::memwal wal;
-    templet::job job(NUM_PROC);
+    templet::fork fork(NUM_PROC);
 
-    job([&](unsigned pid){
+    fork([&](unsigned pid){
 
         templet::async async(wal);
 
@@ -37,7 +37,7 @@ int main()
         for(int i=0; i<size; i++) async.task(
             [&](std::ostream& out){ 
                 NxN[i] = N[i]*N[i];
-                templet::job::delay(1.0);//simulate workload
+                templet::fork::delay(1.0);//simulate workload
                 out << NxN[i];
             },
             [&](std::istream& in){ 
@@ -54,5 +54,5 @@ int main()
     });
 
     std::cout << "Duration with " << NUM_PROC << 
-        " thread(s) is " << job.duration() << " seconds." << std::endl;
+        " thread(s) is " << fork.duration() << " seconds." << std::endl;
 }

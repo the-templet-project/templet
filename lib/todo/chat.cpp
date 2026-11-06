@@ -77,9 +77,9 @@ private:
 int main()
 {
 	templet::memwal wal;
-	templet::job job(NUM_STUDENTS);
+	templet::fork fork(NUM_STUDENTS);
 
-	job([&](unsigned pid) {
+	fork([&](unsigned pid) {
 		std::ostringstream user; user << "user" << std::setw(3) << std::setfill('0') << pid;
 		ticketchat tbot(wal);
 		tbot.run(user.str());
@@ -92,5 +92,5 @@ int main()
 	for (auto& t : tbot.selected_tickets)
 		std::cout << "name:'" << t.first << "' ticket number:" << t.second << std::endl;
 
-	std::cout << "Duration is " << job.duration() << " seconds." << std::endl;
+	std::cout << "Duration is " << fork.duration() << " seconds." << std::endl;
 }
