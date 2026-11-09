@@ -24,12 +24,14 @@ namespace templet {
 
     class wal {
     public:
+        virtual ~wal() {}
         virtual void write(unsigned& index, unsigned tag, const std::string& blob) = 0;
         virtual bool read(unsigned index, unsigned& tag, std::string& blob) = 0;
     };
 
     class memwal :public wal {
     public:
+        virtual ~memwal() override {}
         void write(unsigned& index, unsigned tag, const std::string& blob) override {
             std::unique_lock<std::mutex> lock(_mut);
             _log.push_back(std::pair<unsigned, std::string>(tag, blob));
@@ -47,23 +49,23 @@ namespace templet {
 
     class filewal :public wal {
     public:
-        filewal(const std::string&file,bool rewrite=false,bool lazy=true):
+        filewal(const std::string&file,bool rewrite=false,bool lazy=true): //rewrite --> create ???
             _file(file),_rewrite(rewrite),_lazy(lazy),_hfile(NULL){
             
             if(_rewrite) _hfile = fopen(_file.c_str(), "wb");
-            else _hfile = fopen(_file.c_str(), "r+b");
+            else _hfile = fopen(_file.c_str(), "a+b");
             
             if(!_hfile){ std::cerr << "cannot open the file '" << _file
-                << "' in '" << (_rewrite?"wb":"r+b") << "' mode"; 
+                << "' in '" << (_rewrite?"wb":"a+b") << "' mode"; 
                 exit(EXIT_FAILURE);
             }
-
             if(_rewrite) return;
 
             unsigned ubuf[3];//index,tag,blob size
             std::string blob;
             size_t ret_code;
-            
+
+            rewind(_hfile);
             for(;;){
                 ret_code = fread(ubuf, 1, sizeof(ubuf), _hfile);
                 if(ret_code==0) break;
@@ -84,7 +86,7 @@ namespace templet {
                 _log.push_back(std::pair<unsigned, std::string>(ubuf[1], blob));//tag,blob
             }
         }
-        ~filewal(){fclose(_hfile);}
+        virtual ~filewal() override {fclose(_hfile);}
 
         void write(unsigned& index, unsigned tag, const std::string& blob) override {
             std::unique_lock<std::mutex> lock(_mut);
@@ -146,7 +148,7 @@ namespace templet {
         void cli(const std::string& a,unsigned p){_cli=true;_addr=a;_port=p;}
         void cli(bool c){_cli=c;}
         void size(unsigned s){_size=s;}
-        void file(const std::string& f){_file=f;}
+        void file(const std::string& f){_file=f;_mem=false;}
         void rewrite(bool w){_rewrite=w;}
         void lazy(bool l){_lazy=l;}
     private:
@@ -164,11 +166,7 @@ namespace templet {
     class env{
     public:
         env(cfg&c):_cfg(c){}
-        ~env(){
-            if(_cli_wal) delete _cli_wal;
-            if(_srv_wal) delete _srv_wal; 
-            if(_srv_stub)delete _srv_stub;
-        }    
+        ~env(){ close(); }
     public:
         inline void operator()(std::function<void(unsigned taskID,wal&)>task){env::run(task);}
         void run(std::function<void(unsigned taskID,wal&)> task){
@@ -192,7 +190,8 @@ namespace templet {
             if(_cfg._srv && !_cfg._cli) run_clients(_srv_wal,task);
             else run_clients(_cli_wal,task);
             
-            if(_cfg._srv) _srv_stub->stop(); 
+            if(_cfg._srv) _srv_stub->stop();
+            close();
         }
     private:
         inline void run_clients(wal*log,std::function<void(unsigned taskID,wal&)> task){
@@ -208,6 +207,11 @@ namespace templet {
             }
             _end=std::chrono::high_resolution_clock::now();
         }
+        void close(){
+            if(_cli_wal) {delete _cli_wal; _cli_wal = nullptr;} 
+            if(_srv_wal) {delete _srv_wal; _srv_wal = nullptr;}
+            if(_srv_stub){delete _srv_stub;_srv_stub= nullptr;}
+        }    
     public:
         static void delay(double seconds){std::this_thread::sleep_for(std::chrono::duration<double>(seconds));}
     private:

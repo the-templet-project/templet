@@ -34,11 +34,12 @@ int main()
 {
     bool master = true;
     
-    templet::cfg cfg; 
+    templet::cfg cfg;
     templet::env env(cfg);
 
     // setting cfg parameters
-    cfg.file(std::string("wal1.dat"));
+    cfg.mem(false);
+    cfg.file(std::string("walwal.dat"));
     cfg.rewrite(false);
     cfg.size(10);
 
@@ -50,7 +51,9 @@ int main()
             std::cout << "total number of processes: " << a_counter.inc(0) << std::endl << std::endl;
     });
 
-    //templet::filewal filewal(std::string("wal.dat"));
-    //templet::walout walout(filewal);
-    //walout(std::cout);
+    {
+        templet::filewal filewal(std::string("walwal.dat"));
+        templet::walout walout(filewal);
+        walout(std::cout);
+    }
  }

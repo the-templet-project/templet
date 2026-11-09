@@ -9,6 +9,8 @@
 #include <thread>
 #include <atomic>
 
+ #include <opt.hpp>
+
 struct meta_scanner : public templet::meta::state {
 	meta_scanner() {
 
@@ -160,7 +162,9 @@ int main()
 	templet::environment env(cfg);
     
     cfg.poolsize(NUM_THREADS);
+    cfg.file(std::string("wal.dat"));
     cfg.memory(false);
+    cfg.rewrite(true);
 
     env([&](unsigned pid,templet::write_ahead_log& wal){ 
 	//////////////// inside a 'process' ////////////////
@@ -181,8 +185,6 @@ int main()
 	}
 	////////////////////////////////////////////////////
 	}); 
-    
-	std::cout << "Success!" << std::endl;
 }
 /*$TET$*/
 
