@@ -502,43 +502,90 @@ namespace templet {
 
     class server_stub{
     public:
+        server_stub(write_ahead_log*,std::string& addr,unsigned port){}
+    public:
+        void run(){}
+        void stop(){}
     };
 
     class client_proxy : public write_ahead_log {
     public:
+        client_proxy(std::string& addr,unsigned port){}
+    };
+
+    class config{
+    friend class environment;
+    public:
+        void memory(bool m){_memory=m;}
+        void server(const std::string& a,unsigned p){_server=true;_addr=a;_port=p;}
+        void server(bool s){_server=s;}
+        void client(const std::string& a,unsigned p){_client=true;_addr=a;_port=p;}
+        void client(bool c){_client=c;}
+        void poolsize(unsigned s){_poolsize=s;}
+        void file(const std::string& f){_file=f;}
+        void rewrite(bool w){_rewrite=w;}
+        void lazy(bool l){_lazy=l;}
+    private:
+        bool _memory=true;
+        bool _server=false;
+        bool _client=false;
+        std::string _addr="localhost:51717";
+        unsigned _port=51717;
+        unsigned _poolsize=0;
+        std::string _file="wal.dat";
+        bool _rewrite=true;
+        bool _lazy=true;
     };
 
     class environment{
     public:
-        void memory(bool m){_memory=m;}
-        void server(const char addr[],unsigned port=0);
-        void client(const char addr[],unsigned port=0);
-        void client();
-        void poolsize(unsigned size){_poolsize=size;}
-        void file(const char[]);
-        void rewrite(bool);
-        void lazy(bool);
+        environment(config&cfg):_conf(cfg){}
+        ~environment(){
+            if(_cli_wal) delete _cli_wal;
+            if(_srv_wal) delete _srv_wal; 
+            if(_srv_stub)delete _srv_stub;
+        }    
     public:
         inline void operator()(std::function<void(unsigned taskID,write_ahead_log&wal)>task){environment::run(task);}
+        
         void run(std::function<void(unsigned taskID,write_ahead_log&)> task){
-            write_ahead_log wal;
-            std::vector<std::thread> threads(_poolsize);
-            std::atomic_int _taskID = 0;
+            if(_conf._server){
+                _srv_wal = _conf._memory ? new write_ahead_log : new in_file_wal(_conf._file,_conf._rewrite,_conf._lazy);
+                _srv_stub = new server_stub(_srv_wal,_conf._addr,_conf._port);
+                _srv_stub->run();
+            }
+            else{
+                _srv_wal = nullptr;
+                _srv_stub = nullptr;
+            }
             
-            for (auto& t : threads) t = std::thread([&]{
-                task(_taskID++,wal);
-            }); 
-            for (auto& t : threads) t.join();
+            _cli_wal = _conf._client ? new client_proxy(_conf._addr,_conf._port) : nullptr;
+            _cli_wal = (!_conf._client && !_conf._server)?
+                (_conf._memory ? new write_ahead_log : new in_file_wal(_conf._file,_conf._rewrite,_conf._lazy)) : _cli_wal;
+            
+            if(_conf._server && !_conf._client) 
+                run_clients(_srv_wal,task);
+            else
+                run_clients(_cli_wal,task);
+            
+            if(_conf._server) _srv_stub->stop(); 
         }
     private:
-        bool _memory;
-        bool _server;
-        bool _client;
-        std::string _addr;
-        unsigned _port;
-        unsigned _poolsize;
-        std::string _file;
-        bool _rewrite;
-        bool _lazy;
+        void run_clients(write_ahead_log*wal,std::function<void(unsigned taskID,write_ahead_log&)> task){
+            if(_conf._poolsize==1)
+                 task(0,*wal);
+            else{
+                std::vector<std::thread> threads(
+                        _conf._poolsize==0 ? std::thread::hardware_concurrency() : _conf._poolsize);
+                std::atomic_int _taskID = 0;
+                for (auto& t : threads) t = std::thread([&]{task(_taskID++,*wal);}); 
+                for (auto& t : threads) t.join();
+            }
+        }
+    private:
+        config& _conf;
+        write_ahead_log *_srv_wal=nullptr;
+        server_stub* _srv_stub=nullptr;
+        write_ahead_log *_cli_wal=nullptr;
     };
 }

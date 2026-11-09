@@ -120,128 +120,103 @@ namespace templet {
         bool _rewrite;
         bool _lazy;
     };
-    
-    class cfg {
-    friend class env;
-    public:
-        cfg(const char filename[]):cfg(){}
-        cfg():_mode(LOCAL),_wal(RAM),_size(SYSDEF),
-            _addr("localhost:51717"),_port(51717),
-            _file("wal.dat"),_rewrite(false),_lazy(true){}
-    public:
-        enum deploy {LOCAL, LOOP, SRV, CLI};
-        enum place {RAM, DISK};
-        static const unsigned SYSDEF = 0;
-    public:
-        void mode(deploy m){_mode=m;}
-        void wal(place w){_wal=w;}
-        void size(unsigned s){_size=s;}
-        void addr(const std::string& a){_addr=a;}
-        void port(unsigned p){_port=p;}
-        void file(const std::string& f){_file=f;}
-        void rewrite(bool rw){_rewrite=rw;}
-        void lazy(bool l){_lazy=l;}
-    private:
-        deploy _mode;
-        place _wal;
-        unsigned _size;
-        std::string _addr;
-        unsigned _port;
-        std::string _file;
-        bool _rewrite;
-        bool _lazy;
-    };
-    
+
     class stub{
     public:
-        stub(const cfg&, wal&){}
+        stub(wal*,std::string& addr,unsigned port){}
+    public:
+        void run(){}
+        void stop(){}
     };
-    
+
     class proxy : public wal {
     public:
-        proxy(const cfg&){}
+        proxy(std::string& addr,unsigned port){}
     public:
         void write(unsigned& index, unsigned tag, const std::string& blob) override {}
         bool read(unsigned index, unsigned& tag, std::string& blob) override {return false;}
     };
-    
-    class env {
+
+    class cfg{
+    friend class env;
+    public:
+        void mem(bool m){_mem=m;}
+        void srv(const std::string& a,unsigned p){_srv=true;_addr=a;_port=p;}
+        void srv(bool s){_srv=s;}
+        void cli(const std::string& a,unsigned p){_cli=true;_addr=a;_port=p;}
+        void cli(bool c){_cli=c;}
+        void size(unsigned s){_size=s;}
+        void file(const std::string& f){_file=f;}
+        void rewrite(bool w){_rewrite=w;}
+        void lazy(bool l){_lazy=l;}
+    private:
+        bool _mem=true;
+        bool _srv=false;
+        bool _cli=false;
+        std::string _addr="localhost:51717";
+        unsigned _port=51717;
+        unsigned _size=0;
+        std::string _file="wal.dat";
+        bool _rewrite=true;
+        bool _lazy=true;
+    };    
+
+    class env{
     public:
         env(cfg&c):_cfg(c){}
+        ~env(){
+            if(_cli_wal) delete _cli_wal;
+            if(_srv_wal) delete _srv_wal; 
+            if(_srv_stub)delete _srv_stub;
+        }    
     public:
-        inline void operator()(std::function<void(unsigned taskID,wal&wal)>task){env::run(task);}
-        static void delay(double seconds){std::this_thread::sleep_for(std::chrono::duration<double>(seconds));}
+        inline void operator()(std::function<void(unsigned taskID,wal&)>task){env::run(task);}
         void run(std::function<void(unsigned taskID,wal&)> task){
-            if(_cfg._mode==cfg::LOCAL){
-                if(_cfg._wal==cfg::DISK){
-                    filewal wal(_cfg._file,_cfg._rewrite,_cfg._lazy);
-                    _run_cli_tasks(wal,task);
-                }
-                else if(_cfg._wal==cfg::RAM){
-                    memwal wal;
-                    _run_cli_tasks(wal,task);                    
-                }
-            }
-            else if(_cfg._mode==cfg::LOOP){
-                if(_cfg._wal==cfg::DISK){
-                    filewal wal(_cfg._file,_cfg._rewrite,_cfg._lazy);
-                    stub  srv(_cfg,wal);
-                    proxy cli(_cfg);
-                    _run_cli_tasks(cli,task);
-                }
-                else if(_cfg._wal==cfg::RAM){
-                    memwal wal;
-                    stub  srv(_cfg,wal);
-                    proxy cli(_cfg);
-                    _run_cli_tasks(cli,task);
-                }
-            }
-            else if(_cfg._mode==cfg::SRV){
-                if(_cfg._wal==cfg::DISK){
-                    filewal wal(_cfg._file,_cfg._rewrite,_cfg._lazy);
-                    stub  srv(_cfg,wal);
-                    _run_cli_tasks(wal,task);
-                }
-                else if(_cfg._wal==cfg::RAM){
-                    memwal wal;
-                    stub  srv(_cfg,wal);
-                    _run_cli_tasks(wal,task);
-                }
-            }
-            else if(_cfg._mode==cfg::CLI){
-                proxy cli(_cfg);
-                _run_cli_tasks(cli,task);
-            }
-        }
-        double duration(){ 
-            std::chrono::duration<double> dur = _end - _beg;
-            return dur.count();
-        }
-    private:
-        inline void _run_cli_tasks(wal& srv,
-            std::function<void(unsigned taskID,wal&)> task)
-        {
-            unsigned size=_cfg._size;
-            if(size==cfg::SYSDEF)size=std::thread::hardware_concurrency();
-            
-            _beg=std::chrono::high_resolution_clock::now();
-            
-            if(size==1){ 
-                task(0,srv);
+            if(_cfg._srv){
+                _srv_wal  = _cfg._mem ? static_cast<wal*>(new memwal) : 
+                                        static_cast<wal*>(new filewal(_cfg._file,_cfg._rewrite,_cfg._lazy));
+                _srv_stub = new stub(_srv_wal,_cfg._addr,_cfg._port);
+                _srv_stub->run();
             }
             else{
-                std::vector<std::thread> threads(size);
+                _srv_wal  = nullptr;
+                _srv_stub = nullptr;
+            }
+            
+            _cli_wal = _cfg._cli ? new proxy(_cfg._addr,_cfg._port) : nullptr;
+            _cli_wal = (!_cfg._cli && !_cfg._srv)?
+                (_cfg._mem ? static_cast<wal*>(new memwal) : 
+                             static_cast<wal*>(new filewal(_cfg._file,_cfg._rewrite,_cfg._lazy))) : 
+                _cli_wal;
+            
+            if(_cfg._srv && !_cfg._cli) run_clients(_srv_wal,task);
+            else run_clients(_cli_wal,task);
+            
+            if(_cfg._srv) _srv_stub->stop(); 
+        }
+    private:
+        inline void run_clients(wal*log,std::function<void(unsigned taskID,wal&)> task){
+            _beg=std::chrono::high_resolution_clock::now();       
+            if(_cfg._size==1)
+                 task(0,*log);
+            else{
+                std::vector<std::thread> threads(
+                        _cfg._size==0 ? std::thread::hardware_concurrency() : _cfg._size);
                 std::atomic_int _taskID = 0;
-                
-                for (auto& t : threads) t = std::thread([&]{
-                    task(_taskID++,srv);
-                }); 
+                for (auto& t : threads) t = std::thread([&]{task(_taskID++,*log);}); 
                 for (auto& t : threads) t.join();
             }
             _end=std::chrono::high_resolution_clock::now();
         }
+    public:
+        static void delay(double seconds){std::this_thread::sleep_for(std::chrono::duration<double>(seconds));}
+    private:
+        std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;    
     private:
         cfg& _cfg;
-        std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;
+        wal* _srv_wal=nullptr;
+        stub*_srv_stub=nullptr;
+        wal* _cli_wal=nullptr;
     };
+
 }

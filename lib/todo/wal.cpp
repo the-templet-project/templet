@@ -38,12 +38,8 @@ int main()
     templet::env env(cfg);
 
     // setting cfg parameters
-    cfg.mode(templet::cfg::LOCAL);
-    cfg.wal(templet::cfg::DISK);
-    cfg.file(std::string("wal.dat"));
-    //cfg.rewrite(false);
-    cfg.rewrite(true);
-    //cfg.size(templet::cfg::SYSDEF);
+    cfg.file(std::string("wal1.dat"));
+    cfg.rewrite(false);
     cfg.size(10);
 
     env([&](unsigned pid,templet::wal& wal) {
@@ -54,7 +50,7 @@ int main()
             std::cout << "total number of processes: " << a_counter.inc(0) << std::endl << std::endl;
     });
 
-    templet::filewal filewal(std::string("wal.dat"));
-    templet::walout walout(filewal);
-    walout(std::cout);
+    //templet::filewal filewal(std::string("wal.dat"));
+    //templet::walout walout(filewal);
+    //walout(std::cout);
  }

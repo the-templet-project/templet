@@ -124,7 +124,7 @@ namespace templet {
 			void name(const char name[]) { _name = name; }
 			void prefix(const char prefix[]) { _prefix = prefix; }
 			
-			enum action {_output,_update,_update_output,_save_update,_save_update_output};
+			enum action {out, set, set_out, in_set, in_set_out};
 			
 			struct update {
 				friend class state;
@@ -132,7 +132,7 @@ namespace templet {
 				update(const char name[], action act) :_name(name), _action(act), _return("void") {}
 				update(const char ret[], const char name[], action act) :_return(ret), _name(name), _action(act) {}
 			public:
-				update& par(const char def[], const char use[], const char init[] = "") {
+				update& par(const char def[], const char use[] = "0" , const char init[] = "") {
 					_par_list.push_back(param(def, use, init));
 					return *this;
 				}
@@ -252,7 +252,7 @@ namespace templet {
 					upd.print_param(out);
 					out << ") {" << std::endl;
 
-					if (upd._action == _save_update || upd._action == _save_update_output) {
+					if (upd._action == action::in_set || upd._action == action::in_set_out) {
 						out << "\t\tupdate(_" << upd._name << ", [&](std::ostream&out) {" << std::endl;
 						print_todo(std::string(upd._name) + "$save", out, "put variable saving code here");
 						out << "\t\t}," << std::endl;
@@ -260,16 +260,16 @@ namespace templet {
 						print_todo(std::string(upd._name) + "$update", out, "put update code here");
 						out << "\t\t});" << std::endl;
 					}
-					else if (upd._action == _update || upd._action == _update_output) {
+					else if (upd._action == action::set || upd._action == action::set_out) {
 						out << "\t\tupdate(_" << upd._name << ", [this]() {" << std::endl;
 						print_todo(std::string(upd._name) + "$update", out, "put update code here");
 						out << "\t\t});" << std::endl;
 					}
-					else if (upd._action == _output) {
+					else if (upd._action == action::out) {
 						out << "\t\tupdate();" << std::endl;
 					}
 
-					if (upd._action == _output || upd._action == _update_output || upd._action == _save_update_output) {
+					if (upd._action == action::out || upd._action == action::set_out || upd._action == action::in_set_out) {
 						print_todo(std::string(upd._name) + "$output", out, "put output code here");
 					}
 
@@ -281,10 +281,10 @@ namespace templet {
 
 				bool first = true;
 				for (update& upd:_updates) {
-					if (upd._action == _update || 
-						upd._action == _update_output ||
-						upd._action == _save_update ||
-						upd._action == _save_update_output) {
+					if (upd._action == action::set || 
+						upd._action == action::set_out ||
+						upd._action == action::in_set ||
+						upd._action == action::in_set_out) {
 						if (first) first = false; else out << "," << std::endl;
 						out << "\t\t_" << upd._name; 
 					}
@@ -293,10 +293,10 @@ namespace templet {
 				
 				out << "\tvoid on_init() override {" << std::endl;
 				for (update& upd : _updates) {
-					if (upd._action == _update ||
-						upd._action == _update_output ||
-						upd._action == _save_update ||
-						upd._action == _save_update_output) {
+					if (upd._action == action::set ||
+						upd._action == action::set_out ||
+						upd._action == action::in_set ||
+						upd._action == action::in_set_out) {
 						out << "\t\t{ "; upd.print_init(out, _name); out << " }" << std::endl;
 					}
 				}

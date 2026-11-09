@@ -14,17 +14,17 @@ struct meta_scanner : public templet::meta::state {
 
 	prefix("template <typename T>"); name("scanner");
 
-	def("set_ready_to_compute", action::_update);
+	def("set_ready_to_compute", action::set);
 
-	def("share_element", action::_save_update)
+	def("share_element", action::in_set)
 		.par("unsigned index", "0")
 		.par("T&element", "element", "T element");
 
-	def("bool", "get_not_scanned", action::_output)
+	def("bool", "get_not_scanned", action::out)
 		.par("unsigned& index", "index", "unsigned index")
 		.par("int random", "0");
 
-	def("put_scanned", action::_save_update)
+	def("put_scanned", action::in_set)
 		.par("unsigned index", "0")
 		.par("T&element", "element", "T element");
 
@@ -156,9 +156,11 @@ int main()
 	int NUM_THREADS = 10;
 	int ARRAY_SIZE = 10;
 
-	templet::environment env;
-    env.poolsize(NUM_THREADS);
-    env.memory(true);
+    templet::config cfg;
+	templet::environment env(cfg);
+    
+    cfg.poolsize(NUM_THREADS);
+    cfg.memory(false);
 
     env([&](unsigned pid,templet::write_ahead_log& wal){ 
 	//////////////// inside a 'process' ////////////////
