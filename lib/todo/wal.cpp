@@ -38,10 +38,9 @@ int main()
     templet::env env(cfg);
 
     // setting cfg parameters
-    cfg.mem(false);
     cfg.file(std::string("walwal.dat"));
-    cfg.rewrite(false);
-    cfg.size(10);
+    cfg.pool(10);
+    //cfg.resume();
 
     env([&](unsigned pid,templet::wal& wal) {
         counter a_counter(wal);

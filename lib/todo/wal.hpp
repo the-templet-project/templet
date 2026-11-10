@@ -49,41 +49,56 @@ namespace templet {
 
     class filewal :public wal {
     public:
-        filewal(const std::string&file,bool rewrite=false,bool lazy=true): //rewrite --> create ???
-            _file(file),_rewrite(rewrite),_lazy(lazy),_hfile(NULL){
-            
-            if(_rewrite) _hfile = fopen(_file.c_str(), "wb");
-            else _hfile = fopen(_file.c_str(), "a+b");
-            
-            if(!_hfile){ std::cerr << "cannot open the file '" << _file
-                << "' in '" << (_rewrite?"wb":"a+b") << "' mode"; 
-                exit(EXIT_FAILURE);
-            }
-            if(_rewrite) return;
+        filewal(const std::string&file):filewal(file,true,true){}
+        filewal(const std::string&file,bool resume,bool lazy):
+            _file(file),_resume(resume),_lazy(lazy),_hfile(NULL){
 
-            unsigned ubuf[3];//index,tag,blob size
-            std::string blob;
-            size_t ret_code;
-
-            rewind(_hfile);
-            for(;;){
-                ret_code = fread(ubuf, 1, sizeof(ubuf), _hfile);
-                if(ret_code==0) break;
+            if(!_resume){ // new calcs         
+                _hfile = fopen(_file.c_str(), "rb");
                 
-                if(ret_code!=sizeof(ubuf)){ 
-                    std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
-                if(ubuf[2]>blob.max_size()){
-                    std::cerr << "bad blob size in file '" << _file <<"'";exit(EXIT_FAILURE);}
-                if(ubuf[0]!=_log.size()){
-                    std::cerr << "bad index in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                if(_hfile) { std::cerr << "the file '" << _file
+                    << "' already exists; data loss is possible"; fclose(_hfile);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else{ // resume calcs
+                _hfile = fopen(_file.c_str(), "rb");
 
-                blob.resize(ubuf[2]);//size
+                if(!_hfile){ std::cerr << "cannot open the file '" << _file
+                    << "' for reading"; 
+                    exit(EXIT_FAILURE);
+                }
+                
+                unsigned ubuf[3]; //index,tag,blob size
+                std::string blob;
+                size_t ret_code;
+    
+                for(;;){
+                    ret_code = fread(ubuf, 1, sizeof(ubuf), _hfile);
+                    if(ret_code==0) break;
+                    
+                    if(ret_code!=sizeof(ubuf)){ 
+                        std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                    if(ubuf[2]>blob.max_size()){
+                        std::cerr << "bad blob size in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                    if(ubuf[0]!=_log.size()){
+                        std::cerr << "bad index in file '" << _file <<"'";exit(EXIT_FAILURE);}
+    
+                    blob.resize(ubuf[2]);//size
+    
+                    ret_code = fread((void*)blob.c_str(), sizeof(char), ubuf[2], _hfile);//blob
+                    if(ret_code!=ubuf[2]){
+                        std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+    
+                    _log.push_back(std::pair<unsigned, std::string>(ubuf[1], blob));//tag,blob
+                }
+                fclose(_hfile);
+            }
+            _hfile = fopen(_file.c_str(), "ab");
 
-                ret_code = fread((void*)blob.c_str(), sizeof(char), ubuf[2], _hfile);//blob
-                if(ret_code!=ubuf[2]){
-                    std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
-
-                _log.push_back(std::pair<unsigned, std::string>(ubuf[1], blob));//tag,blob
+            if(!_hfile){ std::cerr << "cannot open the file '" << _file
+                << "' for appending"; 
+                exit(EXIT_FAILURE);
             }
         }
         virtual ~filewal() override {fclose(_hfile);}
@@ -119,7 +134,7 @@ namespace templet {
     private:
         std::string _file;
         FILE* _hfile;
-        bool _rewrite;
+        bool _resume;
         bool _lazy;
     };
 
@@ -142,24 +157,24 @@ namespace templet {
     class cfg{
     friend class env;
     public:
-        void mem(bool m){_mem=m;}
+        void memory(bool m=true){_memory=m;}
         void srv(const std::string& a,unsigned p){_srv=true;_addr=a;_port=p;}
-        void srv(bool s){_srv=s;}
+        void srv(bool s=true){_srv=s;}
         void cli(const std::string& a,unsigned p){_cli=true;_addr=a;_port=p;}
-        void cli(bool c){_cli=c;}
-        void size(unsigned s){_size=s;}
-        void file(const std::string& f){_file=f;_mem=false;}
-        void rewrite(bool w){_rewrite=w;}
-        void lazy(bool l){_lazy=l;}
+        void cli(bool c=true){_cli=c;}
+        void pool(unsigned s){_pool=s;}
+        void file(const std::string& f){_file=f;_memory=false;}
+        void resume(bool r=true){_resume=r;}
+        void lazy(bool l=true){_lazy=l;}
     private:
-        bool _mem=true;
+        bool _memory=true;
         bool _srv=false;
         bool _cli=false;
         std::string _addr="localhost:51717";
         unsigned _port=51717;
-        unsigned _size=0;
+        unsigned _pool=0;//default pool size
         std::string _file="wal.dat";
-        bool _rewrite=true;
+        bool _resume=false;
         bool _lazy=true;
     };    
 
@@ -171,8 +186,8 @@ namespace templet {
         inline void operator()(std::function<void(unsigned taskID,wal&)>task){env::run(task);}
         void run(std::function<void(unsigned taskID,wal&)> task){
             if(_cfg._srv){
-                _srv_wal  = _cfg._mem ? static_cast<wal*>(new memwal) : 
-                                        static_cast<wal*>(new filewal(_cfg._file,_cfg._rewrite,_cfg._lazy));
+                _srv_wal  = _cfg._memory ? static_cast<wal*>(new memwal) : 
+                                        static_cast<wal*>(new filewal(_cfg._file,_cfg._resume,_cfg._lazy));
                 _srv_stub = new stub(_srv_wal,_cfg._addr,_cfg._port);
                 _srv_stub->run();
             }
@@ -183,8 +198,8 @@ namespace templet {
             
             _cli_wal = _cfg._cli ? new proxy(_cfg._addr,_cfg._port) : nullptr;
             _cli_wal = (!_cfg._cli && !_cfg._srv)?
-                (_cfg._mem ? static_cast<wal*>(new memwal) : 
-                             static_cast<wal*>(new filewal(_cfg._file,_cfg._rewrite,_cfg._lazy))) : 
+                (_cfg._memory ? static_cast<wal*>(new memwal) : 
+                             static_cast<wal*>(new filewal(_cfg._file,_cfg._resume,_cfg._lazy))) : 
                 _cli_wal;
             
             if(_cfg._srv && !_cfg._cli) run_clients(_srv_wal,task);
@@ -196,11 +211,11 @@ namespace templet {
     private:
         inline void run_clients(wal*log,std::function<void(unsigned taskID,wal&)> task){
             _beg=std::chrono::high_resolution_clock::now();       
-            if(_cfg._size==1)
+            if(_cfg._pool==1)
                  task(0,*log);
             else{
                 std::vector<std::thread> threads(
-                        _cfg._size==0 ? std::thread::hardware_concurrency() : _cfg._size);
+                        _cfg._pool==0 ? std::thread::hardware_concurrency() : _cfg._pool);
                 std::atomic_int _taskID = 0;
                 for (auto& t : threads) t = std::thread([&]{task(_taskID++,*log);}); 
                 for (auto& t : threads) t.join();
