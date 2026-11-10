@@ -1,3 +1,9 @@
+// cpp-httplib needs Windows 10 API level; must be set before any system header
+#ifdef _WIN32
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
+#endif
+
 #include <functional>
 #include <istream>
 #include <ostream>
@@ -9,9 +15,12 @@
 #include <thread>
 #include <atomic>
 #include <iostream>
+#include <string>
+#include <vector>
+#include <memory>
 
-// #include "path/to/httplib.h"
 // https://github.com/yhirose/cpp-httplib
+#include "../opt/httplib.h"
 
 class wal {
 public:
@@ -44,6 +53,8 @@ protected:
 
 class cfg {
 friend class env;
+friend class stub;
+friend class proxy;
 public:
     cfg(const char filename[]):cfg(){}
     cfg():_mode(type::mem),_numtasks(SYSDEF),
@@ -61,17 +72,96 @@ private:
     std::string _addr;
 };
 
+// splits "host:port" (the port is optional) into host and port
+static void split_addr(const std::string& addr, std::string& host, int& port) {
+    const int default_port = 51717;
+    size_t pos = addr.rfind(':');
+    if (pos == std::string::npos) { host = addr; port = default_port; return; }
+    host = addr.substr(0, pos);
+    try { port = std::stoi(addr.substr(pos + 1)); }
+    catch (...) { std::cerr << "bad address '" << addr << "'"; exit(EXIT_FAILURE); }
+}
+
+// HTTP server that exposes a wal:
+//   POST /write?tag=N  (body = blob)  -> 200, body = index
+//   GET  /read?index=N                -> 200, body = blob, header X-Tag = tag
+//                                     -> 404 if there is no such index
 class stub{
 public:
-    stub(const cfg&, wal&){}
+    stub(const cfg& c, wal& w):_wal(w){
+        std::string host; int port;
+        split_addr(c._addr, host, port);
+
+        _svr.Post("/write", [this](const httplib::Request& req, httplib::Response& res) {
+            unsigned tag, index;
+            try { tag = (unsigned)std::stoul(req.get_param_value("tag")); }
+            catch (...) { res.status = 400; return; }
+            _wal.write(index, tag, req.body);
+            res.set_content(std::to_string(index), "text/plain");
+        });
+
+        _svr.Get("/read", [this](const httplib::Request& req, httplib::Response& res) {
+            unsigned index, tag; std::string blob;
+            try { index = (unsigned)std::stoul(req.get_param_value("index")); }
+            catch (...) { res.status = 400; return; }
+            if (!_wal.read(index, tag, blob)) { res.status = 404; return; }
+            res.set_header("X-Tag", std::to_string(tag));
+            res.set_content(blob, "application/octet-stream");
+        });
+
+        if (!_svr.bind_to_port(host, port)) {
+            std::cerr << "cannot bind the server to '" << c._addr << "'";
+            exit(EXIT_FAILURE);
+        }
+        _thread = std::thread([this] { _svr.listen_after_bind(); });
+        _svr.wait_until_ready();
+    }
+    ~stub(){
+        _svr.stop();
+        if (_thread.joinable()) _thread.join();
+    }
+private:
+    wal& _wal;
+    httplib::Server _svr;
+    std::thread _thread;
 };
 
+// wal that forwards write() and read() to a remote stub over HTTP
 class proxy : public wal {
 public:
-    proxy(const cfg&){}
+    proxy(const cfg& c):_addr(c._addr){
+        std::string host; int port;
+        split_addr(c._addr, host, port);
+        _cli.reset(new httplib::Client(host, port));
+        _cli->set_connection_timeout(5);
+    }
 public:
-    void write(unsigned& index, unsigned tag, const std::string& blob) override {}
-    bool read(unsigned index, unsigned& tag, std::string& blob) override {return false;}
+    void write(unsigned& index, unsigned tag, const std::string& blob) override {
+        std::unique_lock<std::mutex> lock(_mut); // one client is shared by all the tasks
+        auto res = _cli->Post("/write?tag=" + std::to_string(tag), blob, "application/octet-stream");
+        if (!res || res->status != 200) fail("write", res);
+        index = (unsigned)std::stoul(res->body);
+    }
+    bool read(unsigned index, unsigned& tag, std::string& blob) override {
+        std::unique_lock<std::mutex> lock(_mut);
+        auto res = _cli->Get("/read?index=" + std::to_string(index));
+        if (res && res->status == 404) return false;
+        if (!res || res->status != 200) fail("read", res);
+        tag = (unsigned)std::stoul(res->get_header_value("X-Tag"));
+        blob = res->body;
+        return true;
+    }
+private:
+    void fail(const char* op, const httplib::Result& res) {
+        std::cerr << "error in " << op << " on '" << _addr << "': ";
+        if (res) std::cerr << "HTTP status " << res->status;
+        else std::cerr << httplib::to_string(res.error());
+        exit(EXIT_FAILURE);
+    }
+private:
+    std::string _addr;
+    std::unique_ptr<httplib::Client> _cli;
+    std::mutex _mut;
 };
 
 class env {
