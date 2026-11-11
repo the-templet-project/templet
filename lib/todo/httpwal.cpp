@@ -86,16 +86,42 @@ static void split_addr(const std::string& addr, std::string& host, int& port) {
 //   POST /write?tag=N  (body = blob)  -> 200, body = index
 //   GET  /read?index=N                -> 200, body = blob, header X-Tag = tag
 //                                     -> 404 if there is no such index
+//   POST /hello                       -> 200, body = client id
+//   POST /bye?id=N                    -> 200
 class stub{
 public:
     stub(const cfg& c, wal& w):_wal(w){
         std::string host; int port;
         split_addr(c._addr, host, port);
+        touch();
+
+        _svr.Post("/hello", [this](const httplib::Request& req, httplib::Response& res) {
+            unsigned id;
+            {   std::unique_lock<std::mutex> lock(_imut);
+                id = ++_clients;
+                _active++;
+                touch();
+            }
+            std::cout << "client " << id << " hello" << std::endl;
+            res.set_content(std::to_string(id), "text/plain");
+        });
+
+        _svr.Post("/bye", [this](const httplib::Request& req, httplib::Response& res) {
+            unsigned id;
+            try { id = (unsigned)std::stoul(req.get_param_value("id")); }
+            catch (...) { res.status = 400; return; }
+            {   std::unique_lock<std::mutex> lock(_imut);
+                if (_active > 0) _active--;
+                touch();
+            }
+            std::cout << "client " << id << " bye" << std::endl;
+        });
 
         _svr.Post("/write", [this](const httplib::Request& req, httplib::Response& res) {
             unsigned tag, index;
             try { tag = (unsigned)std::stoul(req.get_param_value("tag")); }
             catch (...) { res.status = 400; return; }
+            {   std::unique_lock<std::mutex> lock(_imut); touch(); }
             _wal.write(index, tag, req.body);
             res.set_content(std::to_string(index), "text/plain");
         });
@@ -104,6 +130,7 @@ public:
             unsigned index, tag; std::string blob;
             try { index = (unsigned)std::stoul(req.get_param_value("index")); }
             catch (...) { res.status = 400; return; }
+            {   std::unique_lock<std::mutex> lock(_imut); touch(); }
             if (!_wal.read(index, tag, blob)) { res.status = 404; return; }
             res.set_header("X-Tag", std::to_string(tag));
             res.set_content(blob, "application/octet-stream");
@@ -120,10 +147,26 @@ public:
         _svr.stop();
         if (_thread.joinable()) _thread.join();
     }
+    // returns when there are no active clients
+    // and no requests for `seconds` seconds
+    void wait_idle(double seconds){
+        for(;;){
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::unique_lock<std::mutex> lock(_imut);
+            double idle = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - _last).count();
+            if (_active == 0 && idle >= seconds) return;
+        }
+    }
+private:
+    void touch(){ _last = std::chrono::steady_clock::now(); } 
 private:
     wal& _wal;
     httplib::Server _svr;
     std::thread _thread;
+    std::mutex _imut;
+    unsigned _clients = 0, _active = 0;
+    std::chrono::steady_clock::time_point _last;
 };
 
 // wal that forwards write() and read() to a remote stub over HTTP
@@ -134,8 +177,17 @@ public:
         split_addr(c._addr, host, port);
         _cli.reset(new httplib::Client(host, port));
         _cli->set_connection_timeout(5);
+        auto res = _cli->Post("/hello", std::string(), "text/plain");
+        if (!res || res->status != 200) fail("hello", res);
+        _id = (unsigned)std::stoul(res->body);
     }
 public:
+    // client is done
+    void bye(){
+        std::unique_lock<std::mutex> lock(_mut);
+        auto res = _cli->Post("/bye?id=" + std::to_string(_id), std::string(), "text/plain");
+        if (!res || res->status != 200) fail("bye", res);
+    }
     void write(unsigned& index, unsigned tag, const std::string& blob) override {
         std::unique_lock<std::mutex> lock(_mut); // one client is shared by all the tasks
         auto res = _cli->Post("/write?tag=" + std::to_string(tag), blob, "application/octet-stream");
@@ -162,6 +214,7 @@ private:
     std::string _addr;
     std::unique_ptr<httplib::Client> _cli;
     std::mutex _mut;
+    unsigned _id;
 };
 
 class env {
@@ -180,15 +233,20 @@ public:
             stub  srv(_cfg,wal);
             proxy cli(_cfg);
             _run_cli_tasks(cli,task);
+            cli.bye();
         }
         else if(_cfg._mode==cfg::type::srv){
             memwal wal;
             stub  srv(_cfg,wal);
             _run_cli_tasks(wal,task);
+            // wait until the remote clients are done
+            srv.wait_idle(10.0);
+            wal.print(std::cout);
         }
         else if(_cfg._mode==cfg::type::cli){
             proxy cli(_cfg);
             _run_cli_tasks(cli,task);
+            cli.bye();
         }
     }
     double duration(){ 
@@ -224,30 +282,36 @@ private:
     std::chrono::time_point<std::chrono::high_resolution_clock> _beg, _end;
 };
 
-int main()
+int main(int argc, char* argv[])
 {
     bool master = true;
-    
-    cfg cfg; 
+
+    cfg cfg;
     env env(cfg);
 
-    // setting cfg parameters
-    cfg.mode(cfg::type::mem);
-    // cfg.mode(cfg::type::one);
-    // cfg.mode(cfg::type::cli);
-    // cfg.mode(cfg::type::srv);
-    
+    // usage: httpwal.exe [mem|one|srv|cli] [host:port]
+    bool srv_mode = false;
+    if (argc > 1) {
+        std::string mode = argv[1];
+        if      (mode == "mem") cfg.mode(cfg::type::mem);
+        else if (mode == "one") cfg.mode(cfg::type::one);
+        else if (mode == "cli") cfg.mode(cfg::type::cli);
+        else if (mode == "srv") { cfg.mode(cfg::type::srv); srv_mode = true; }
+        else { std::cerr << "usage: httpwal.exe [mem|one|srv|cli] [host:port]"; return EXIT_FAILURE; }
+    }
+    if (argc > 2) cfg.addr(argv[2]);
+
     //cfg.numtasks(cfg::SYSDEF);
     cfg.numtasks(10);
 
     env([&](unsigned pid,wal& wal) {
         unsigned index;
         wal.write(index,pid,std::string("blob"));
-        env::delay(1.0); 
-        
-        if (pid == 0 && master){ // in master 'process'
+        env::delay(1.0);
+
+        if (pid == 0 && master && !srv_mode){
             unsigned index=0; unsigned tag; std::string blob;
-            while(wal.read(index, tag, blob)){ 
+            while(wal.read(index, tag, blob)){
                 std::cout << "index = " << index << " tag = " << tag << std::endl;
                 index++;
             }
