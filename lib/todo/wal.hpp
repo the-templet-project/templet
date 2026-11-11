@@ -157,17 +157,17 @@ namespace templet {
     class cfg{
     friend class env;
     public:
-        void memory(bool m=true){_memory=m;}
         void srv(const std::string& a,unsigned p){_srv=true;_addr=a;_port=p;}
         void srv(bool s=true){_srv=s;}
         void cli(const std::string& a,unsigned p){_cli=true;_addr=a;_port=p;}
         void cli(bool c=true){_cli=c;}
-        void pool(unsigned s){_pool=s;}
-        void file(const std::string& f){_file=f;_memory=false;}
+        void pool(unsigned size){_pool=size;}
+        void file(const std::string& f){_file=f;_mem=false;}
+        void file(bool f){_mem = !f;}
         void resume(bool r=true){_resume=r;}
         void lazy(bool l=true){_lazy=l;}
     private:
-        bool _memory=true;
+        bool _mem=true;
         bool _srv=false;
         bool _cli=false;
         std::string _addr="localhost:51717";
@@ -186,7 +186,7 @@ namespace templet {
         inline void operator()(std::function<void(unsigned taskID,wal&)>task){env::run(task);}
         void run(std::function<void(unsigned taskID,wal&)> task){
             if(_cfg._srv){
-                _srv_wal  = _cfg._memory ? static_cast<wal*>(new memwal) : 
+                _srv_wal  = _cfg._mem ? static_cast<wal*>(new memwal) : 
                                         static_cast<wal*>(new filewal(_cfg._file,_cfg._resume,_cfg._lazy));
                 _srv_stub = new stub(_srv_wal,_cfg._addr,_cfg._port);
                 _srv_stub->run();
@@ -198,7 +198,7 @@ namespace templet {
             
             _cli_wal = _cfg._cli ? new proxy(_cfg._addr,_cfg._port) : nullptr;
             _cli_wal = (!_cfg._cli && !_cfg._srv)?
-                (_cfg._memory ? static_cast<wal*>(new memwal) : 
+                (_cfg._mem ? static_cast<wal*>(new memwal) : 
                              static_cast<wal*>(new filewal(_cfg._file,_cfg._resume,_cfg._lazy))) : 
                 _cli_wal;
             

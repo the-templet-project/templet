@@ -51,42 +51,57 @@ namespace templet {
 
     class in_file_wal : public write_ahead_log {
     public:
-        in_file_wal(const std::string&file,bool rewrite=false,bool lazy=true):
-            _file(file),_rewrite(rewrite),_lazy(lazy),_hfile(NULL){
+        in_file_wal(const std::string&file):in_file_wal(file,true,true){}
+        in_file_wal(const std::string&file,bool resume,bool lazy):
+            _file(file),_resume(resume),_lazy(lazy),_hfile(NULL){
             
-            if(_rewrite) _hfile = fopen(_file.c_str(), "wb");
-            else _hfile = fopen(_file.c_str(), "a+b");
-            
-            if(!_hfile){ std::cerr << "cannot open the file '" << _file
-                << "' in '" << (_rewrite?"wb":"a+b") << "' mode"; 
-                exit(EXIT_FAILURE);
-            }
-            if(_rewrite) return;
-            
-            unsigned ubuf[3];//index,tag,blob size
-            std::string blob;
-            size_t ret_code;
-
-            rewind(_hfile);
-            for(;;){
-                ret_code = fread(ubuf, 1, sizeof(ubuf), _hfile);
-                if(ret_code==0) break;
+            if(!_resume){ // new calcs         
+                _hfile = fopen(_file.c_str(), "rb");
                 
-                if(ret_code!=sizeof(ubuf)){ 
-                    std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
-                if(ubuf[2]>blob.max_size()){
-                    std::cerr << "bad blob size in file '" << _file <<"'";exit(EXIT_FAILURE);}
-                if(ubuf[0]!=_log.size()){
-                    std::cerr << "bad index in file '" << _file <<"'";exit(EXIT_FAILURE);}
-
-                blob.resize(ubuf[2]);//size
-
-                ret_code = fread((void*)blob.c_str(), sizeof(char), ubuf[2], _hfile);//blob
-                if(ret_code!=ubuf[2]){
-                    std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
-
-                _log.push_back(std::pair<unsigned, std::string>(ubuf[1], blob));//tag,blob
+                if(_hfile) { std::cerr << "the file '" << _file
+                    << "' already exists; data loss is possible"; fclose(_hfile);
+                    exit(EXIT_FAILURE);
+                }
             }
+            else{ // resume calcs
+                _hfile = fopen(_file.c_str(), "rb");
+
+                if(!_hfile){ std::cerr << "cannot open the file '" << _file
+                    << "' for reading"; 
+                    exit(EXIT_FAILURE);
+                }
+                
+                unsigned ubuf[3]; //index,tag,blob size
+                std::string blob;
+                size_t ret_code;
+    
+                for(;;){
+                    ret_code = fread(ubuf, 1, sizeof(ubuf), _hfile);
+                    if(ret_code==0) break;
+                    
+                    if(ret_code!=sizeof(ubuf)){ 
+                        std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                    if(ubuf[2]>blob.max_size()){
+                        std::cerr << "bad blob size in file '" << _file <<"'";exit(EXIT_FAILURE);}
+                    if(ubuf[0]!=_log.size()){
+                        std::cerr << "bad index in file '" << _file <<"'";exit(EXIT_FAILURE);}
+    
+                    blob.resize(ubuf[2]);//size
+    
+                    ret_code = fread((void*)blob.c_str(), sizeof(char), ubuf[2], _hfile);//blob
+                    if(ret_code!=ubuf[2]){
+                        std::cerr << "record corrupted in file '" << _file <<"'";exit(EXIT_FAILURE);}
+    
+                    _log.push_back(std::pair<unsigned, std::string>(ubuf[1], blob));//tag,blob
+                }
+                fclose(_hfile);
+            }
+            _hfile = fopen(_file.c_str(), "ab");
+
+            if(!_hfile){ std::cerr << "cannot open the file '" << _file
+                << "' for appending"; 
+                exit(EXIT_FAILURE);
+            }        
         }
         virtual ~in_file_wal() override {fclose(_hfile);}
 
@@ -121,7 +136,7 @@ namespace templet {
     private:
         std::string _file;
         FILE* _hfile;
-        bool _rewrite;
+        bool _resume;
         bool _lazy;
     };
 
@@ -517,15 +532,15 @@ namespace templet {
     class config{
     friend class environment;
     public:
-        void memory(bool m){_memory=m;}
         void server(const std::string& a,unsigned p){_server=true;_addr=a;_port=p;}
-        void server(bool s){_server=s;}
+        void server(bool s=true){_server=s;}
         void client(const std::string& a,unsigned p){_client=true;_addr=a;_port=p;}
-        void client(bool c){_client=c;}
+        void client(bool c=true){_client=c;}
         void poolsize(unsigned s){_poolsize=s;}
         void file(const std::string& f){_file=f;_memory=false;}
-        void rewrite(bool w){_rewrite=w;}
-        void lazy(bool l){_lazy=l;}
+        void file(bool f){_memory=!f;}
+        void resume(bool r=true){_resume=r;}
+        void lazy(bool l=true){_lazy=l;}
     private:
         bool _memory=true;
         bool _server=false;
@@ -534,7 +549,7 @@ namespace templet {
         unsigned _port=51717;
         unsigned _poolsize=0;
         std::string _file="wal.dat";
-        bool _rewrite=true;
+        bool _resume=false;
         bool _lazy=true;
     };
 
@@ -547,7 +562,7 @@ namespace templet {
         
         void run(std::function<void(unsigned taskID,write_ahead_log&)> task){
             if(_conf._server){
-                _srv_wal = _conf._memory ? new write_ahead_log : new in_file_wal(_conf._file,_conf._rewrite,_conf._lazy);
+                _srv_wal = _conf._memory ? new write_ahead_log : new in_file_wal(_conf._file,_conf._resume,_conf._lazy);
                 _srv_stub = new server_stub(_srv_wal,_conf._addr,_conf._port);
                 _srv_stub->run();
             }
@@ -558,7 +573,7 @@ namespace templet {
             
             _cli_wal = _conf._client ? new client_proxy(_conf._addr,_conf._port) : nullptr;
             _cli_wal = (!_conf._client && !_conf._server)?
-                (_conf._memory ? new write_ahead_log : new in_file_wal(_conf._file,_conf._rewrite,_conf._lazy)) : _cli_wal;
+                (_conf._memory ? new write_ahead_log : new in_file_wal(_conf._file,_conf._resume,_conf._lazy)) : _cli_wal;
             
             if(_conf._server && !_conf._client) 
                 run_clients(_srv_wal,task);

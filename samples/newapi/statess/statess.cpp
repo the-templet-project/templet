@@ -163,8 +163,7 @@ int main()
     
     cfg.poolsize(NUM_THREADS);
     cfg.file(std::string("wal.dat"));
-    cfg.memory(false);
-    cfg.rewrite(true);
+    //cfg.resume();
 
     env([&](unsigned pid,templet::write_ahead_log& wal){ 
 	//////////////// inside a 'process' ////////////////
