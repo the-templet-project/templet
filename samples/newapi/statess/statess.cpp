@@ -8,8 +8,10 @@
 #include <set>
 #include <thread>
 #include <atomic>
+#include <chrono>
 
- #include <opt.hpp>
+#include <mutex>
+std::mutex _mut;
 
 struct meta_scanner : public templet::meta::state {
 	meta_scanner() {
@@ -45,7 +47,9 @@ public:
 		srand((unsigned)time(0));
 		unsigned index = 0;
 
-		if (is_master) {
+        update();
+        
+		if (is_master && !ready_to_compute) {
 			for (auto& element : array)share_element(index++, element);
 			set_ready_to_compute();
 		}
@@ -127,6 +131,8 @@ private:
 		{ T element; scanner::put_scanned(0, element); }
 	}
 /*$TET$scanner$footer$*/
+public:
+    bool ready(){return ready_to_compute;}
 private:
 	std::set<unsigned> not_scanned;
 	bool is_master;
@@ -144,7 +150,13 @@ class calc_sqware_scanner : public  scanner<sqware_type> {
 public:
 	calc_sqware_scanner(bool master, templet::write_ahead_log&wal) :scanner(master, wal) {}
 private:
-	void on_scan(sqware_type&e) override { e.NxN = e.N * e.N; }
+	void on_scan(sqware_type&e) override {
+        {
+            std::unique_lock<std::mutex> lock(_mut);
+            e.NxN = e.N * e.N; std::cout << e.NxN << " = " << e.N << " * " << e.N << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::duration<double>(5.0));
+    }
 	void on_save(const sqware_type&e, std::ostream&out, bool scanned) override {
 		if (scanned) out << e.NxN; else out << e.N;
 	}
@@ -153,30 +165,53 @@ private:
 	}
 };
 
-int main()
+int main(int argc, char* argv[])
 {
 	int NUM_THREADS = 10;
 	int ARRAY_SIZE = 10;
 
+    bool master=true;
     templet::config cfg;
-	templet::environment env(cfg);
-    
-    cfg.poolsize(NUM_THREADS);
-    cfg.file(std::string("wal.dat"));
-    //cfg.resume();
+    templet::environment env(cfg);
 
+    cfg.file(std::string("wal.dat"));
+    cfg.poolsize(NUM_THREADS);
+    
+    /* uncomment for distributed testing
+    if(argc==1){
+        master = true;    
+        cfg.srv();
+    }
+    else if(argc>=2){
+        master = false;
+        cfg.cli(std::string(argv[1]),51717);
+    }
+    */
+    
+    // uncomment for local loop testing
+    //cfg.srv();cfg.cli(std::string("localhost"),51717);
+
+    // uncomment to resume aborted execution 
+    //cfg.resume();
+    
     env([&](unsigned pid,templet::write_ahead_log& wal){ 
 	//////////////// inside a 'process' ////////////////
-	calc_sqware_scanner scanner_object(pid == 0, wal);
+	calc_sqware_scanner scanner_object(pid == 0 && master, wal);
 
-	if (pid == 0) {
-		scanner_object.array.resize(ARRAY_SIZE);
+    scanner_object.update();
+        
+    if(pid == 0 && master && !scanner_object.ready()){
+        std::cout << "when all workers are ready, enter something here >";
+        std::string str; std::cin >> str;
+
+        scanner_object.array.resize(ARRAY_SIZE);
 		for (int i = 0; i < 10; i++) scanner_object.array[i].N = i;
 	}
 
 	scanner_object.scan();
 
 	if (pid == 0) {// .. or any other pid < NUM_THREADS 
+        std::cout << std::endl << "========================" << std::endl;
 		for (int i = 0; i < ARRAY_SIZE; i++)
 			std::cout << i << " * " << i << " = "
 			<< scanner_object.array[i].NxN
