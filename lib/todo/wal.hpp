@@ -140,7 +140,7 @@ namespace templet {
 
     class stub{
     public:
-        stub(wal*,std::string& addr,unsigned port){}
+        stub(wal*,unsigned port){}
     public:
         void run(){}
         void stop(){}
@@ -157,9 +157,9 @@ namespace templet {
     class cfg{
     friend class env;
     public:
-        void srv(const std::string& a,unsigned p){_srv=true;_addr=a;_port=p;}
+        void srv(unsigned p){_srv=true;_port=p;}
         void srv(bool s=true){_srv=s;}
-        void cli(const std::string& a,unsigned p){_cli=true;_addr=a;_port=p;}
+        void cli(const std::string& a,unsigned p=51717){_cli=true;_addr=a;_port=p;}
         void cli(bool c=true){_cli=c;}
         void pool(unsigned size){_pool=size;}
         void file(const std::string& f){_file=f;_mem=false;}
@@ -170,7 +170,7 @@ namespace templet {
         bool _mem=true;
         bool _srv=false;
         bool _cli=false;
-        std::string _addr="localhost:51717";
+        std::string _addr="localhost";
         unsigned _port=51717;
         unsigned _pool=0;//default pool size
         std::string _file="wal.dat";
@@ -188,7 +188,7 @@ namespace templet {
             if(_cfg._srv){
                 _srv_wal  = _cfg._mem ? static_cast<wal*>(new memwal) : 
                                         static_cast<wal*>(new filewal(_cfg._file,_cfg._resume,_cfg._lazy));
-                _srv_stub = new stub(_srv_wal,_cfg._addr,_cfg._port);
+                _srv_stub = new stub(_srv_wal,_cfg._port);
                 _srv_stub->run();
             }
             else{

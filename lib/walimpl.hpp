@@ -518,7 +518,7 @@ namespace templet {
 
     class server_stub{
     public:
-        server_stub(write_ahead_log*,std::string& addr,unsigned port){}
+        server_stub(write_ahead_log*,unsigned port){}
     public:
         void run(){}
         void stop(){}
@@ -532,9 +532,9 @@ namespace templet {
     class config{
     friend class environment;
     public:
-        void server(const std::string& a,unsigned p){_server=true;_addr=a;_port=p;}
+        void server(unsigned p){_server=true;_port=p;}
         void server(bool s=true){_server=s;}
-        void client(const std::string& a,unsigned p){_client=true;_addr=a;_port=p;}
+        void client(const std::string& a,unsigned p=51717){_client=true;_addr=a;_port=p;}
         void client(bool c=true){_client=c;}
         void poolsize(unsigned s){_poolsize=s;}
         void file(const std::string& f){_file=f;_memory=false;}
@@ -563,7 +563,7 @@ namespace templet {
         void run(std::function<void(unsigned taskID,write_ahead_log&)> task){
             if(_conf._server){
                 _srv_wal = _conf._memory ? new write_ahead_log : new in_file_wal(_conf._file,_conf._resume,_conf._lazy);
-                _srv_stub = new server_stub(_srv_wal,_conf._addr,_conf._port);
+                _srv_stub = new server_stub(_srv_wal,_conf._port);
                 _srv_stub->run();
             }
             else{
