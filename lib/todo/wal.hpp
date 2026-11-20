@@ -17,7 +17,7 @@
 #include <atomic>
 #include <iostream>
 
-// #include "path/to/httplib.h"
+#include "../opt/httplib.h"
 // https://github.com/yhirose/cpp-httplib
 
 namespace templet {
@@ -138,28 +138,106 @@ namespace templet {
         bool _lazy;
     };
 
+    //   HTTP server that exposes a wal:
+    //   POST /write?tag=N  (body = blob)  -> 200, body = index
+    //   GET  /read?index=N                -> 200, body = blob, header X-Tag = tag
+    //                                     -> 404 if there is no such index
     class stub{
     public:
-        stub(wal*,unsigned port){}
+        stub(wal*w,const std::string& host,int port):_wal(*w),_is_running(false){
+            
+           _svr.Post("/write", [this](const httplib::Request& req, httplib::Response& res) {
+                unsigned tag, index;
+                try { tag = (unsigned)std::stoul(req.get_param_value("tag")); }
+                catch (...) { res.status = 400; return; }
+                _wal.write(index, tag, req.body);
+                res.set_content(std::to_string(index), "text/plain");
+            });
+    
+            _svr.Get("/read", [this](const httplib::Request& req, httplib::Response& res) {
+                unsigned index, tag; std::string blob;
+                try { index = (unsigned)std::stoul(req.get_param_value("index")); }
+                catch (...) { res.status = 400; return; }
+                if (!_wal.read(index, tag, blob)) { res.status = 404; return; }
+                res.set_header("X-Tag", std::to_string(tag));
+                res.set_content(blob, "application/octet-stream");
+            });
+
+            if (!_svr.bind_to_port(host, port)) {
+                std::cerr << "cannot bind the server to host '" << host << "' port# " << port;
+                exit(EXIT_FAILURE);
+            }
+        }
+        ~stub(){ stop(); }
     public:
-        void run(){}
-        void stop(){}
+        void run(){
+            _is_running = true;
+            _thread = std::thread([this] { 
+                if(!_svr.listen_after_bind()){
+                    std::cerr << "unable to start listening after bind";
+                    exit(EXIT_FAILURE);
+                }
+            });
+            _svr.wait_until_ready();
+        }
+        void stop(){
+            if(_is_running){
+                _svr.stop();
+                if (_thread.joinable()) _thread.join();
+                _is_running = false;
+            }
+        }
+    private:
+        wal& _wal;
+        httplib::Server _svr;
+        std::thread _thread;
+        bool _is_running;
     };
+
+    // wal that forwards write() and read() to a remote stub over HTTP
 
     class proxy : public wal {
     public:
-        proxy(std::string& addr,unsigned port){}
+        proxy(const std::string& host,int port){
+            _addr = host + ":" + std::to_string(port);
+            _cli.reset(new httplib::Client(host, port));
+            _cli->set_connection_timeout(5);
+        }
     public:
-        void write(unsigned& index, unsigned tag, const std::string& blob) override {}
-        bool read(unsigned index, unsigned& tag, std::string& blob) override {return false;}
+        void write(unsigned& index, unsigned tag, const std::string& blob) override {
+            std::unique_lock<std::mutex> lock(_mut); // one client is shared by all the tasks
+            auto res = _cli->Post("/write?tag=" + std::to_string(tag), blob, "application/octet-stream");
+            if (!res || res->status != 200) fail("write", res);
+            index = (unsigned)std::stoul(res->body);            
+        }
+        bool read(unsigned index, unsigned& tag, std::string& blob) override {
+            std::unique_lock<std::mutex> lock(_mut);
+            auto res = _cli->Get("/read?index=" + std::to_string(index));
+            if (res && res->status == 404) return false;
+            if (!res || res->status != 200) fail("read", res);
+            tag = (unsigned)std::stoul(res->get_header_value("X-Tag"));
+            blob = res->body;
+            return true;           
+        }
+    private:
+        void fail(const char* op, const httplib::Result& res) {
+            std::cerr << "error in " << op << " on '" << _addr << "': ";
+            if (res) std::cerr << "HTTP status " << res->status;
+            else std::cerr << httplib::to_string(res.error());
+            exit(EXIT_FAILURE);
+        }
+    private:
+        std::string _addr;
+        std::unique_ptr<httplib::Client> _cli;
+        std::mutex _mut;
     };
 
     class cfg{
     friend class env;
     public:
-        void srv(unsigned p){_srv=true;_port=p;}
+        void srv(const std::string& h,int p){_srv=true;_host=h;_port=p;}
         void srv(bool s=true){_srv=s;}
-        void cli(const std::string& a,unsigned p=51717){_cli=true;_addr=a;_port=p;}
+        void cli(const std::string& h,int p=51717){_cli=true;_host=h;_port=p;}
         void cli(bool c=true){_cli=c;}
         void pool(unsigned size){_pool=size;}
         void file(const std::string& f){_file=f;_mem=false;}
@@ -170,8 +248,8 @@ namespace templet {
         bool _mem=true;
         bool _srv=false;
         bool _cli=false;
-        std::string _addr="localhost";
-        unsigned _port=51717;
+        std::string _host="127.0.0.1";
+        int _port=51717;
         unsigned _pool=0;//default pool size
         std::string _file="wal.dat";
         bool _resume=false;
@@ -188,7 +266,7 @@ namespace templet {
             if(_cfg._srv){
                 _srv_wal  = _cfg._mem ? static_cast<wal*>(new memwal) : 
                                         static_cast<wal*>(new filewal(_cfg._file,_cfg._resume,_cfg._lazy));
-                _srv_stub = new stub(_srv_wal,_cfg._port);
+                _srv_stub = new stub(_srv_wal,_cfg._host,_cfg._port);
                 _srv_stub->run();
             }
             else{
@@ -196,7 +274,7 @@ namespace templet {
                 _srv_stub = nullptr;
             }
             
-            _cli_wal = _cfg._cli ? new proxy(_cfg._addr,_cfg._port) : nullptr;
+            _cli_wal = _cfg._cli ? new proxy(_cfg._host,_cfg._port) : nullptr;
             _cli_wal = (!_cfg._cli && !_cfg._srv)?
                 (_cfg._mem ? static_cast<wal*>(new memwal) : 
                              static_cast<wal*>(new filewal(_cfg._file,_cfg._resume,_cfg._lazy))) : 

@@ -29,6 +29,9 @@
 #include <filesystem>
 #endif
 
+#include "./opt/httplib.h"
+// https://github.com/yhirose/cpp-httplib
+
 namespace templet {
 
 	class write_ahead_log {
@@ -516,25 +519,107 @@ namespace templet {
         server_side_wal& _server_wal;
 	};
 
+    //   HTTP server that exposes a wal:
+    //   POST /write?tag=N  (body = blob)  -> 200, body = index
+    //   GET  /read?index=N                -> 200, body = blob, header X-Tag = tag
+    // 
     class server_stub{
     public:
-        server_stub(write_ahead_log*,unsigned port){}
+        server_stub(write_ahead_log*w,const std::string& host,int port):
+            _wal(*w),_is_running(false)
+        {      
+           _svr.Post("/write", [this](const httplib::Request& req, httplib::Response& res) {
+                unsigned tag, index;
+                try { tag = (unsigned)std::stoul(req.get_param_value("tag")); }
+                catch (...) { res.status = 400; return; }
+                _wal.write(index, tag, req.body);
+                res.set_content(std::to_string(index), "text/plain");
+            });
+    
+            _svr.Get("/read", [this](const httplib::Request& req, httplib::Response& res) {
+                unsigned index, tag; std::string blob;
+                try { index = (unsigned)std::stoul(req.get_param_value("index")); }
+                catch (...) { res.status = 400; return; }
+                if (!_wal.read(index, tag, blob)) { res.status = 404; return; }
+                res.set_header("X-Tag", std::to_string(tag));
+                res.set_content(blob, "application/octet-stream");
+            });
+
+            if (!_svr.bind_to_port(host, port)) {
+                std::cerr << "cannot bind the server to host '" << host << "' port# " << port;
+                exit(EXIT_FAILURE);
+            }
+        }
+        ~server_stub(){ stop(); }
     public:
-        void run(){}
-        void stop(){}
+        void run(){
+            _is_running = true;
+            _thread = std::thread([this] { 
+                if(!_svr.listen_after_bind()){
+                    std::cerr << "unable to start listening after bind";
+                    exit(EXIT_FAILURE);
+                }
+            });
+            _svr.wait_until_ready();
+        }
+        void stop(){
+            if(_is_running){
+                _svr.stop();
+                if (_thread.joinable()) _thread.join();
+                _is_running = false;
+            }
+        }
+    private:
+        write_ahead_log& _wal;
+        httplib::Server _svr;
+        std::thread _thread;
+        bool _is_running;
     };
+
+    // wal that forwards write() and read() to a remote stub over HTTP
 
     class client_proxy : public write_ahead_log {
     public:
-        client_proxy(std::string& addr,unsigned port){}
+        client_proxy(std::string& host,int port){
+            _addr = host + ":" + std::to_string(port);
+            _cli.reset(new httplib::Client(host, port));
+            _cli->set_connection_timeout(5);            
+        }
+    public:
+        void write(unsigned& index, unsigned tag, const std::string& blob) override {
+            std::unique_lock<std::mutex> lock(_mut); // one client is shared by all the tasks
+            auto res = _cli->Post("/write?tag=" + std::to_string(tag), blob, "application/octet-stream");
+            if (!res || res->status != 200) fail("write", res);
+            index = (unsigned)std::stoul(res->body);            
+        }
+        bool read(unsigned index, unsigned& tag, std::string& blob) override {
+            std::unique_lock<std::mutex> lock(_mut);
+            auto res = _cli->Get("/read?index=" + std::to_string(index));
+            if (res && res->status == 404) return false;
+            if (!res || res->status != 200) fail("read", res);
+            tag = (unsigned)std::stoul(res->get_header_value("X-Tag"));
+            blob = res->body;
+            return true;           
+        }
+    private:
+        void fail(const char* op, const httplib::Result& res) {
+            std::cerr << "error in " << op << " on '" << _addr << "': ";
+            if (res) std::cerr << "HTTP status " << res->status;
+            else std::cerr << httplib::to_string(res.error());
+            exit(EXIT_FAILURE);
+        }
+    private:
+        std::string _addr;
+        std::unique_ptr<httplib::Client> _cli;
+        std::mutex _mut;
     };
 
     class config{
     friend class environment;
     public:
-        void server(unsigned p){_server=true;_port=p;}
+        void server(const std::string& h,int p){_server=true;_host=h;_port=p;}
         void server(bool s=true){_server=s;}
-        void client(const std::string& a,unsigned p=51717){_client=true;_addr=a;_port=p;}
+        void client(const std::string& h,int p=51717){_client=true;_host=h;_port=p;}
         void client(bool c=true){_client=c;}
         void poolsize(unsigned s){_poolsize=s;}
         void file(const std::string& f){_file=f;_memory=false;}
@@ -545,8 +630,8 @@ namespace templet {
         bool _memory=true;
         bool _server=false;
         bool _client=false;
-        std::string _addr="localhost:51717";
-        unsigned _port=51717;
+        std::string _host="127.0.0.1";
+        int _port=51717;
         unsigned _poolsize=0;
         std::string _file="wal.dat";
         bool _resume=false;
@@ -563,7 +648,7 @@ namespace templet {
         void run(std::function<void(unsigned taskID,write_ahead_log&)> task){
             if(_conf._server){
                 _srv_wal = _conf._memory ? new write_ahead_log : new in_file_wal(_conf._file,_conf._resume,_conf._lazy);
-                _srv_stub = new server_stub(_srv_wal,_conf._port);
+                _srv_stub = new server_stub(_srv_wal,_conf._host,_conf._port);
                 _srv_stub->run();
             }
             else{
@@ -571,7 +656,7 @@ namespace templet {
                 _srv_stub = nullptr;
             }
             
-            _cli_wal = _conf._client ? new client_proxy(_conf._addr,_conf._port) : nullptr;
+            _cli_wal = _conf._client ? new client_proxy(_conf._host,_conf._port) : nullptr;
             _cli_wal = (!_conf._client && !_conf._server)?
                 (_conf._memory ? new write_ahead_log : new in_file_wal(_conf._file,_conf._resume,_conf._lazy)) : _cli_wal;
             

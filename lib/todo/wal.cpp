@@ -57,15 +57,15 @@ int main(int argc, char* argv[])
     if(argc==1){ // local execution without networking
         master = true;    
         // uncomment for local loop testing with networking
-        // cfg.srv();cfg.cli(std::string("localhost"),51717);
+        // cfg.srv();cfg.cli(std::string("127.0.0.1"),51717);
     }
     else if(argc==2){// server 
         master = true;
-        cfg.srv(static_cast<unsigned>(std::stoul(argv[1])));
+        cfg.srv(std::string("0.0.0.0"),static_cast<int>(std::stoul(argv[1])));
     }
     else if(argc==3){// client
         master = false;
-        cfg.cli(std::string(argv[1]),static_cast<unsigned>(std::stoul(argv[2])));
+        cfg.cli(std::string(argv[1]),static_cast<int>(std::stoul(argv[2])));
     }
     else{
         std::cout << "error: too many arguments";
