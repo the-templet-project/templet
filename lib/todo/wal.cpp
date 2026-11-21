@@ -1,6 +1,5 @@
 #include "wal.hpp"
 #include "glob.hpp"
-#include "opt.hpp"
 
 #include <iostream>
 
@@ -82,8 +81,12 @@ int main(int argc, char* argv[])
             std::string str; std::cin >> str;
             a_counter.go();
         }
-        else // in worker 'process'
+        else{ // in worker 'process'
+            if(!master && pid==0) std::cout 
+                << "in a worker process, waiting for the master process to start..." 
+                << std::endl;
             a_counter.wait_go();
+        }
             
         a_counter.inc(1); templet::env::delay(1.0); 
         { 
